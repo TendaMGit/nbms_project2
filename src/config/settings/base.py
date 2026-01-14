@@ -142,6 +142,16 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
+EVIDENCE_MAX_FILE_SIZE = int(os.environ.get("EVIDENCE_MAX_FILE_SIZE", str(25 * 1024 * 1024)))
+EVIDENCE_ALLOWED_EXTENSIONS = [
+    ext.strip().lower()
+    for ext in os.environ.get(
+        "EVIDENCE_ALLOWED_EXTENSIONS",
+        ".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt",
+    ).split(",")
+    if ext.strip()
+]
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 if ENABLE_GIS and os.name == "nt":
