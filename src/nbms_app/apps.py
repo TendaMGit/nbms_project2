@@ -7,3 +7,4 @@ class NbmsAppConfig(AppConfig):
 
     def ready(self):
         import nbms_app.signals  # noqa: F401
+        import nbms_app.signals_audit  # noqa: F401

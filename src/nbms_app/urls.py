@@ -1,6 +1,7 @@
 from django.urls import path
 
 from nbms_app import views
+from nbms_app import views_audit
 
 app_name = "nbms_app"
 
@@ -26,4 +27,5 @@ urlpatterns = [
         views.review_action,
         name="review_action",
     ),
+    path("manage/audit-events/", views_audit.audit_event_list, name="audit_event_list"),
 ]

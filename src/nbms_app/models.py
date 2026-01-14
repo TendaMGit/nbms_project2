@@ -103,3 +103,20 @@ class Indicator(TimeStampedModel):
 
     def __str__(self):
         return f"{self.code} - {self.title}"
+
+
+class AuditEvent(TimeStampedModel):
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="audit_events",
+        blank=True,
+        null=True,
+    )
+    action = models.CharField(max_length=100)
+    object_type = models.CharField(max_length=100)
+    object_uuid = models.UUIDField()
+    metadata = models.JSONField(default=dict, blank=True)
+
+    def __str__(self):
+        return f"{self.action} {self.object_type} {self.object_uuid}"

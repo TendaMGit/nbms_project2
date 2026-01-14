@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Audit events</title>
+  </head>
+  <body>
+    <h1>Audit events</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Object</th>
+          <th>Metadata</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for event in events %}
+          <tr>
+            <td>{{ event.created_at }}</td>
+            <td>{{ event.actor|default:"-" }}</td>
+            <td>{{ event.action }}</td>
+            <td>{{ event.object_type }} / {{ event.object_uuid }}</td>
+            <td>{{ event.metadata }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="5">No audit events.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

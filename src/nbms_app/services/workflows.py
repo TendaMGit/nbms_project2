@@ -1,6 +1,7 @@
 from django.core.exceptions import PermissionDenied, ValidationError
 
 from nbms_app.models import LifecycleStatus
+from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_DATA_STEWARD,
@@ -29,6 +30,7 @@ def submit_for_review(obj, user):
     obj.status = LifecycleStatus.PENDING_REVIEW
     obj.review_note = ""
     obj.save(update_fields=["status", "review_note"])
+    record_audit_event(user, "submit_for_review", obj, metadata={"status": obj.status})
     return obj
 
 
@@ -42,6 +44,7 @@ def approve(obj, user, note=""):
     obj.status = LifecycleStatus.APPROVED
     obj.review_note = note or ""
     obj.save(update_fields=["status", "review_note"])
+    record_audit_event(user, "approve", obj, metadata={"status": obj.status, "note": obj.review_note})
     return obj
 
 
@@ -57,6 +60,7 @@ def reject(obj, user, note):
     obj.status = LifecycleStatus.DRAFT
     obj.review_note = note
     obj.save(update_fields=["status", "review_note"])
+    record_audit_event(user, "reject", obj, metadata={"status": obj.status, "note": obj.review_note})
     return obj
 
 
@@ -69,6 +73,7 @@ def publish(obj, user):
     _require_status(obj, LifecycleStatus.APPROVED)
     obj.status = LifecycleStatus.PUBLISHED
     obj.save(update_fields=["status"])
+    record_audit_event(user, "publish", obj, metadata={"status": obj.status})
     return obj
 
 
@@ -81,4 +86,5 @@ def archive(obj, user):
     _require_status(obj, LifecycleStatus.PUBLISHED)
     obj.status = LifecycleStatus.ARCHIVED
     obj.save(update_fields=["status"])
+    record_audit_event(user, "archive", obj, metadata={"status": obj.status})
     return obj

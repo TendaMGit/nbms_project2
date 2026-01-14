@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from nbms_app.models import Indicator, LifecycleStatus, NationalTarget, Organisation, User
+from nbms_app.models import AuditEvent, Indicator, LifecycleStatus, NationalTarget, Organisation, User
 from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
 
 
@@ -73,4 +73,12 @@ class IndicatorAdmin(admin.ModelAdmin):
         if not obj.organisation and getattr(request.user, "organisation", None):
             obj.organisation = request.user.organisation
         super().save_model(request, obj, form, change)
+
+
+@admin.register(AuditEvent)
+class AuditEventAdmin(admin.ModelAdmin):
+    list_display = ("action", "object_type", "object_uuid", "actor", "created_at")
+    list_filter = ("action", "object_type")
+    search_fields = ("object_uuid", "action")
+    readonly_fields = ("action", "object_type", "object_uuid", "actor", "metadata", "created_at", "updated_at")
 
