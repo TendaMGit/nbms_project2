@@ -6,6 +6,8 @@
     <p><strong>Status:</strong> {{ indicator.status }}</p>
     <p><strong>Sensitivity:</strong> {{ indicator.sensitivity }}</p>
     <p><strong>National target:</strong> {{ indicator.national_target }}</p>
-    <p><strong>Description:</strong> {{ indicator.description|default:"-" }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:indicator_edit' indicator.uuid %}">Edit indicator</a></p>
+    {% endif %}
   </div>
 {% endblock %}

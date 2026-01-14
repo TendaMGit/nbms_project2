@@ -2,6 +2,9 @@
 {% block title %}Indicators{% endblock %}
 {% block content %}
   <h1>Indicators</h1>
+  {% if can_create_indicator %}
+    <p><a href="{% url 'nbms_app:indicator_create' %}">Create Indicator</a></p>
+  {% endif %}
   <div class="card">
     <ul>
       {% for indicator in indicators %}
@@ -14,7 +17,12 @@
           {% endif %}
         </li>
       {% empty %}
-        <li>No indicators available.</li>
+        <li>
+          No indicators available.
+          {% if can_create_indicator %}
+            <a href="{% url 'nbms_app:indicator_create' %}">Create the first one</a>.
+          {% endif %}
+        </li>
       {% endfor %}
     </ul>
   </div>

@@ -16,6 +16,7 @@ from nbms_app.forms import (
     DatasetForm,
     EvidenceForm,
     ExportPackageForm,
+    IndicatorForm,
     OrganisationForm,
     UserCreateForm,
     UserUpdateForm,
@@ -33,6 +34,7 @@ from nbms_app.models import (
     Notification,
 )
 from nbms_app.services.authorization import (
+    ROLE_ADMIN,
     ROLE_CONTRIBUTOR,
     ROLE_DATA_STEWARD,
     ROLE_INDICATOR_LEAD,
@@ -243,7 +245,7 @@ def health_storage(request):
 def _require_contributor(user):
     if not user or not getattr(user, "is_authenticated", False):
         raise PermissionDenied("Authentication required.")
-    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+    if _is_admin_user(user):
         return
     if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD, ROLE_CONTRIBUTOR):
         return
@@ -256,6 +258,16 @@ def _can_create_data(user):
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return True
     return user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD, ROLE_CONTRIBUTOR)
+
+
+def _is_admin_user(user):
+    return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
+
+
+def _status_allows_edit(obj, user):
+    if obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED} and not _is_admin_user(user):
+        return False
+    return True
 
 
 def _require_export_creator(user):
@@ -432,7 +444,11 @@ def indicator_list(request):
         request.user,
         perm="nbms_app.view_indicator",
     )
-    return render(request, "nbms_app/indicators/indicator_list.html", {"indicators": indicators})
+    return render(
+        request,
+        "nbms_app/indicators/indicator_list.html",
+        {"indicators": indicators, "can_create_indicator": _can_create_data(request.user)},
+    )
 
 
 def indicator_detail(request, indicator_uuid):
@@ -442,7 +458,66 @@ def indicator_detail(request, indicator_uuid):
         perm="nbms_app.view_indicator",
     )
     indicator = get_object_or_404(indicators, uuid=indicator_uuid)
-    return render(request, "nbms_app/indicators/indicator_detail.html", {"indicator": indicator})
+    can_edit = can_edit_object(request.user, indicator) and _status_allows_edit(indicator, request.user)
+    return render(
+        request,
+        "nbms_app/indicators/indicator_detail.html",
+        {"indicator": indicator, "can_edit": can_edit},
+    )
+
+
+@login_required
+def indicator_create(request):
+    _require_contributor(request.user)
+    form = IndicatorForm(request.POST or None)
+    form.fields["national_target"].queryset = filter_queryset_for_user(
+        NationalTarget.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        indicator = form.save(commit=False)
+        if not indicator.created_by:
+            indicator.created_by = request.user
+        if not indicator.organisation and getattr(request.user, "organisation", None):
+            indicator.organisation = request.user.organisation
+        indicator.save()
+        messages.success(request, "Indicator created.")
+        return redirect("nbms_app:indicator_detail", indicator_uuid=indicator.uuid)
+    return render(request, "nbms_app/indicators/indicator_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def indicator_edit(request, indicator_uuid):
+    indicators = filter_queryset_for_user(
+        Indicator.objects.select_related("national_target", "organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    if not can_edit_object(request.user, indicator):
+        raise PermissionDenied("Not allowed to edit this indicator.")
+    if not _status_allows_edit(indicator, request.user):
+        raise PermissionDenied("Indicator cannot be edited at this status.")
+    form = IndicatorForm(request.POST or None, instance=indicator)
+    form.fields["national_target"].queryset = filter_queryset_for_user(
+        NationalTarget.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Indicator updated.")
+        return redirect("nbms_app:indicator_detail", indicator_uuid=indicator.uuid)
+    return render(
+        request,
+        "nbms_app/indicators/indicator_form.html",
+        {"form": form, "mode": "edit", "indicator": indicator},
+    )
 
 
 def evidence_list(request):
