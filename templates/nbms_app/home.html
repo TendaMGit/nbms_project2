@@ -1,11 +1,99 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <title>NBMS Platform</title>
-</head>
-<body>
-  <h1>NBMS Platform</h1>
-  <p>Baseline project is running.</p>
-</body>
+  <head>
+    <meta charset="utf-8">
+    <title>NBMS Dashboard</title>
+  </head>
+  <body>
+    <h1>Dashboard</h1>
+
+    <section>
+      <h2>Overview</h2>
+      <ul>
+        <li>Indicators: {{ counts.indicators }}</li>
+        <li>National Targets: {{ counts.targets }}</li>
+        <li>Evidence: {{ counts.evidence }}</li>
+        <li>Datasets: {{ counts.datasets }}</li>
+        <li>Export Packages: {{ counts.exports }}</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Quick actions</h2>
+      <ul>
+        {% if can_create_evidence %}
+          <li><a href="{% url 'nbms_app:evidence_create' %}">Create Evidence</a></li>
+        {% endif %}
+        {% if can_create_dataset %}
+          <li><a href="{% url 'nbms_app:dataset_create' %}">Create Dataset</a></li>
+        {% endif %}
+        {% if can_create_export %}
+          <li><a href="{% url 'nbms_app:export_package_create' %}">Create Export Package</a></li>
+        {% endif %}
+      </ul>
+    </section>
+
+    <section>
+      <h2>My Drafts</h2>
+      <ul>
+        {% for item in my_drafts %}
+          <li>
+            {{ item.label }}:
+            <a href="{{ item.url }}">{{ item.title }}</a>
+            ({{ item.status }})
+          </li>
+        {% empty %}
+          <li>No drafts yet.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    {% if user.is_staff %}
+      <section>
+        <h2>Pending Review</h2>
+        <ul>
+          {% for item in pending_review %}
+            <li>
+              {{ item.label }}:
+              <a href="{{ item.url }}">{{ item.title }}</a>
+            </li>
+          {% empty %}
+            <li>No items pending review.</li>
+          {% endfor %}
+        </ul>
+        <p><a href="{% url 'nbms_app:review_queue' %}">Review Queue</a></p>
+      </section>
+    {% endif %}
+
+    <section>
+      <h2>Recently Published</h2>
+      <ul>
+        {% for item in recently_published %}
+          <li>
+            {{ item.label }}:
+            <a href="{{ item.url }}">{{ item.title }}</a>
+          </li>
+        {% empty %}
+          <li>No published items yet.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section>
+      <h2>Notifications</h2>
+      <p>Unread: {{ unread_notifications }}</p>
+      <p><a href="{% url 'nbms_app:notification_list' %}">View notifications</a></p>
+    </section>
+
+    {% if user.is_staff %}
+      <section>
+        <h2>Staff Links</h2>
+        <ul>
+          <li><a href="{% url 'nbms_app:review_queue' %}">Review Queue</a></li>
+          <li><a href="{% url 'nbms_app:audit_event_list' %}">Audit Events</a></li>
+          <li><a href="{% url 'nbms_app:metrics' %}">Metrics</a></li>
+        </ul>
+      </section>
+    {% endif %}
+  </body>
 </html>
