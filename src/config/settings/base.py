@@ -54,6 +54,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "nbms_app.middleware.RateLimitMiddleware",
+    "nbms_app.middleware_metrics.MetricsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -262,6 +263,8 @@ RATE_LIMITS = {
         "actions": ["approve", "reject", "publish", "archive"],
     },
 }
+
+METRICS_TOKEN = os.environ.get("METRICS_TOKEN", "")
 
 
 LOGIN_URL = "two_factor:login"

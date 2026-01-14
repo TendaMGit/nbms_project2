@@ -2,6 +2,7 @@ from django.urls import path
 
 from nbms_app import views
 from nbms_app import views_audit
+from nbms_app import views_metrics
 from nbms_app import views_notifications
 
 app_name = "nbms_app"
@@ -30,4 +31,5 @@ urlpatterns = [
     ),
     path("manage/audit-events/", views_audit.audit_event_list, name="audit_event_list"),
     path("notifications/", views_notifications.notification_list, name="notification_list"),
+    path("metrics/", views_metrics.metrics, name="metrics"),
 ]
