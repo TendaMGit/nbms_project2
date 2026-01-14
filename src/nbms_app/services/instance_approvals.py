@@ -10,7 +10,7 @@ def _is_admin(user):
     return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
 
 
-def _can_approve(user):
+def can_approve_instance(user):
     if not user or not getattr(user, "is_authenticated", False):
         return False
     if _is_admin(user):
@@ -19,7 +19,7 @@ def _can_approve(user):
 
 
 def approve_for_instance(instance, obj, user, note="", scope="export", admin_override=False):
-    if not _can_approve(user):
+    if not can_approve_instance(user):
         raise PermissionDenied("Not allowed to approve for export.")
     if instance.frozen_at and not (_is_admin(user) and admin_override):
         raise PermissionDenied("Reporting instance is frozen.")
@@ -41,7 +41,7 @@ def approve_for_instance(instance, obj, user, note="", scope="export", admin_ove
 
 
 def revoke_for_instance(instance, obj, user, note="", scope="export", admin_override=False):
-    if not _can_approve(user):
+    if not can_approve_instance(user):
         raise PermissionDenied("Not allowed to revoke export approval.")
     if instance.frozen_at and not (_is_admin(user) and admin_override):
         raise PermissionDenied("Reporting instance is frozen.")

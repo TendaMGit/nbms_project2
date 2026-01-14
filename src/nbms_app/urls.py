@@ -56,6 +56,16 @@ urlpatterns = [
         views.reporting_instance_detail,
         name="reporting_instance_detail",
     ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/approvals/",
+        views.reporting_instance_approvals,
+        name="reporting_instance_approvals",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/approvals/<str:obj_type>/<uuid:obj_uuid>/<str:action>/",
+        views.reporting_instance_approval_action,
+        name="reporting_instance_approval_action",
+    ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
     path(

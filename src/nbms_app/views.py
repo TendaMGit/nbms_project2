@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.db import connections
@@ -37,6 +38,8 @@ from nbms_app.models import (
     ReportingInstance,
     User,
     Notification,
+    InstanceExportApproval,
+    ApprovalDecision,
 )
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
@@ -50,6 +53,12 @@ from nbms_app.services.authorization import (
 )
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.exports import approve_export, reject_export, release_export, submit_export_for_review
+from nbms_app.services.instance_approvals import (
+    approve_for_instance,
+    can_approve_instance,
+    revoke_for_instance,
+)
+from nbms_app.services.notifications import create_notification
 from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
@@ -323,6 +332,44 @@ def _build_items(queryset, label, url_name, url_param="obj_uuid", url_kwargs=Non
             }
         )
     return items
+
+
+def _build_approval_items(queryset, approvals):
+    items = []
+    for obj in queryset:
+        approval = approvals.get(obj.uuid)
+        items.append(
+            {
+                "obj": obj,
+                "decision": approval.decision if approval else "",
+                "approved": bool(approval and approval.decision == ApprovalDecision.APPROVED),
+            }
+        )
+    return items
+
+
+def _approval_state_for_instance(instance, user):
+    models = {
+        "indicators": Indicator,
+        "targets": NationalTarget,
+        "evidence": Evidence,
+        "datasets": Dataset,
+    }
+    state = {}
+    for key, model in models.items():
+        queryset = filter_queryset_for_user(
+            model.objects.select_related("organisation", "created_by").order_by("code" if key in {"indicators", "targets"} else "title"),
+            user,
+        )
+        content_type = ContentType.objects.get_for_model(model)
+        approvals = InstanceExportApproval.objects.filter(
+            reporting_instance=instance,
+            content_type=content_type,
+            approval_scope="export",
+        )
+        approval_map = {approval.object_uuid: approval for approval in approvals}
+        state[key] = _build_approval_items(queryset, approval_map)
+    return state
 
 
 @staff_member_required
@@ -831,6 +878,83 @@ def reporting_instance_create(request):
 def reporting_instance_detail(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
     return render(request, "nbms_app/reporting/instance_detail.html", {"instance": instance})
+
+
+@login_required
+def reporting_instance_approvals(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not can_approve_instance(request.user):
+        raise PermissionDenied("Not allowed to access approvals.")
+
+    approval_state = _approval_state_for_instance(instance, request.user)
+    context = {
+        "instance": instance,
+        "indicator_items": approval_state["indicators"],
+        "target_items": approval_state["targets"],
+        "evidence_items": approval_state["evidence"],
+        "dataset_items": approval_state["datasets"],
+    }
+    return render(request, "nbms_app/reporting/instance_approvals.html", context)
+
+
+@login_required
+def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uuid, action):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not can_approve_instance(request.user):
+        raise PermissionDenied("Not allowed to approve.")
+
+    model_map = {
+        "indicator": Indicator,
+        "target": NationalTarget,
+        "evidence": Evidence,
+        "dataset": Dataset,
+    }
+    model = model_map.get(obj_type)
+    if not model:
+        raise Http404()
+
+    queryset = filter_queryset_for_user(
+        model.objects.select_related("organisation", "created_by"),
+        request.user,
+    )
+    obj = get_object_or_404(queryset, uuid=obj_uuid)
+    note = request.POST.get("note", "").strip()
+
+    if action == "approve":
+        approve_for_instance(instance, obj, request.user, note=note)
+        record_audit_event(
+            request.user,
+            "instance_export_approve",
+            obj,
+            metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.APPROVED},
+        )
+        create_notification(
+            getattr(obj, "created_by", None),
+            f"Export approved for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+            url=reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+        )
+        messages.success(request, "Approval recorded.")
+    elif action == "revoke":
+        revoke_for_instance(instance, obj, request.user, note=note)
+        record_audit_event(
+            request.user,
+            "instance_export_revoke",
+            obj,
+            metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.REVOKED},
+        )
+        create_notification(
+            getattr(obj, "created_by", None),
+            f"Export approval revoked for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+            url=reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+        )
+        messages.success(request, "Approval revoked.")
+    else:
+        raise Http404()
+
+    return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance.uuid)
 
 
 @staff_member_required

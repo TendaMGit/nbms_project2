@@ -8,5 +8,6 @@
     <p><strong>Frozen at:</strong> {{ instance.frozen_at|default:"-" }}</p>
     <p><strong>Frozen by:</strong> {{ instance.frozen_by|default:"-" }}</p>
   </div>
+  <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>
   <p><a href="{% url 'nbms_app:reporting_cycle_detail' instance.cycle.uuid %}">Back to cycle</a></p>
 {% endblock %}
