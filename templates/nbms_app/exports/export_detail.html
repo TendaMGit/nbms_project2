@@ -4,6 +4,7 @@
   <h1>{{ package.title }}</h1>
   <div class="card">
     <p><strong>Status:</strong> {{ package.status }}</p>
+    <p><strong>Reporting instance:</strong> {{ package.reporting_instance|default:"-" }}</p>
     <p><strong>Description:</strong> {{ package.description|default:"-" }}</p>
     <p><strong>Review note:</strong> {{ package.review_note|default:"-" }}</p>
   </div>

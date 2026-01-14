@@ -159,8 +159,14 @@ class ExportPackageForm(forms.ModelForm):
         fields = [
             "title",
             "description",
+            "reporting_instance",
             "organisation",
         ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["reporting_instance"].queryset = ReportingInstance.objects.select_related("cycle").order_by("-created_at")
+        self.fields["reporting_instance"].required = True
 
 
 class ReportingCycleForm(forms.ModelForm):

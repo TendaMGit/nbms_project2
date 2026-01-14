@@ -363,6 +363,13 @@ class ExportPackage(TimeStampedModel):
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=ExportStatus.choices, default=ExportStatus.DRAFT)
     review_note = models.TextField(blank=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.SET_NULL,
+        related_name="export_packages",
+        blank=True,
+        null=True,
+    )
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,

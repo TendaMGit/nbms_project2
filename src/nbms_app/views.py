@@ -12,6 +12,7 @@ from django.db import connections
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
 from nbms_app.forms import (
     DatasetForm,
@@ -877,7 +878,11 @@ def reporting_instance_create(request):
 @staff_member_required
 def reporting_instance_detail(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
-    return render(request, "nbms_app/reporting/instance_detail.html", {"instance": instance})
+    return render(
+        request,
+        "nbms_app/reporting/instance_detail.html",
+        {"instance": instance, "is_admin": _is_admin_user(request.user)},
+    )
 
 
 @login_required
@@ -893,6 +898,7 @@ def reporting_instance_approvals(request, instance_uuid):
         "target_items": approval_state["targets"],
         "evidence_items": approval_state["evidence"],
         "dataset_items": approval_state["datasets"],
+        "is_admin": _is_admin_user(request.user),
     }
     return render(request, "nbms_app/reporting/instance_approvals.html", context)
 
@@ -922,15 +928,23 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
     )
     obj = get_object_or_404(queryset, uuid=obj_uuid)
     note = request.POST.get("note", "").strip()
+    admin_override = request.POST.get("admin_override") in {"1", "true", "yes"}
 
     if action == "approve":
-        approve_for_instance(instance, obj, request.user, note=note)
+        approve_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)
         record_audit_event(
             request.user,
             "instance_export_approve",
             obj,
             metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.APPROVED},
         )
+        if instance.frozen_at and admin_override and _is_admin_user(request.user):
+            record_audit_event(
+                request.user,
+                "instance_export_override",
+                obj,
+                metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.APPROVED},
+            )
         create_notification(
             getattr(obj, "created_by", None),
             f"Export approved for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
@@ -938,13 +952,20 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
         )
         messages.success(request, "Approval recorded.")
     elif action == "revoke":
-        revoke_for_instance(instance, obj, request.user, note=note)
+        revoke_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)
         record_audit_event(
             request.user,
             "instance_export_revoke",
             obj,
             metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.REVOKED},
         )
+        if instance.frozen_at and admin_override and _is_admin_user(request.user):
+            record_audit_event(
+                request.user,
+                "instance_export_override",
+                obj,
+                metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.REVOKED},
+            )
         create_notification(
             getattr(obj, "created_by", None),
             f"Export approval revoked for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
@@ -955,6 +976,56 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
         raise Http404()
 
     return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance.uuid)
+
+
+@staff_member_required
+def reporting_instance_freeze(request, instance_uuid):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    action = request.POST.get("action", "freeze")
+
+    if action == "unfreeze":
+        if not _is_admin_user(request.user):
+            raise PermissionDenied("Only admins can unfreeze reporting instances.")
+        instance.frozen_at = None
+        instance.frozen_by = None
+        instance.save(update_fields=["frozen_at", "frozen_by"])
+        record_audit_event(
+            request.user,
+            "instance_unfreeze",
+            instance,
+            metadata={"instance_uuid": str(instance.uuid)},
+        )
+        create_notification(
+            request.user,
+            f"Reporting instance unfrozen: {instance}",
+            url=reverse("nbms_app:reporting_instance_detail", kwargs={"instance_uuid": instance.uuid}),
+        )
+        messages.success(request, "Reporting instance unfrozen.")
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+
+    if instance.frozen_at:
+        messages.info(request, "Reporting instance is already frozen.")
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+
+    instance.frozen_at = timezone.now()
+    instance.frozen_by = request.user
+    instance.save(update_fields=["frozen_at", "frozen_by"])
+    record_audit_event(
+        request.user,
+        "instance_freeze",
+        instance,
+        metadata={"instance_uuid": str(instance.uuid)},
+    )
+    create_notification(
+        request.user,
+        f"Reporting instance frozen: {instance}",
+        url=reverse("nbms_app:reporting_instance_detail", kwargs={"instance_uuid": instance.uuid}),
+    )
+    messages.success(request, "Reporting instance frozen.")
+    return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
 
 
 @staff_member_required

@@ -3,6 +3,11 @@
 {% block content %}
   <h1>Approvals: {{ instance.cycle.code }} {{ instance.version_label }}</h1>
   <p class="muted">Only published items should be approved for export.</p>
+  {% if instance.frozen_at %}
+    <div class="card">
+      <p>This instance is frozen. Approvals require admin override.</p>
+    </div>
+  {% endif %}
 
   <div class="card">
     <nav class="actions">
@@ -40,11 +45,17 @@
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'indicator' item.obj.uuid 'approve' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Approve</button>
               </form>
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'indicator' item.obj.uuid 'revoke' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Revoke</button>
               </form>
             </td>
@@ -83,11 +94,17 @@
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'target' item.obj.uuid 'approve' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Approve</button>
               </form>
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'target' item.obj.uuid 'revoke' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Revoke</button>
               </form>
             </td>
@@ -124,11 +141,17 @@
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'evidence' item.obj.uuid 'approve' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Approve</button>
               </form>
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'evidence' item.obj.uuid 'revoke' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Revoke</button>
               </form>
             </td>
@@ -165,11 +188,17 @@
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'dataset' item.obj.uuid 'approve' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Approve</button>
               </form>
               <form method="post" action="{% url 'nbms_app:reporting_instance_approval_action' instance.uuid 'dataset' item.obj.uuid 'revoke' %}">
                 {% csrf_token %}
                 <input type="text" name="note" placeholder="Note" />
+                {% if instance.frozen_at and is_admin %}
+                  <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+                {% endif %}
                 <button type="submit">Revoke</button>
               </form>
             </td>

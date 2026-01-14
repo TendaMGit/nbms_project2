@@ -219,7 +219,7 @@ class ReportingInstanceAdmin(admin.ModelAdmin):
 
 @admin.register(ExportPackage)
 class ExportPackageAdmin(admin.ModelAdmin):
-    list_display = ("title", "status", "organisation", "created_by", "created_at")
+    list_display = ("title", "status", "reporting_instance", "organisation", "created_by", "created_at")
     search_fields = ("title",)
     list_filter = ("status", "organisation")
     readonly_fields = ("payload", "generated_at", "released_at")

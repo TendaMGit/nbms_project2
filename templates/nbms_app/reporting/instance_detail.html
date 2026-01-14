@@ -8,6 +8,24 @@
     <p><strong>Frozen at:</strong> {{ instance.frozen_at|default:"-" }}</p>
     <p><strong>Frozen by:</strong> {{ instance.frozen_by|default:"-" }}</p>
   </div>
+  <div class="card">
+    {% if instance.frozen_at %}
+      <p>This instance is frozen. Approvals are locked unless an admin override is used.</p>
+      {% if is_admin %}
+        <form method="post" action="{% url 'nbms_app:reporting_instance_freeze' instance.uuid %}">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="unfreeze" />
+          <button type="submit">Unfreeze instance</button>
+        </form>
+      {% endif %}
+    {% else %}
+      <form method="post" action="{% url 'nbms_app:reporting_instance_freeze' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="freeze" />
+        <button type="submit">Freeze instance</button>
+      </form>
+    {% endif %}
+  </div>
   <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>
   <p><a href="{% url 'nbms_app:reporting_cycle_detail' instance.cycle.uuid %}">Back to cycle</a></p>
 {% endblock %}

@@ -66,6 +66,11 @@ urlpatterns = [
         views.reporting_instance_approval_action,
         name="reporting_instance_approval_action",
     ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/freeze/",
+        views.reporting_instance_freeze,
+        name="reporting_instance_freeze",
+    ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
     path(
