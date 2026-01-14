@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Django
+.env
+*.sqlite3
+staticfiles/
+media/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Docker volumes
+.docker/
+
