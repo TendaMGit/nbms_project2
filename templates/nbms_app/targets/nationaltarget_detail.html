@@ -6,5 +6,8 @@
     <p><strong>Status:</strong> {{ target.status }}</p>
     <p><strong>Sensitivity:</strong> {{ target.sensitivity }}</p>
     <p><strong>Description:</strong> {{ target.description|default:"-" }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:national_target_edit' target.uuid %}">Edit national target</a></p>
+    {% endif %}
   </div>
 {% endblock %}

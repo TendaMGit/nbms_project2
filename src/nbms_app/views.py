@@ -17,6 +17,7 @@ from nbms_app.forms import (
     EvidenceForm,
     ExportPackageForm,
     IndicatorForm,
+    NationalTargetForm,
     OrganisationForm,
     UserCreateForm,
     UserUpdateForm,
@@ -425,7 +426,11 @@ def national_target_list(request):
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
-    return render(request, "nbms_app/targets/nationaltarget_list.html", {"targets": targets})
+    return render(
+        request,
+        "nbms_app/targets/nationaltarget_list.html",
+        {"targets": targets, "can_create_target": _can_create_data(request.user)},
+    )
 
 
 def national_target_detail(request, target_uuid):
@@ -435,7 +440,56 @@ def national_target_detail(request, target_uuid):
         perm="nbms_app.view_nationaltarget",
     )
     target = get_object_or_404(targets, uuid=target_uuid)
-    return render(request, "nbms_app/targets/nationaltarget_detail.html", {"target": target})
+    can_edit = can_edit_object(request.user, target) and _status_allows_edit(target, request.user)
+    return render(
+        request,
+        "nbms_app/targets/nationaltarget_detail.html",
+        {"target": target, "can_edit": can_edit},
+    )
+
+
+@login_required
+def national_target_create(request):
+    _require_contributor(request.user)
+    form = NationalTargetForm(request.POST or None)
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        target = form.save(commit=False)
+        if not target.created_by:
+            target.created_by = request.user
+        if not target.organisation and getattr(request.user, "organisation", None):
+            target.organisation = request.user.organisation
+        target.save()
+        messages.success(request, "National target created.")
+        return redirect("nbms_app:national_target_detail", target_uuid=target.uuid)
+    return render(request, "nbms_app/targets/nationaltarget_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def national_target_edit(request, target_uuid):
+    targets = filter_queryset_for_user(
+        NationalTarget.objects.select_related("organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    if not can_edit_object(request.user, target):
+        raise PermissionDenied("Not allowed to edit this national target.")
+    if not _status_allows_edit(target, request.user):
+        raise PermissionDenied("National target cannot be edited at this status.")
+    form = NationalTargetForm(request.POST or None, instance=target)
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "National target updated.")
+        return redirect("nbms_app:national_target_detail", target_uuid=target.uuid)
+    return render(
+        request,
+        "nbms_app/targets/nationaltarget_form.html",
+        {"form": form, "mode": "edit", "target": target},
+    )
 
 
 def indicator_list(request):
