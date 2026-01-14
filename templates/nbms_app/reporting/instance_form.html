@@ -1,0 +1,13 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Reporting Instance{% endblock %}
+{% block content %}
+  <h1>Create reporting instance</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+  </div>
+  <p><a href="{% url 'nbms_app:reporting_cycle_list' %}">Back to cycles</a></p>
+{% endblock %}

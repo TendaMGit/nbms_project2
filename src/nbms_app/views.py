@@ -19,6 +19,8 @@ from nbms_app.forms import (
     IndicatorForm,
     NationalTargetForm,
     OrganisationForm,
+    ReportingCycleForm,
+    ReportingInstanceForm,
     UserCreateForm,
     UserUpdateForm,
 )
@@ -31,6 +33,8 @@ from nbms_app.models import (
     LifecycleStatus,
     NationalTarget,
     Organisation,
+    ReportingCycle,
+    ReportingInstance,
     User,
     Notification,
 )
@@ -779,6 +783,54 @@ def export_package_download(request, package_uuid):
     response = JsonResponse(package.payload, json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="export-{package.uuid}.json"'
     return response
+
+
+@staff_member_required
+def reporting_cycle_list(request):
+    cycles = ReportingCycle.objects.order_by("-start_date", "code")
+    return render(request, "nbms_app/reporting/cycle_list.html", {"cycles": cycles})
+
+
+@staff_member_required
+def reporting_cycle_create(request):
+    form = ReportingCycleForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        cycle = form.save()
+        messages.success(request, f"Reporting cycle '{cycle.code}' created.")
+        return redirect("nbms_app:reporting_cycle_detail", cycle_uuid=cycle.uuid)
+    return render(request, "nbms_app/reporting/cycle_form.html", {"form": form, "mode": "create"})
+
+
+@staff_member_required
+def reporting_cycle_detail(request, cycle_uuid):
+    cycle = get_object_or_404(ReportingCycle, uuid=cycle_uuid)
+    instances = cycle.instances.order_by("-created_at")
+    return render(
+        request,
+        "nbms_app/reporting/cycle_detail.html",
+        {"cycle": cycle, "instances": instances},
+    )
+
+
+@staff_member_required
+def reporting_instance_create(request):
+    cycle_uuid = request.GET.get("cycle")
+    initial = {}
+    if cycle_uuid:
+        cycle = get_object_or_404(ReportingCycle, uuid=cycle_uuid)
+        initial["cycle"] = cycle
+    form = ReportingInstanceForm(request.POST or None, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        instance = form.save()
+        messages.success(request, "Reporting instance created.")
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+    return render(request, "nbms_app/reporting/instance_form.html", {"form": form, "mode": "create"})
+
+
+@staff_member_required
+def reporting_instance_detail(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
+    return render(request, "nbms_app/reporting/instance_detail.html", {"instance": instance})
 
 
 @staff_member_required

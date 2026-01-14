@@ -47,6 +47,15 @@ urlpatterns = [
         views.export_package_action,
         name="export_package_action",
     ),
+    path("reporting/cycles/", views.reporting_cycle_list, name="reporting_cycle_list"),
+    path("reporting/cycles/new/", views.reporting_cycle_create, name="reporting_cycle_create"),
+    path("reporting/cycles/<uuid:cycle_uuid>/", views.reporting_cycle_detail, name="reporting_cycle_detail"),
+    path("reporting/instances/new/", views.reporting_instance_create, name="reporting_instance_create"),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/",
+        views.reporting_instance_detail,
+        name="reporting_instance_detail",
+    ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
     path(

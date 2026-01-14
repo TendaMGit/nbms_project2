@@ -1,0 +1,12 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Reporting Instance{% endblock %}
+{% block content %}
+  <h1>{{ instance.cycle.code }} {{ instance.version_label }}</h1>
+  <div class="card">
+    <p><strong>Status:</strong> {{ instance.status }}</p>
+    <p><strong>Notes:</strong> {{ instance.notes|default:"-" }}</p>
+    <p><strong>Frozen at:</strong> {{ instance.frozen_at|default:"-" }}</p>
+    <p><strong>Frozen by:</strong> {{ instance.frozen_by|default:"-" }}</p>
+  </div>
+  <p><a href="{% url 'nbms_app:reporting_cycle_detail' instance.cycle.uuid %}">Back to cycle</a></p>
+{% endblock %}

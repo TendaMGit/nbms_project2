@@ -1,0 +1,20 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Reporting Cycles{% endblock %}
+{% block content %}
+  <h1>Reporting Cycles</h1>
+  <p><a href="{% url 'nbms_app:reporting_cycle_create' %}">Create cycle</a></p>
+  <div class="card">
+    <ul>
+      {% for cycle in cycles %}
+        <li>
+          <a href="{% url 'nbms_app:reporting_cycle_detail' cycle.uuid %}">
+            {{ cycle.code }} - {{ cycle.title }}
+          </a>
+          {% if cycle.is_active %}<span class="muted">(active)</span>{% endif %}
+        </li>
+      {% empty %}
+        <li>No reporting cycles yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

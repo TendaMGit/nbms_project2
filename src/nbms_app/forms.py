@@ -5,7 +5,17 @@ from django.conf import settings
 from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
 
-from nbms_app.models import Dataset, Evidence, ExportPackage, Indicator, NationalTarget, Organisation, User
+from nbms_app.models import (
+    Dataset,
+    Evidence,
+    ExportPackage,
+    Indicator,
+    NationalTarget,
+    Organisation,
+    ReportingCycle,
+    ReportingInstance,
+    User,
+)
 from nbms_app.roles import get_canonical_groups_queryset
 
 
@@ -150,4 +160,28 @@ class ExportPackageForm(forms.ModelForm):
             "title",
             "description",
             "organisation",
+        ]
+
+
+class ReportingCycleForm(forms.ModelForm):
+    class Meta:
+        model = ReportingCycle
+        fields = [
+            "code",
+            "title",
+            "start_date",
+            "end_date",
+            "due_date",
+            "is_active",
+        ]
+
+
+class ReportingInstanceForm(forms.ModelForm):
+    class Meta:
+        model = ReportingInstance
+        fields = [
+            "cycle",
+            "version_label",
+            "status",
+            "notes",
         ]

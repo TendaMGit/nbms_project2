@@ -1,0 +1,29 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Reporting Cycle{% endblock %}
+{% block content %}
+  <h1>{{ cycle.code }} - {{ cycle.title }}</h1>
+  <div class="card">
+    <p><strong>Start:</strong> {{ cycle.start_date }}</p>
+    <p><strong>End:</strong> {{ cycle.end_date }}</p>
+    <p><strong>Due:</strong> {{ cycle.due_date }}</p>
+    <p><strong>Active:</strong> {{ cycle.is_active|yesno:"Yes,No" }}</p>
+  </div>
+  <div class="card">
+    <h2>Instances</h2>
+    <p>
+      <a href="{% url 'nbms_app:reporting_instance_create' %}?cycle={{ cycle.uuid }}">Create instance</a>
+    </p>
+    <ul>
+      {% for instance in instances %}
+        <li>
+          <a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">
+            {{ instance.version_label }} ({{ instance.status }})
+          </a>
+        </li>
+      {% empty %}
+        <li>No instances yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{% url 'nbms_app:reporting_cycle_list' %}">Back to list</a></p>
+{% endblock %}
