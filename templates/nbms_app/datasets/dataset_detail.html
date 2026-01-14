@@ -1,11 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Dataset detail</title>
-  </head>
-  <body>
-    <h1>{{ dataset.title }}</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Dataset{% endblock %}
+{% block content %}
+  <h1>{{ dataset.title }}</h1>
+  <div class="card">
     <p><strong>Status:</strong> {{ dataset.status }}</p>
     <p><strong>Sensitivity:</strong> {{ dataset.sensitivity }}</p>
     <p><strong>Description:</strong> {{ dataset.description|default:"-" }}</p>
@@ -14,6 +11,8 @@
     {% if can_edit %}
       <p><a href="{% url 'nbms_app:dataset_edit' dataset.uuid %}">Edit dataset</a></p>
     {% endif %}
+  </div>
+  <div class="card">
     <h2>Releases</h2>
     <ul>
       {% for release in releases %}
@@ -22,6 +21,6 @@
         <li>No releases yet.</li>
       {% endfor %}
     </ul>
-    <p><a href="{% url 'nbms_app:dataset_list' %}">Back to list</a></p>
-  </body>
-</html>
+  </div>
+  <p><a href="{% url 'nbms_app:dataset_list' %}">Back to list</a></p>
+{% endblock %}

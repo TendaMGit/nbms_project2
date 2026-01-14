@@ -1,13 +1,10 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Organisations</title>
-  </head>
-  <body>
-    <h1>Organisations</h1>
-    <p><a href="{% url 'nbms_app:manage_organisation_create' %}">New organisation</a></p>
+{% extends "nbms_app/base.html" %}
+{% block title %}Organisations{% endblock %}
+{% block content %}
+  <h1>Organisations</h1>
+  <p><a href="{% url 'nbms_app:manage_organisation_create' %}">New organisation</a></p>
 
+  <div class="card">
     <table>
       <thead>
         <tr>
@@ -36,5 +33,5 @@
         {% endfor %}
       </tbody>
     </table>
-  </body>
-</html>
+  </div>
+{% endblock %}

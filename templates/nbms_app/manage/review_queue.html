@@ -1,12 +1,9 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Review queue</title>
-  </head>
-  <body>
-    <h1>Review queue</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Review Queue{% endblock %}
+{% block content %}
+  <h1>Review Queue</h1>
 
+  <div class="card">
     <h2>National targets</h2>
     <ul>
       {% for target in targets %}
@@ -19,7 +16,9 @@
         <li>No targets pending review.</li>
       {% endfor %}
     </ul>
+  </div>
 
+  <div class="card">
     <h2>Indicators</h2>
     <ul>
       {% for indicator in indicators %}
@@ -32,5 +31,5 @@
         <li>No indicators pending review.</li>
       {% endfor %}
     </ul>
-  </body>
-</html>
+  </div>
+{% endblock %}

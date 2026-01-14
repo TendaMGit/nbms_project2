@@ -1,23 +1,24 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Users</title>
-  </head>
-  <body>
-    <h1>Users</h1>
-    <p><a href="{% url 'nbms_app:manage_user_create' %}">New user</a></p>
+{% extends "nbms_app/base.html" %}
+{% block title %}Users{% endblock %}
+{% block content %}
+  <h1>Users</h1>
+  <p><a href="{% url 'nbms_app:manage_user_create' %}">New user</a></p>
 
+  <div class="card">
     <form method="get">
       <label for="org">Filter by organisation:</label>
       <select name="org" id="org" onchange="this.form.submit()">
         <option value="">All</option>
         {% for org in organisations %}
-          <option value="{{ org.id }}" {% if org_filter == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+          <option value="{{ org.id }}" {% if org_filter == org.id|stringformat:"s" %}selected{% endif %}>
+            {{ org.name }}
+          </option>
         {% endfor %}
       </select>
     </form>
+  </div>
 
+  <div class="card">
     <table>
       <thead>
         <tr>
@@ -54,5 +55,5 @@
         {% endfor %}
       </tbody>
     </table>
-  </body>
-</html>
+  </div>
+{% endblock %}

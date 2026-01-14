@@ -1,11 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Evidence detail</title>
-  </head>
-  <body>
-    <h1>{{ evidence.title }}</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Evidence{% endblock %}
+{% block content %}
+  <h1>{{ evidence.title }}</h1>
+  <div class="card">
     <p><strong>Status:</strong> {{ evidence.status }}</p>
     <p><strong>Sensitivity:</strong> {{ evidence.sensitivity }}</p>
     <p><strong>Type:</strong> {{ evidence.evidence_type|default:"-" }}</p>
@@ -15,6 +12,6 @@
     {% if can_edit %}
       <p><a href="{% url 'nbms_app:evidence_edit' evidence.uuid %}">Edit evidence</a></p>
     {% endif %}
-    <p><a href="{% url 'nbms_app:evidence_list' %}">Back to list</a></p>
-  </body>
-</html>
+  </div>
+  <p><a href="{% url 'nbms_app:evidence_list' %}">Back to list</a></p>
+{% endblock %}

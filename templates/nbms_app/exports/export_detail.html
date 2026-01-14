@@ -1,15 +1,14 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Export package detail</title>
-  </head>
-  <body>
-    <h1>{{ package.title }}</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Export Package{% endblock %}
+{% block content %}
+  <h1>{{ package.title }}</h1>
+  <div class="card">
     <p><strong>Status:</strong> {{ package.status }}</p>
     <p><strong>Description:</strong> {{ package.description|default:"-" }}</p>
     <p><strong>Review note:</strong> {{ package.review_note|default:"-" }}</p>
+  </div>
 
+  <div class="card">
     {% if can_submit and package.status == "draft" %}
       <form method="post" action="{% url 'nbms_app:export_package_action' package.uuid 'submit' %}">
         {% csrf_token %}
@@ -46,7 +45,7 @@
     {% if package.status == "released" %}
       <p><a href="{% url 'nbms_app:export_package_download' package.uuid %}">Download export</a></p>
     {% endif %}
+  </div>
 
-    <p><a href="{% url 'nbms_app:export_package_list' %}">Back to list</a></p>
-  </body>
-</html>
+  <p><a href="{% url 'nbms_app:export_package_list' %}">Back to list</a></p>
+{% endblock %}

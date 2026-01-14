@@ -1,11 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>National Targets</title>
-  </head>
-  <body>
-    <h1>National Targets</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}National Targets{% endblock %}
+{% block content %}
+  <h1>National Targets</h1>
+  <div class="card">
     <ul>
       {% for target in targets %}
         <li>
@@ -14,8 +11,8 @@
           </a>
         </li>
       {% empty %}
-        <li>No targets available.</li>
+        <li>No national targets available.</li>
       {% endfor %}
     </ul>
-  </body>
-</html>
+  </div>
+{% endblock %}
