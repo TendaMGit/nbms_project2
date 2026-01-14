@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AnonymousUser
 from django.db.models import Q
+from guardian.shortcuts import get_objects_for_user
 
 from nbms_app.models import LifecycleStatus, SensitivityLevel
 
@@ -60,7 +61,7 @@ def can_edit_object(user, obj):
     return getattr(obj, "created_by_id", None) == user.id
 
 
-def filter_queryset_for_user(queryset, user):
+def filter_queryset_for_user(queryset, user, perm=None):
     if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
         return queryset
 
@@ -95,4 +96,10 @@ def filter_queryset_for_user(queryset, user):
                 sensitivity=SensitivityLevel.IPLC_SENSITIVE,
             )
 
-    return queryset.filter(public_q | creator_q | org_published_q | org_role_q | iplc_q)
+    abac_qs = queryset.filter(public_q | creator_q | org_published_q | org_role_q | iplc_q)
+    if perm and getattr(user, "is_authenticated", False):
+        public_only = abac_qs.filter(status=LifecycleStatus.PUBLISHED, sensitivity=SensitivityLevel.PUBLIC)
+        restricted = abac_qs.exclude(status=LifecycleStatus.PUBLISHED, sensitivity=SensitivityLevel.PUBLIC)
+        perm_qs = get_objects_for_user(user, perm, klass=restricted, accept_global_perms=False)
+        return public_only | perm_qs
+    return abac_qs
