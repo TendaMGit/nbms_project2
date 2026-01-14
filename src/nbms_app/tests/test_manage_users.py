@@ -4,6 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from nbms_app.models import Organisation, User
+from nbms_app.roles import CANONICAL_GROUPS
 
 
 class UserManagementTests(TestCase):
@@ -15,7 +16,7 @@ class UserManagementTests(TestCase):
         )
         self.regular_user = User.objects.create_user(username="regular", password="pass1234")
         self.org = Organisation.objects.create(name="Org A")
-        self.group = Group.objects.create(name="Editors")
+        self.group = Group.objects.create(name=CANONICAL_GROUPS[0])
 
     def test_staff_can_view_list(self):
         self.client.force_login(self.staff_user)

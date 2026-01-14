@@ -1,9 +1,9 @@
 from django import forms
 from django.contrib.auth.forms import UsernameField
-from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 
 from nbms_app.models import Organisation, User
+from nbms_app.roles import get_canonical_groups_queryset
 
 
 class OrganisationForm(forms.ModelForm):
@@ -32,7 +32,7 @@ class UserCreateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].required = True
-        self.fields["groups"].queryset = Group.objects.order_by("name")
+        self.fields["groups"].queryset = get_canonical_groups_queryset()
 
     def clean(self):
         cleaned = super().clean()
@@ -73,4 +73,4 @@ class UserUpdateForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["email"].required = True
-        self.fields["groups"].queryset = Group.objects.order_by("name")
+        self.fields["groups"].queryset = get_canonical_groups_queryset()
