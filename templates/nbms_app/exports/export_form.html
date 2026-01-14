@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Export package form</title>
+  </head>
+  <body>
+    <h1>Create export package</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+    <p><a href="{% url 'nbms_app:export_package_list' %}">Back to list</a></p>
+  </body>
+</html>

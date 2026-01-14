@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
 
-from nbms_app.models import Dataset, Evidence, Organisation, User
+from nbms_app.models import Dataset, Evidence, ExportPackage, Organisation, User
 from nbms_app.roles import get_canonical_groups_queryset
 
 
@@ -116,4 +116,14 @@ class DatasetForm(forms.ModelForm):
             "source_url",
             "organisation",
             "sensitivity",
+        ]
+
+
+class ExportPackageForm(forms.ModelForm):
+    class Meta:
+        model = ExportPackage
+        fields = [
+            "title",
+            "description",
+            "organisation",
         ]

@@ -30,6 +30,19 @@ urlpatterns = [
     path("datasets/new/", views.dataset_create, name="dataset_create"),
     path("datasets/<uuid:dataset_uuid>/", views.dataset_detail, name="dataset_detail"),
     path("datasets/<uuid:dataset_uuid>/edit/", views.dataset_edit, name="dataset_edit"),
+    path("exports/", views.export_package_list, name="export_package_list"),
+    path("exports/new/", views.export_package_create, name="export_package_create"),
+    path("exports/<uuid:package_uuid>/", views.export_package_detail, name="export_package_detail"),
+    path(
+        "exports/<uuid:package_uuid>/download/",
+        views.export_package_download,
+        name="export_package_download",
+    ),
+    path(
+        "exports/<uuid:package_uuid>/<str:action>/",
+        views.export_package_action,
+        name="export_package_action",
+    ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
     path(

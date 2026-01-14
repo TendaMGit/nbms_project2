@@ -6,6 +6,7 @@ from nbms_app.models import (
     Dataset,
     DatasetRelease,
     Evidence,
+    ExportPackage,
     Indicator,
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
@@ -33,7 +34,7 @@ class CustomUserAdmin(UserAdmin):
 
 @admin.register(NationalTarget)
 class NationalTargetAdmin(admin.ModelAdmin):
-    list_display = ("code", "title", "status", "sensitivity", "organisation", "created_at")
+    list_display = ("code", "title", "status", "sensitivity", "export_approved", "organisation", "created_at")
     search_fields = ("code", "title")
     list_filter = ("status", "sensitivity", "organisation")
 
@@ -61,7 +62,16 @@ class NationalTargetAdmin(admin.ModelAdmin):
 
 @admin.register(Indicator)
 class IndicatorAdmin(admin.ModelAdmin):
-    list_display = ("code", "title", "national_target", "status", "sensitivity", "organisation", "created_at")
+    list_display = (
+        "code",
+        "title",
+        "national_target",
+        "status",
+        "sensitivity",
+        "export_approved",
+        "organisation",
+        "created_at",
+    )
     search_fields = ("code", "title")
     list_filter = ("national_target", "status", "sensitivity", "organisation")
 
@@ -89,7 +99,7 @@ class IndicatorAdmin(admin.ModelAdmin):
 
 @admin.register(Evidence)
 class EvidenceAdmin(admin.ModelAdmin):
-    list_display = ("title", "evidence_type", "status", "sensitivity", "organisation", "created_at")
+    list_display = ("title", "evidence_type", "status", "sensitivity", "export_approved", "organisation", "created_at")
     search_fields = ("title", "evidence_type")
     list_filter = ("status", "sensitivity", "organisation")
 
@@ -119,7 +129,7 @@ class EvidenceAdmin(admin.ModelAdmin):
 
 @admin.register(Dataset)
 class DatasetAdmin(admin.ModelAdmin):
-    list_display = ("title", "status", "sensitivity", "organisation", "created_at")
+    list_display = ("title", "status", "sensitivity", "export_approved", "organisation", "created_at")
     search_fields = ("title",)
     list_filter = ("status", "sensitivity", "organisation")
 
@@ -148,7 +158,7 @@ class DatasetAdmin(admin.ModelAdmin):
 
 @admin.register(DatasetRelease)
 class DatasetReleaseAdmin(admin.ModelAdmin):
-    list_display = ("dataset", "version", "status", "sensitivity", "organisation", "created_at")
+    list_display = ("dataset", "version", "status", "sensitivity", "export_approved", "organisation", "created_at")
     search_fields = ("dataset__title", "version")
     list_filter = ("status", "sensitivity", "organisation")
 
@@ -189,6 +199,14 @@ class IndicatorEvidenceLinkAdmin(admin.ModelAdmin):
 class IndicatorDatasetLinkAdmin(admin.ModelAdmin):
     list_display = ("indicator", "dataset", "created_at")
     search_fields = ("indicator__code", "dataset__title")
+
+
+@admin.register(ExportPackage)
+class ExportPackageAdmin(admin.ModelAdmin):
+    list_display = ("title", "status", "organisation", "created_by", "created_at")
+    search_fields = ("title",)
+    list_filter = ("status", "organisation")
+    readonly_fields = ("payload", "generated_at", "released_at")
 
 
 @admin.register(AuditEvent)

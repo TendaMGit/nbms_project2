@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Export package detail</title>
+  </head>
+  <body>
+    <h1>{{ package.title }}</h1>
+    <p><strong>Status:</strong> {{ package.status }}</p>
+    <p><strong>Description:</strong> {{ package.description|default:"-" }}</p>
+    <p><strong>Review note:</strong> {{ package.review_note|default:"-" }}</p>
+
+    {% if can_submit and package.status == "draft" %}
+      <form method="post" action="{% url 'nbms_app:export_package_action' package.uuid 'submit' %}">
+        {% csrf_token %}
+        <button type="submit">Submit for review</button>
+      </form>
+    {% endif %}
+
+    {% if can_review and package.status == "pending_review" %}
+      <form method="post" action="{% url 'nbms_app:export_package_action' package.uuid 'approve' %}">
+        {% csrf_token %}
+        <label>
+          Note:
+          <input type="text" name="note" />
+        </label>
+        <button type="submit">Approve</button>
+      </form>
+      <form method="post" action="{% url 'nbms_app:export_package_action' package.uuid 'reject' %}">
+        {% csrf_token %}
+        <label>
+          Note:
+          <input type="text" name="note" />
+        </label>
+        <button type="submit">Reject</button>
+      </form>
+    {% endif %}
+
+    {% if can_release and package.status == "approved" %}
+      <form method="post" action="{% url 'nbms_app:export_package_action' package.uuid 'release' %}">
+        {% csrf_token %}
+        <button type="submit">Release</button>
+      </form>
+    {% endif %}
+
+    {% if package.status == "released" %}
+      <p><a href="{% url 'nbms_app:export_package_download' package.uuid %}">Download export</a></p>
+    {% endif %}
+
+    <p><a href="{% url 'nbms_app:export_package_list' %}">Back to list</a></p>
+  </body>
+</html>

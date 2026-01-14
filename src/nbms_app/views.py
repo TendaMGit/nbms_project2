@@ -11,8 +11,25 @@ from django.db import connections
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from nbms_app.forms import DatasetForm, EvidenceForm, OrganisationForm, UserCreateForm, UserUpdateForm
-from nbms_app.models import Dataset, Evidence, Indicator, LifecycleStatus, NationalTarget, Organisation, User
+from nbms_app.forms import (
+    DatasetForm,
+    EvidenceForm,
+    ExportPackageForm,
+    OrganisationForm,
+    UserCreateForm,
+    UserUpdateForm,
+)
+from nbms_app.models import (
+    Dataset,
+    Evidence,
+    ExportPackage,
+    ExportStatus,
+    Indicator,
+    LifecycleStatus,
+    NationalTarget,
+    Organisation,
+    User,
+)
 from nbms_app.services.authorization import (
     ROLE_CONTRIBUTOR,
     ROLE_DATA_STEWARD,
@@ -22,6 +39,8 @@ from nbms_app.services.authorization import (
     filter_queryset_for_user,
     user_has_role,
 )
+from nbms_app.services.audit import record_audit_event
+from nbms_app.services.exports import approve_export, reject_export, release_export, submit_export_for_review
 from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
@@ -60,6 +79,29 @@ def _require_contributor(user):
     if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD, ROLE_CONTRIBUTOR):
         return
     raise PermissionDenied("Not allowed to manage records.")
+
+
+def _require_export_creator(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        raise PermissionDenied("Authentication required.")
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return
+    if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD):
+        return
+    raise PermissionDenied("Not allowed to manage exports.")
+
+
+def _export_queryset_for_user(user):
+    packages = ExportPackage.objects.select_related("organisation", "created_by").order_by("-created_at")
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return packages
+    if not user or not getattr(user, "is_authenticated", False):
+        return packages.none()
+    if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD):
+        org_id = getattr(user, "organisation_id", None)
+        if org_id:
+            return packages.filter(organisation_id=org_id)
+    return packages.filter(created_by=user)
 
 
 @staff_member_required
@@ -330,6 +372,80 @@ def dataset_edit(request, dataset_uuid):
         "nbms_app/datasets/dataset_form.html",
         {"form": form, "mode": "edit", "dataset": dataset},
     )
+
+
+@login_required
+def export_package_list(request):
+    packages = _export_queryset_for_user(request.user)
+    return render(request, "nbms_app/exports/export_list.html", {"packages": packages})
+
+
+@login_required
+def export_package_create(request):
+    _require_export_creator(request.user)
+    form = ExportPackageForm(request.POST or None)
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        package = form.save(commit=False)
+        if not package.created_by:
+            package.created_by = request.user
+        if not package.organisation and getattr(request.user, "organisation", None):
+            package.organisation = request.user.organisation
+        package.save()
+        messages.success(request, "Export package created.")
+        return redirect("nbms_app:export_package_detail", package_uuid=package.uuid)
+    return render(request, "nbms_app/exports/export_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def export_package_detail(request, package_uuid):
+    package = get_object_or_404(_export_queryset_for_user(request.user), uuid=package_uuid)
+    can_submit = package.created_by_id == request.user.id or user_has_role(request.user, ROLE_SECRETARIAT)
+    can_review = user_has_role(request.user, ROLE_DATA_STEWARD, ROLE_SECRETARIAT) or request.user.is_staff
+    can_release = user_has_role(request.user, ROLE_SECRETARIAT) or request.user.is_staff
+    return render(
+        request,
+        "nbms_app/exports/export_detail.html",
+        {"package": package, "can_submit": can_submit, "can_review": can_review, "can_release": can_release},
+    )
+
+
+@login_required
+def export_package_action(request, package_uuid, action):
+    if request.method != "POST":
+        return redirect("nbms_app:export_package_list")
+    package = get_object_or_404(_export_queryset_for_user(request.user), uuid=package_uuid)
+    note = request.POST.get("note", "").strip()
+    try:
+        if action == "submit":
+            submit_export_for_review(package, request.user)
+            messages.success(request, "Export submitted for review.")
+        elif action == "approve":
+            approve_export(package, request.user, note=note)
+            messages.success(request, "Export approved.")
+        elif action == "reject":
+            reject_export(package, request.user, note=note)
+            messages.success(request, "Export rejected.")
+        elif action == "release":
+            release_export(package, request.user)
+            messages.success(request, "Export released.")
+        else:
+            raise Http404()
+    except Exception as exc:  # noqa: BLE001
+        messages.error(request, str(exc))
+    return redirect("nbms_app:export_package_detail", package_uuid=package.uuid)
+
+
+@login_required
+def export_package_download(request, package_uuid):
+    package = get_object_or_404(_export_queryset_for_user(request.user), uuid=package_uuid)
+    if package.status != ExportStatus.RELEASED:
+        raise PermissionDenied("Export not released.")
+    record_audit_event(request.user, "export_download", package, metadata={"status": package.status})
+    response = JsonResponse(package.payload, json_dumps_params={"indent": 2})
+    response["Content-Disposition"] = f'attachment; filename="export-{package.uuid}.json"'
+    return response
 
 
 @staff_member_required

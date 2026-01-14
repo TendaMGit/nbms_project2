@@ -51,6 +51,13 @@ class SensitivityLevel(models.TextChoices):
     IPLC_SENSITIVE = "iplc_sensitive", "IPLC-sensitive"
 
 
+class ExportStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    PENDING_REVIEW = "pending_review", "Pending review"
+    APPROVED = "approved", "Approved"
+    RELEASED = "released", "Released"
+
+
 class NationalTarget(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -72,6 +79,7 @@ class NationalTarget(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -107,6 +115,7 @@ class Indicator(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -144,6 +153,7 @@ class Evidence(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -180,6 +190,7 @@ class Dataset(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -218,6 +229,7 @@ class DatasetRelease(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -267,6 +279,41 @@ class IndicatorDatasetLink(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["indicator", "dataset"], name="uq_indicator_dataset"),
+        ]
+
+
+class ExportPackage(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=ExportStatus.choices, default=ExportStatus.DRAFT)
+    review_note = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="export_packages",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_export_packages",
+        blank=True,
+        null=True,
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    generated_at = models.DateTimeField(blank=True, null=True)
+    released_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
         ]
 
 
