@@ -19,4 +19,11 @@ urlpatterns = [
     path("national-targets/<uuid:target_uuid>/", views.national_target_detail, name="national_target_detail"),
     path("indicators/", views.indicator_list, name="indicator_list"),
     path("indicators/<uuid:indicator_uuid>/", views.indicator_detail, name="indicator_detail"),
+    path("manage/review-queue/", views.review_queue, name="review_queue"),
+    path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
+    path(
+        "manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/<str:action>/",
+        views.review_action,
+        name="review_action",
+    ),
 ]
