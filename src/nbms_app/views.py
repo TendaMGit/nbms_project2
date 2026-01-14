@@ -144,7 +144,7 @@ def manage_user_send_reset(request, user_id):
 
 def national_target_list(request):
     targets = filter_queryset_for_user(
-        NationalTarget.objects.order_by("code"),
+        NationalTarget.objects.select_related("organisation", "created_by").order_by("code"),
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
@@ -153,7 +153,7 @@ def national_target_list(request):
 
 def national_target_detail(request, target_uuid):
     targets = filter_queryset_for_user(
-        NationalTarget.objects.all(),
+        NationalTarget.objects.select_related("organisation", "created_by"),
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
@@ -163,7 +163,7 @@ def national_target_detail(request, target_uuid):
 
 def indicator_list(request):
     indicators = filter_queryset_for_user(
-        Indicator.objects.select_related("national_target").order_by("code"),
+        Indicator.objects.select_related("national_target", "organisation", "created_by").order_by("code"),
         request.user,
         perm="nbms_app.view_indicator",
     )
@@ -172,7 +172,7 @@ def indicator_list(request):
 
 def indicator_detail(request, indicator_uuid):
     indicators = filter_queryset_for_user(
-        Indicator.objects.select_related("national_target"),
+        Indicator.objects.select_related("national_target", "organisation", "created_by"),
         request.user,
         perm="nbms_app.view_indicator",
     )

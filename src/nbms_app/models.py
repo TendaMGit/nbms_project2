@@ -77,6 +77,14 @@ class NationalTarget(TimeStampedModel):
     def __str__(self):
         return f"{self.code} - {self.title}"
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
 
 class Indicator(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -103,6 +111,14 @@ class Indicator(TimeStampedModel):
 
     def __str__(self):
         return f"{self.code} - {self.title}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
 
 
 class AuditEvent(TimeStampedModel):
