@@ -53,6 +53,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "nbms_app.middleware.RateLimitMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -221,10 +222,17 @@ else:
 
 
 LOG_LEVEL = os.environ.get("DJANGO_LOG_LEVEL", "INFO")
+LOG_FORMAT = os.environ.get(
+    "LOG_FORMAT",
+    "%(asctime)s level=%(levelname)s logger=%(name)s msg=%(message)s",
+)
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "formatters": {
+        "structured": {"format": LOG_FORMAT},
+    },
+    "handlers": {"console": {"class": "logging.StreamHandler", "formatter": "structured"}},
     "root": {"handlers": ["console"], "level": LOG_LEVEL},
     "loggers": {"django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False}},
 }
@@ -234,6 +242,25 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
     }
+}
+
+RATE_LIMITS = {
+    "login": {
+        "rate": os.environ.get("RATE_LIMIT_LOGIN", "5/300"),
+        "methods": ["POST"],
+        "paths": ["/accounts/login/", "/account/login/"],
+    },
+    "password_reset": {
+        "rate": os.environ.get("RATE_LIMIT_PASSWORD_RESET", "5/300"),
+        "methods": ["POST"],
+        "paths": ["/accounts/password_reset/"],
+    },
+    "workflow": {
+        "rate": os.environ.get("RATE_LIMIT_WORKFLOW", "10/60"),
+        "methods": ["POST"],
+        "paths": ["/manage/review-queue/"],
+        "actions": ["approve", "reject", "publish", "archive"],
+    },
 }
 
 
