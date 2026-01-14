@@ -72,6 +72,7 @@ class NationalTarget(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    review_note = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
@@ -98,6 +99,7 @@ class Indicator(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    review_note = models.TextField(blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
