@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 
@@ -96,6 +97,41 @@ class ReportingInstance(TimeStampedModel):
 
     def __str__(self):
         return f"{self.cycle.code} {self.version_label}"
+
+
+class ApprovalDecision(models.TextChoices):
+    APPROVED = "approved", "Approved"
+    REVOKED = "revoked", "Revoked"
+
+
+class InstanceExportApproval(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="approvals",
+    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_uuid = models.UUIDField()
+    decision = models.CharField(max_length=20, choices=ApprovalDecision.choices, default=ApprovalDecision.APPROVED)
+    approval_scope = models.CharField(max_length=50, default="export")
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="instance_export_approvals",
+        blank=True,
+        null=True,
+    )
+    approved_at = models.DateTimeField(blank=True, null=True)
+    decision_note = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "content_type", "object_uuid", "approval_scope"],
+                name="uq_instance_export_approval",
+            ),
+        ]
 
 class NationalTarget(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
