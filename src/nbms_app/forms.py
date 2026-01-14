@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
 
-from nbms_app.models import Organisation, User
+from nbms_app.models import Dataset, Evidence, Organisation, User
 from nbms_app.roles import get_canonical_groups_queryset
 
 
@@ -74,3 +74,30 @@ class UserUpdateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["email"].required = True
         self.fields["groups"].queryset = get_canonical_groups_queryset()
+
+
+class EvidenceForm(forms.ModelForm):
+    class Meta:
+        model = Evidence
+        fields = [
+            "title",
+            "description",
+            "evidence_type",
+            "source_url",
+            "file",
+            "organisation",
+            "sensitivity",
+        ]
+
+
+class DatasetForm(forms.ModelForm):
+    class Meta:
+        model = Dataset
+        fields = [
+            "title",
+            "description",
+            "methodology",
+            "source_url",
+            "organisation",
+            "sensitivity",
+        ]

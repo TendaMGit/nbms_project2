@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Evidence</title>
+  </head>
+  <body>
+    <h1>Evidence</h1>
+    {% if user.is_authenticated %}
+      <p><a href="{% url 'nbms_app:evidence_create' %}">Create evidence</a></p>
+    {% endif %}
+    <ul>
+      {% for evidence in evidence_items %}
+        <li>
+          <a href="{% url 'nbms_app:evidence_detail' evidence.uuid %}">{{ evidence.title }}</a>
+          ({{ evidence.status }})
+        </li>
+      {% empty %}
+        <li>No evidence available.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
