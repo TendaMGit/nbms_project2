@@ -10,7 +10,8 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from nbms_app.forms import OrganisationForm, UserCreateForm, UserUpdateForm
-from nbms_app.models import Organisation, User
+from nbms_app.models import Indicator, NationalTarget, Organisation, User
+from nbms_app.services.authorization import filter_queryset_for_user
 
 logger = logging.getLogger(__name__)
 
@@ -138,3 +139,41 @@ def manage_user_send_reset(request, user_id):
         messages.error(request, "Unable to send password reset email.")
 
     return redirect("nbms_app:manage_user_edit", user_id=user.id)
+
+
+def national_target_list(request):
+    targets = filter_queryset_for_user(
+        NationalTarget.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    return render(request, "nbms_app/targets/nationaltarget_list.html", {"targets": targets})
+
+
+def national_target_detail(request, target_uuid):
+    targets = filter_queryset_for_user(
+        NationalTarget.objects.all(),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    return render(request, "nbms_app/targets/nationaltarget_detail.html", {"target": target})
+
+
+def indicator_list(request):
+    indicators = filter_queryset_for_user(
+        Indicator.objects.select_related("national_target").order_by("code"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    return render(request, "nbms_app/indicators/indicator_list.html", {"indicators": indicators})
+
+
+def indicator_detail(request, indicator_uuid):
+    indicators = filter_queryset_for_user(
+        Indicator.objects.select_related("national_target"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    return render(request, "nbms_app/indicators/indicator_detail.html", {"indicator": indicator})

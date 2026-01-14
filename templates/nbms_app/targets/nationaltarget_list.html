@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>National Targets</title>
+  </head>
+  <body>
+    <h1>National Targets</h1>
+    <ul>
+      {% for target in targets %}
+        <li>
+          <a href="{% url 'nbms_app:national_target_detail' target.uuid %}">
+            {{ target.code }} - {{ target.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No targets available.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

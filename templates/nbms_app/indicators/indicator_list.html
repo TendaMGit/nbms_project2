@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Indicators</title>
+  </head>
+  <body>
+    <h1>Indicators</h1>
+    <ul>
+      {% for indicator in indicators %}
+        <li>
+          <a href="{% url 'nbms_app:indicator_detail' indicator.uuid %}">
+            {{ indicator.code }} - {{ indicator.title }}
+          </a>
+          {% if indicator.national_target %}
+            ({{ indicator.national_target.code }})
+          {% endif %}
+        </li>
+      {% empty %}
+        <li>No indicators available.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

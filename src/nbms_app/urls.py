@@ -15,4 +15,8 @@ urlpatterns = [
     path("manage/users/new/", views.manage_user_create, name="manage_user_create"),
     path("manage/users/<int:user_id>/edit/", views.manage_user_edit, name="manage_user_edit"),
     path("manage/users/<int:user_id>/send-reset/", views.manage_user_send_reset, name="manage_user_send_reset"),
+    path("national-targets/", views.national_target_list, name="national_target_list"),
+    path("national-targets/<uuid:target_uuid>/", views.national_target_detail, name="national_target_detail"),
+    path("indicators/", views.indicator_list, name="indicator_list"),
+    path("indicators/<uuid:indicator_uuid>/", views.indicator_detail, name="indicator_detail"),
 ]
