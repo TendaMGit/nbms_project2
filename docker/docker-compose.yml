@@ -1,0 +1,68 @@
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    container_name: nbms_postgis
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+      NBMS_DB_NAME: ${NBMS_DB_NAME:-nbms_project_db2}
+      NBMS_TEST_DB_NAME: ${NBMS_TEST_DB_NAME:-test_nbms_project_db2}
+      NBMS_DB_USER: ${NBMS_DB_USER:-nbms_user}
+      NBMS_DB_PASSWORD: ${NBMS_DB_PASSWORD:?NBMS_DB_PASSWORD is required}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgis_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+
+  redis:
+    image: redis:7-alpine
+    container_name: nbms_redis
+    ports:
+      - "6379:6379"
+
+  minio:
+    image: minio/minio:RELEASE.2024-08-03T04-33-23Z
+    container_name: nbms_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?S3_SECRET_KEY is required}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-08-03T02-33-30Z
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set nbms http://minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY}; do
+        echo 'waiting for minio...';
+        sleep 2;
+      done;
+      mc mb --ignore-existing nbms/${S3_BUCKET:-nbms-media};
+      mc anonymous set none nbms/${S3_BUCKET:-nbms-media};
+      exit 0
+      "
+
+  geoserver:
+    image: kartoza/geoserver:2.23.2
+    container_name: nbms_geoserver
+    environment:
+      GEOSERVER_ADMIN_USER: ${GEOSERVER_USER:-admin}
+      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_PASSWORD:?GEOSERVER_PASSWORD is required}
+      GEOSERVER_DATA_DIR: /opt/geoserver/data_dir
+    ports:
+      - "8080:8080"
+    volumes:
+      - geoserver_data:/opt/geoserver/data_dir
+
+volumes:
+  postgis_data:
+  minio_data:
+  geoserver_data:

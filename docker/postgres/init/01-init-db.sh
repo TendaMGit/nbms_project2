@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${POSTGRES_USER:?POSTGRES_USER is required}"
+: "${POSTGRES_DB:?POSTGRES_DB is required}"
+: "${NBMS_DB_USER:?NBMS_DB_USER is required}"
+: "${NBMS_DB_PASSWORD:?NBMS_DB_PASSWORD is required}"
+: "${NBMS_DB_NAME:?NBMS_DB_NAME is required}"
+: "${NBMS_TEST_DB_NAME:?NBMS_TEST_DB_NAME is required}"
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+  -v NBMS_DB_USER="$NBMS_DB_USER" \
+  -v NBMS_DB_PASSWORD="$NBMS_DB_PASSWORD" \
+  -v NBMS_DB_NAME="$NBMS_DB_NAME" \
+  -v NBMS_TEST_DB_NAME="$NBMS_TEST_DB_NAME" <<'SQL'
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'NBMS_DB_USER') THEN
+    EXECUTE format('CREATE ROLE %I LOGIN PASSWORD %L', :'NBMS_DB_USER', :'NBMS_DB_PASSWORD');
+  END IF;
+END
+$$;
+
+SELECT format('CREATE DATABASE %I OWNER %I', :'NBMS_DB_NAME', :'NBMS_DB_USER')
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'NBMS_DB_NAME') \gexec
+
+SELECT format('CREATE DATABASE %I OWNER %I', :'NBMS_TEST_DB_NAME', :'NBMS_DB_USER')
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'NBMS_TEST_DB_NAME') \gexec
+SQL
+
+for db in "$NBMS_DB_NAME" "$NBMS_TEST_DB_NAME"; do
+  psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$db" <<'SQL'
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+SQL
+done

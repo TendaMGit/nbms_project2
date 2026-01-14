@@ -92,15 +92,21 @@ if DATABASE_URL:
         )
     }
 else:
+    db_name = os.environ.get("NBMS_DB_NAME", os.environ.get("POSTGRES_DB", "nbms_project_db2"))
+    db_user = os.environ.get("NBMS_DB_USER", os.environ.get("POSTGRES_USER", "nbms_user"))
+    db_password = os.environ.get("NBMS_DB_PASSWORD", os.environ.get("POSTGRES_PASSWORD", ""))
+    db_host = os.environ.get("POSTGRES_HOST", "localhost")
+    db_port = os.environ.get("POSTGRES_PORT", "5432")
+    test_db_name = os.environ.get("NBMS_TEST_DB_NAME", os.environ.get("POSTGRES_TEST_DB", "test_nbms_project_db2"))
     DATABASES = {
         "default": {
             "ENGINE": os.environ.get("DJANGO_DB_ENGINE", "django.contrib.gis.db.backends.postgis"),
-            "NAME": os.environ.get("POSTGRES_DB", "nbms_project_db2"),
-            "USER": os.environ.get("POSTGRES_USER", "nbms_user"),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD", ""),
-            "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-            "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-            "TEST": {"NAME": os.environ.get("POSTGRES_TEST_DB", "test_nbms_project_db2")},
+            "NAME": db_name,
+            "USER": db_user,
+            "PASSWORD": db_password,
+            "HOST": db_host,
+            "PORT": db_port,
+            "TEST": {"NAME": test_db_name},
         }
     }
 
