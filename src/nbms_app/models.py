@@ -58,6 +58,45 @@ class ExportStatus(models.TextChoices):
     RELEASED = "released", "Released"
 
 
+class ReportingStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    PENDING_REVIEW = "pending_review", "Pending review"
+    APPROVED = "approved", "Approved"
+    RELEASED = "released", "Released"
+    ARCHIVED = "archived", "Archived"
+
+
+class ReportingCycle(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    due_date = models.DateField()
+    is_active = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
+class ReportingInstance(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    cycle = models.ForeignKey(ReportingCycle, on_delete=models.CASCADE, related_name="instances")
+    version_label = models.CharField(max_length=50, default="v1")
+    status = models.CharField(max_length=20, choices=ReportingStatus.choices, default=ReportingStatus.DRAFT)
+    frozen_at = models.DateTimeField(blank=True, null=True)
+    frozen_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="frozen_reporting_instances",
+        blank=True,
+        null=True,
+    )
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.cycle.code} {self.version_label}"
+
 class NationalTarget(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)

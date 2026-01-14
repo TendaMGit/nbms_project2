@@ -13,6 +13,8 @@ from nbms_app.models import (
     LifecycleStatus,
     NationalTarget,
     Organisation,
+    ReportingCycle,
+    ReportingInstance,
     User,
 )
 from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
@@ -199,6 +201,20 @@ class IndicatorEvidenceLinkAdmin(admin.ModelAdmin):
 class IndicatorDatasetLinkAdmin(admin.ModelAdmin):
     list_display = ("indicator", "dataset", "created_at")
     search_fields = ("indicator__code", "dataset__title")
+
+
+@admin.register(ReportingCycle)
+class ReportingCycleAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "start_date", "end_date", "due_date", "is_active")
+    search_fields = ("code", "title")
+    list_filter = ("is_active",)
+
+
+@admin.register(ReportingInstance)
+class ReportingInstanceAdmin(admin.ModelAdmin):
+    list_display = ("cycle", "version_label", "status", "frozen_at", "frozen_by")
+    search_fields = ("cycle__code", "version_label")
+    list_filter = ("status",)
 
 
 @admin.register(ExportPackage)
