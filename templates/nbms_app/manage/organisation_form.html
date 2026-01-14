@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{% if mode == "edit" %}Edit{% else %}New{% endif %} organisation</title>
+  </head>
+  <body>
+    <h1>{% if mode == "edit" %}Edit{% else %}New{% endif %} organisation</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+    <p><a href="{% url 'nbms_app:manage_organisation_list' %}">Back to list</a></p>
+  </body>
+</html>
