@@ -10,10 +10,18 @@ Clean, portable baseline for the NBMS platform (PostGIS + MinIO + GeoServer).
 copy .env.example .env
 ```
 
-2) Start infra services:
+2) Start infra services (choose a mode):
+
+A) Minimal stack (PostGIS + Redis + MinIO):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio geoserver
+docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init
+```
+
+B) Full stack (includes GeoServer):
+
+```
+docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init geoserver
 ```
 
 3) Bootstrap the app (installs deps + migrate):
@@ -69,6 +77,13 @@ scripts/test.sh
 
 - See `docs/infra/geoserver.md` for workspace and datastore setup.
 - Optional: `scripts/geoserver_bootstrap.sh` will create a workspace and PostGIS datastore.
+
+## Environment notes
+
+- `POSTGRES_PASSWORD` is the Postgres superuser password used by init/reset scripts.
+- `NBMS_DB_PASSWORD` is the app database user password.
+- `USE_S3=1` enables MinIO-backed media storage; `USE_S3=0` uses local filesystem.
+- `ENABLE_GEOSERVER=1` enables GeoServer checks in scripts.
 
 ## Settings
 

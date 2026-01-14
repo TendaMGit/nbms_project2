@@ -1,12 +1,30 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "${CONFIRM_DROP:-}" != "YES" ]; then
-  echo "Refusing to drop databases without CONFIRM_DROP=YES" >&2
+ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+require_env() {
+  local var="$1"
+  if [ -z "${!var:-}" ]; then
+    echo "Missing required env var: $var" >&2
+    exit 1
+  fi
+}
+
+is_true() {
+  case "${1,,}" in
+    1|true|yes) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+ENVIRONMENT="${ENVIRONMENT:-dev}"
+DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-}"
+
+if [ "$ENVIRONMENT" = "prod" ] || [[ "$DJANGO_SETTINGS_MODULE" == *".prod"* ]]; then
+  echo "Refusing to drop databases in production settings." >&2
   exit 1
 fi
-
-ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 
 NBMS_DB_NAME="${NBMS_DB_NAME:-nbms_project_db2}"
 NBMS_TEST_DB_NAME="${NBMS_TEST_DB_NAME:-test_nbms_project_db2}"
@@ -14,8 +32,29 @@ NBMS_DB_USER="${NBMS_DB_USER:-nbms_user}"
 
 POSTGRES_USER="${POSTGRES_USER:-postgres}"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}"
+NBMS_DB_PASSWORD="${NBMS_DB_PASSWORD:?NBMS_DB_PASSWORD is required}"
 POSTGRES_HOST="${POSTGRES_HOST:-localhost}"
 POSTGRES_PORT="${POSTGRES_PORT:-5432}"
+
+echo "About to drop and recreate:"
+echo "- main DB: $NBMS_DB_NAME"
+echo "- test DB: $NBMS_TEST_DB_NAME"
+
+if [ "${CONFIRM_DROP:-}" != "YES" ]; then
+  echo "Refusing to drop databases without CONFIRM_DROP=YES" >&2
+  exit 1
+fi
+
+USE_S3="${USE_S3:-0}"
+if is_true "$USE_S3"; then
+  require_env "S3_ACCESS_KEY"
+  require_env "S3_SECRET_KEY"
+fi
+
+ENABLE_GEOSERVER="${ENABLE_GEOSERVER:-0}"
+if is_true "$ENABLE_GEOSERVER"; then
+  require_env "GEOSERVER_PASSWORD"
+fi
 
 USE_DOCKER="${USE_DOCKER:-1}"
 COMPOSE_FILE="${COMPOSE_FILE:-$ROOT_DIR/docker/docker-compose.yml}"

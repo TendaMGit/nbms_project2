@@ -3,6 +3,7 @@
 Prereqs:
 - GeoServer running at `GEOSERVER_URL`
 - PostGIS reachable from GeoServer
+- Set `ENABLE_GEOSERVER=1` when you want script validations to enforce GeoServer config
 
 ## Connect GeoServer to PostGIS
 

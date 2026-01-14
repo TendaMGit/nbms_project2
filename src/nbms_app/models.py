@@ -30,3 +30,21 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.get_username()
+
+
+class NationalTarget(TimeStampedModel):
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
+class Indicator(TimeStampedModel):
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    national_target = models.ForeignKey(NationalTarget, on_delete=models.CASCADE, related_name="indicators")
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
