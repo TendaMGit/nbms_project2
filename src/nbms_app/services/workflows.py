@@ -2,6 +2,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 
 from nbms_app.models import LifecycleStatus
 from nbms_app.services.audit import record_audit_event
+from nbms_app.services.notifications import create_notification
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_DATA_STEWARD,
@@ -31,6 +32,11 @@ def submit_for_review(obj, user):
     obj.review_note = ""
     obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "submit_for_review", obj, metadata={"status": obj.status})
+    create_notification(
+        getattr(obj, "created_by", None),
+        f"{obj.__class__.__name__} submitted for review: {obj.code}",
+        url="",
+    )
     return obj
 
 
@@ -45,6 +51,11 @@ def approve(obj, user, note=""):
     obj.review_note = note or ""
     obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "approve", obj, metadata={"status": obj.status, "note": obj.review_note})
+    create_notification(
+        getattr(obj, "created_by", None),
+        f"{obj.__class__.__name__} approved: {obj.code}",
+        url="",
+    )
     return obj
 
 
@@ -61,6 +72,11 @@ def reject(obj, user, note):
     obj.review_note = note
     obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "reject", obj, metadata={"status": obj.status, "note": obj.review_note})
+    create_notification(
+        getattr(obj, "created_by", None),
+        f"{obj.__class__.__name__} rejected: {obj.code}",
+        url="",
+    )
     return obj
 
 
@@ -74,6 +90,11 @@ def publish(obj, user):
     obj.status = LifecycleStatus.PUBLISHED
     obj.save(update_fields=["status"])
     record_audit_event(user, "publish", obj, metadata={"status": obj.status})
+    create_notification(
+        getattr(obj, "created_by", None),
+        f"{obj.__class__.__name__} published: {obj.code}",
+        url="",
+    )
     return obj
 
 

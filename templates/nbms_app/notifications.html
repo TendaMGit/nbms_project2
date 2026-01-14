@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Notifications</title>
+  </head>
+  <body>
+    <h1>Notifications</h1>
+    <ul>
+      {% for notification in notifications %}
+        <li>
+          {% if notification.url %}
+            <a href="{{ notification.url }}">{{ notification.message }}</a>
+          {% else %}
+            {{ notification.message }}
+          {% endif %}
+          <small>{{ notification.created_at }}</small>
+        </li>
+      {% empty %}
+        <li>No notifications.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
