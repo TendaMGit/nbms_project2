@@ -1,3 +1,4 @@
+from django.core import mail
 from django.test import TestCase
 from django.urls import reverse
 
@@ -12,6 +13,20 @@ class SmokeTests(TestCase):
     def test_admin_login_page(self):
         resp = self.client.get(reverse("admin:login"), follow=True)
         self.assertEqual(resp.status_code, 200)
+
+    def test_account_login_page(self):
+        resp = self.client.get(reverse("login"))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_password_reset_page(self):
+        resp = self.client.get(reverse("password_reset"))
+        self.assertEqual(resp.status_code, 200)
+
+    def test_password_reset_sends_email(self):
+        user = User.objects.create_user(username="reset-user", email="reset@example.com", password="pass1234")
+        resp = self.client.post(reverse("password_reset"), {"email": user.email})
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_health_db(self):
         resp = self.client.get(reverse("nbms_app:health_db"))

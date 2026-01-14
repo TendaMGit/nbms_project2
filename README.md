@@ -84,6 +84,7 @@ scripts/test.sh
 - `NBMS_DB_PASSWORD` is the app database user password.
 - `USE_S3=1` enables MinIO-backed media storage; `USE_S3=0` uses local filesystem.
 - `ENABLE_GEOSERVER=1` enables GeoServer checks in scripts.
+- Configure `EMAIL_*` vars to enable password reset emails in non-dev environments.
 
 ## Settings
 
