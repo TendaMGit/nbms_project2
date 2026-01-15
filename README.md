@@ -83,6 +83,38 @@ Notes:
 - For CI, set `CI=1` (uses `--noinput`).
 - To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
 
+## Manual smoke pass
+
+Setup order:
+1) python manage.py migrate
+2) python manage.py bootstrap_roles
+3) python manage.py seed_report_templates
+4) python manage.py seed_validation_rules (or seed_reporting_defaults)
+5) python manage.py runserver
+
+Staff login expected behavior:
+- Staff user can access management and reporting pages.
+- Non-staff is blocked from staff-only pages.
+
+Key URLs to test:
+- /
+- /manage/users/
+- /manage/organisations/
+- /reporting/cycles/
+- /reporting/instances/<uuid>/
+- /reporting/instances/<uuid>/sections/
+- /reporting/instances/<uuid>/approvals/
+- /reporting/instances/<uuid>/consent/
+- /reporting/instances/<uuid>/report-pack/
+- /exports/
+
+Confirm export blockers:
+- Missing required sections should block export when EXPORT_REQUIRE_SECTIONS=1.
+- Missing consent for IPLC-sensitive approved items should block export.
+
+ABAC quick check:
+- Create a restricted item in Org A and verify it is not visible to a user in Org B.
+
 ## GeoServer
 
 - See `docs/infra/geoserver.md` for workspace and datastore setup.
