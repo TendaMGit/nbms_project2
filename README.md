@@ -73,6 +73,11 @@ python manage.py runserver
 scripts/test.sh
 ```
 
+Notes:
+- Default test script uses `--keepdb` to avoid prompts on re-runs.
+- For CI, set `CI=1` (uses `--noinput`).
+- To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
+
 ## GeoServer
 
 - See `docs/infra/geoserver.md` for workspace and datastore setup.
