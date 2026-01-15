@@ -20,9 +20,47 @@
 
   <div class="card" id="indicators">
     <h2>Indicators</h2>
+    <div class="card">
+      <form id="bulk-indicators-selected" method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="indicators" />
+        <input type="hidden" name="mode" value="selected" />
+        <label><input type="checkbox" id="select-all-indicators" /> Select all visible</label>
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve selected</button>
+        <button type="submit" name="action" value="revoke">Revoke selected</button>
+      </form>
+      <form method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="indicators" />
+        <input type="hidden" name="mode" value="visible" />
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve all visible</button>
+        <button type="submit" name="action" value="revoke">Revoke all visible</button>
+      </form>
+      <form method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="indicators" />
+        <input type="hidden" name="mode" value="rule" />
+        <input type="hidden" name="rule_type" value="indicator_by_target" />
+        <label>
+          Target UUID:
+          <input type="text" name="target_uuid" placeholder="Target UUID" />
+        </label>
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve published indicators linked to target</button>
+      </form>
+    </div>
     <table>
       <thead>
         <tr>
+          <th>Select</th>
           <th>Code</th>
           <th>Title</th>
           <th>Status</th>
@@ -35,6 +73,7 @@
       <tbody>
         {% for item in indicator_items %}
           <tr>
+            <td><input type="checkbox" name="selected" value="{{ item.obj.uuid }}" form="bulk-indicators-selected" data-group="indicators" /></td>
             <td>{{ item.obj.code }}</td>
             <td>{{ item.obj.title }}</td>
             <td>{{ item.obj.status }}</td>
@@ -61,7 +100,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="7">No indicators available.</td></tr>
+          <tr><td colspan="8">No indicators available.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -69,9 +108,33 @@
 
   <div class="card" id="targets">
     <h2>National Targets</h2>
+    <div class="card">
+      <form id="bulk-targets-selected" method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="targets" />
+        <input type="hidden" name="mode" value="selected" />
+        <label><input type="checkbox" id="select-all-targets" /> Select all visible</label>
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve selected</button>
+        <button type="submit" name="action" value="revoke">Revoke selected</button>
+      </form>
+      <form method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="targets" />
+        <input type="hidden" name="mode" value="visible" />
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve all visible</button>
+        <button type="submit" name="action" value="revoke">Revoke all visible</button>
+      </form>
+    </div>
     <table>
       <thead>
         <tr>
+          <th>Select</th>
           <th>Code</th>
           <th>Title</th>
           <th>Status</th>
@@ -84,6 +147,7 @@
       <tbody>
         {% for item in target_items %}
           <tr>
+            <td><input type="checkbox" name="selected" value="{{ item.obj.uuid }}" form="bulk-targets-selected" data-group="targets" /></td>
             <td>{{ item.obj.code }}</td>
             <td>{{ item.obj.title }}</td>
             <td>{{ item.obj.status }}</td>
@@ -110,7 +174,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="7">No national targets available.</td></tr>
+          <tr><td colspan="8">No national targets available.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -118,9 +182,33 @@
 
   <div class="card" id="evidence">
     <h2>Evidence</h2>
+    <div class="card">
+      <form id="bulk-evidence-selected" method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="evidence" />
+        <input type="hidden" name="mode" value="selected" />
+        <label><input type="checkbox" id="select-all-evidence" /> Select all visible</label>
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve selected</button>
+        <button type="submit" name="action" value="revoke">Revoke selected</button>
+      </form>
+      <form method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="evidence" />
+        <input type="hidden" name="mode" value="visible" />
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve all visible</button>
+        <button type="submit" name="action" value="revoke">Revoke all visible</button>
+      </form>
+    </div>
     <table>
       <thead>
         <tr>
+          <th>Select</th>
           <th>Title</th>
           <th>Status</th>
           <th>Sensitivity</th>
@@ -132,6 +220,7 @@
       <tbody>
         {% for item in evidence_items %}
           <tr>
+            <td><input type="checkbox" name="selected" value="{{ item.obj.uuid }}" form="bulk-evidence-selected" data-group="evidence" /></td>
             <td>{{ item.obj.title }}</td>
             <td>{{ item.obj.status }}</td>
             <td>{{ item.obj.sensitivity }}</td>
@@ -157,7 +246,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="6">No evidence available.</td></tr>
+          <tr><td colspan="7">No evidence available.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -165,9 +254,33 @@
 
   <div class="card" id="datasets">
     <h2>Datasets</h2>
+    <div class="card">
+      <form id="bulk-datasets-selected" method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="datasets" />
+        <input type="hidden" name="mode" value="selected" />
+        <label><input type="checkbox" id="select-all-datasets" /> Select all visible</label>
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve selected</button>
+        <button type="submit" name="action" value="revoke">Revoke selected</button>
+      </form>
+      <form method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="obj_type" value="datasets" />
+        <input type="hidden" name="mode" value="visible" />
+        {% if instance.frozen_at and is_admin %}
+          <label><input type="checkbox" name="admin_override" value="1" /> Admin override</label>
+        {% endif %}
+        <button type="submit" name="action" value="approve">Approve all visible</button>
+        <button type="submit" name="action" value="revoke">Revoke all visible</button>
+      </form>
+    </div>
     <table>
       <thead>
         <tr>
+          <th>Select</th>
           <th>Title</th>
           <th>Status</th>
           <th>Sensitivity</th>
@@ -179,6 +292,7 @@
       <tbody>
         {% for item in dataset_items %}
           <tr>
+            <td><input type="checkbox" name="selected" value="{{ item.obj.uuid }}" form="bulk-datasets-selected" data-group="datasets" /></td>
             <td>{{ item.obj.title }}</td>
             <td>{{ item.obj.status }}</td>
             <td>{{ item.obj.sensitivity }}</td>
@@ -204,11 +318,30 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="6">No datasets available.</td></tr>
+          <tr><td colspan="7">No datasets available.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
   <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
+  <script>
+    const bulkConfig = [
+      ["select-all-indicators", "indicators"],
+      ["select-all-targets", "targets"],
+      ["select-all-evidence", "evidence"],
+      ["select-all-datasets", "datasets"],
+    ];
+    bulkConfig.forEach(([toggleId, group]) => {
+      const toggle = document.getElementById(toggleId);
+      if (!toggle) {
+        return;
+      }
+      toggle.addEventListener("change", (event) => {
+        document.querySelectorAll(`input[data-group="${group}"]`).forEach((checkbox) => {
+          checkbox.checked = event.target.checked;
+        });
+      });
+    });
+  </script>
 {% endblock %}

@@ -1,0 +1,39 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Confirm Bulk Approval{% endblock %}
+{% block content %}
+  <h1>Confirm bulk action</h1>
+  <div class="card">
+    <p><strong>Instance:</strong> {{ instance.cycle.code }} {{ instance.version_label }}</p>
+    <p><strong>Action:</strong> {{ action|title }} {{ obj_type }}</p>
+    <p><strong>Total affected:</strong> {{ total_count }}</p>
+    {% if missing_consent_count %}
+      <p><strong>Consent warning:</strong> {{ missing_consent_count }} IPLC-sensitive items will be skipped without consent.</p>
+    {% endif %}
+    {% if sample %}
+      <h3>Sample (first 10)</h3>
+      <ul>
+        {% for obj in sample %}
+          <li>{{ obj }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    <form method="post" action="{% url 'nbms_app:reporting_instance_approval_bulk' instance.uuid %}">
+      {% csrf_token %}
+      <input type="hidden" name="obj_type" value="{{ obj_type }}" />
+      <input type="hidden" name="action" value="{{ action }}" />
+      <input type="hidden" name="mode" value="{{ mode }}" />
+      <input type="hidden" name="rule_type" value="{{ rule_type }}" />
+      <input type="hidden" name="target_uuid" value="{{ target_uuid }}" />
+      <input type="hidden" name="note" value="{{ note }}" />
+      <input type="hidden" name="confirm" value="1" />
+      {% if admin_override %}
+        <input type="hidden" name="admin_override" value="1" />
+      {% endif %}
+      {% for selected_id in selected_ids %}
+        <input type="hidden" name="selected" value="{{ selected_id }}" />
+      {% endfor %}
+      <button type="submit">Confirm</button>
+      <a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Cancel</a>
+    </form>
+  </div>
+{% endblock %}

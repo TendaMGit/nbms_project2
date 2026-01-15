@@ -18,6 +18,7 @@ from nbms_app.models import (
     ReportingCycle,
     ReportingInstance,
     User,
+    ValidationRuleSet,
 )
 from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
 
@@ -232,6 +233,13 @@ class ReportSectionResponseAdmin(admin.ModelAdmin):
     list_display = ("template", "reporting_instance", "updated_by", "updated_at")
     search_fields = ("template__code", "template__title", "reporting_instance__cycle__code")
     list_filter = ("template",)
+
+
+@admin.register(ValidationRuleSet)
+class ValidationRuleSetAdmin(admin.ModelAdmin):
+    list_display = ("code", "applies_to", "is_active", "created_by", "updated_at")
+    search_fields = ("code",)
+    list_filter = ("applies_to", "is_active")
 
 
 @admin.register(ExportPackage)

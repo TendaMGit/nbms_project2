@@ -57,6 +57,16 @@ urlpatterns = [
         name="reporting_instance_detail",
     ),
     path(
+        "reporting/set-current/<uuid:instance_uuid>/",
+        views.reporting_set_current_instance,
+        name="reporting_set_current_instance",
+    ),
+    path(
+        "reporting/clear-current/",
+        views.reporting_clear_current_instance,
+        name="reporting_clear_current_instance",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/sections/",
         views.reporting_instance_sections,
         name="reporting_instance_sections",
@@ -77,6 +87,11 @@ urlpatterns = [
         name="reporting_instance_approvals",
     ),
     path(
+        "reporting/instances/<uuid:instance_uuid>/approvals/bulk/",
+        views.reporting_instance_approval_bulk,
+        name="reporting_instance_approval_bulk",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/approvals/<str:obj_type>/<uuid:obj_uuid>/<str:action>/",
         views.reporting_instance_approval_action,
         name="reporting_instance_approval_action",
@@ -95,6 +110,11 @@ urlpatterns = [
         "reporting/instances/<uuid:instance_uuid>/freeze/",
         views.reporting_instance_freeze,
         name="reporting_instance_freeze",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/report-pack/",
+        views.reporting_instance_report_pack,
+        name="reporting_instance_report_pack",
     ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),

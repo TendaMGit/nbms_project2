@@ -1,0 +1,10 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Report Pack{% endblock %}
+{% block content %}
+  <h1>Report Pack</h1>
+  <div class="card">
+    <p><strong>Instance:</strong> {{ instance.cycle.code }} {{ instance.version_label }}</p>
+    <p>PDF report pack generation is not implemented yet.</p>
+  </div>
+  <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
+{% endblock %}

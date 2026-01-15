@@ -8,6 +8,150 @@
     <p><strong>Frozen at:</strong> {{ instance.frozen_at|default:"-" }}</p>
     <p><strong>Frozen by:</strong> {{ instance.frozen_by|default:"-" }}</p>
   </div>
+  <section class="card readiness-card readiness-{{ readiness.readiness_band }}">
+    <header class="card-header">
+      <div class="card-title">
+        <span aria-hidden="true">📋</span>
+        <h2>Instance Readiness</h2>
+      </div>
+      <span class="badge badge-{{ readiness.readiness_band }}">{{ readiness.readiness_band|title }}</span>
+    </header>
+    <div class="card-body">
+      <p><strong>Release readiness:</strong> {{ readiness.status|title }}</p>
+      <div class="score-box">
+        <div class="score-number">{{ readiness.readiness_score }}</div>
+        <div class="score-band badge badge-{{ readiness.readiness_band }}">{{ readiness.readiness_band|title }}</div>
+      </div>
+      <div>
+        {% for item in readiness.score_breakdown %}
+          <div class="check-row">
+            <span class="check-icon">✔</span>
+            <span class="check-label">{{ item.label }}</span>
+            <span class="check-count">{{ item.score }} / 100 ({{ item.weight }}%)</span>
+          </div>
+        {% endfor %}
+      </div>
+      {% if readiness.blockers or readiness.warnings %}
+        <details>
+          <summary>Why?</summary>
+          {% if readiness.blockers %}
+            <p><strong>Blockers</strong></p>
+            <ul>
+              {% for item in readiness.blockers %}
+                <li>{{ item.message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% if readiness.warnings %}
+            <p><strong>Warnings</strong></p>
+            <ul>
+              {% for item in readiness.warnings %}
+                <li>{{ item.message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </details>
+      {% endif %}
+
+      <h3>Sections</h3>
+      {% for section in readiness.details.sections.sections %}
+        <div class="check-row">
+          <span class="check-icon">
+            {% if section.state == "completed" %}✔{% elif section.state == "draft" %}⚠{% elif section.state == "missing" %}⛔{% else %}○{% endif %}
+          </span>
+          <span class="check-label">{{ section.code }} — {{ section.title }}</span>
+          <span class="check-actions">
+            <a href="{{ section.edit_url }}">Edit</a>
+            <a href="{{ section.preview_url }}">Preview</a>
+          </span>
+        </div>
+      {% empty %}
+        <p>No sections configured.</p>
+      {% endfor %}
+      {% if readiness.details.sections.missing_required_sections %}
+        <p><strong>Missing required sections:</strong> {{ readiness.details.sections.missing_required_sections|join:", " }}</p>
+        {% if readiness.details.export_require_sections %}
+          <p><strong>Export would be blocked</strong> because required sections are missing.</p>
+        {% endif %}
+      {% endif %}
+      {% if readiness.details.sections.incomplete_required_sections %}
+        <p><strong>Incomplete required sections:</strong> {{ readiness.details.sections.incomplete_required_sections|join:", " }}</p>
+      {% endif %}
+      <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Open sections list</a></p>
+
+      <h3>Approvals</h3>
+      <div class="check-row">
+        <span class="check-icon">✅</span>
+        <span class="check-label">
+          Indicators:
+          <a href="{{ approvals_links.indicators }}">{{ readiness.details.approvals.indicators.approved }}/{{ readiness.details.approvals.indicators.total }}</a>
+        </span>
+      </div>
+      <div class="check-row">
+        <span class="check-icon">✅</span>
+        <span class="check-label">
+          Targets:
+          <a href="{{ approvals_links.targets }}">{{ readiness.details.approvals.targets.approved }}/{{ readiness.details.approvals.targets.total }}</a>
+        </span>
+      </div>
+      <div class="check-row">
+        <span class="check-icon">✅</span>
+        <span class="check-label">
+          Evidence:
+          <a href="{{ approvals_links.evidence }}">{{ readiness.details.approvals.evidence.approved }}/{{ readiness.details.approvals.evidence.total }}</a>
+        </span>
+      </div>
+      <div class="check-row">
+        <span class="check-icon">✅</span>
+        <span class="check-label">
+          Datasets:
+          <a href="{{ approvals_links.datasets }}">{{ readiness.details.approvals.datasets.approved }}/{{ readiness.details.approvals.datasets.total }}</a>
+        </span>
+      </div>
+      <p><a href="{{ approvals_url }}">Open approval workspace</a></p>
+
+      <h3>Consent</h3>
+      <div class="check-row">
+        <span class="check-icon">{% if readiness.counts.missing_consents %}⛔{% else %}✔{% endif %}</span>
+        <span class="check-label">Missing consent for approved IPLC records: {{ readiness.counts.missing_consents }}</span>
+      </div>
+      {% if readiness.counts.missing_consents %}
+        <p><strong>Export would be blocked</strong> until consent is granted.</p>
+      {% endif %}
+      <p><a href="{{ consent_url }}">Open consent workspace</a></p>
+
+      <h3>Action queue</h3>
+      {% if readiness.action_queue %}
+        <ul class="action-queue">
+          {% for item in readiness.action_queue %}
+            <li>
+              {% if item.severity == "BLOCKER" %}
+                <span class="badge badge-red">BLOCKER</span>
+              {% else %}
+                <span class="badge badge-amber">WARNING</span>
+              {% endif %}
+              <div class="action-details">
+                <strong>{{ item.title }}</strong>
+                <div class="muted">{{ item.details }}</div>
+                <div class="muted">Owner: {{ item.owner_hint }} • Affected: {{ item.count_affected }}</div>
+              </div>
+              {% if item.action_url %}
+                <div class="actions"><a href="{{ item.action_url }}">Fix</a></div>
+              {% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No blockers detected.</p>
+      {% endif %}
+
+      <h3>Freeze</h3>
+      <p><strong>Frozen:</strong> {% if instance.frozen_at %}Yes{% else %}No{% endif %}</p>
+      {% if instance.frozen_at %}
+        <p>This instance is frozen. Most edits and approvals are locked unless an admin override is used.</p>
+      {% endif %}
+    </div>
+  </section>
   <div class="card">
     {% if instance.frozen_at %}
       <p>This instance is frozen. Approvals are locked unless an admin override is used.</p>
@@ -25,6 +169,7 @@
         <button type="submit">Freeze instance</button>
       </form>
     {% endif %}
+    <p><a href="{% url 'nbms_app:reporting_instance_report_pack' instance.uuid %}">Generate PDF report pack</a> (not implemented)</p>
   </div>
   <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Report sections</a></p>
   <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>
