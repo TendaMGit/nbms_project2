@@ -104,6 +104,44 @@ class ApprovalDecision(models.TextChoices):
     REVOKED = "revoked", "Revoked"
 
 
+class ConsentStatus(models.TextChoices):
+    REQUIRED = "required", "Required"
+    GRANTED = "granted", "Granted"
+    DENIED = "denied", "Denied"
+    REVOKED = "revoked", "Revoked"
+
+
+class ConsentRecord(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_uuid = models.UUIDField()
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.SET_NULL,
+        related_name="consent_records",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=ConsentStatus.choices, default=ConsentStatus.REQUIRED)
+    granted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="consent_records",
+        blank=True,
+        null=True,
+    )
+    granted_at = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+    consent_document = models.FileField(upload_to="consent/", blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "content_type", "object_uuid"],
+                name="uq_consent_record",
+            ),
+        ]
+
 class InstanceExportApproval(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     reporting_instance = models.ForeignKey(
