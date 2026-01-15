@@ -10,9 +10,11 @@ from nbms_app.models import (
     Indicator,
     LifecycleStatus,
     NationalTarget,
+    SensitivityLevel,
 )
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT, user_has_role
+from nbms_app.services.consent import consent_is_granted
 from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
@@ -100,6 +102,28 @@ def build_export_payload(instance):
     }
 
 
+def _validate_consents(instance):
+    missing = []
+    checks = [
+        (NationalTarget, "code"),
+        (Indicator, "code"),
+        (Evidence, "title"),
+        (Dataset, "title"),
+        (DatasetRelease, "version"),
+    ]
+    for model, label_attr in checks:
+        queryset = approved_queryset(instance, model).filter(
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.IPLC_SENSITIVE,
+        )
+        for obj in queryset:
+            if not consent_is_granted(instance, obj):
+                label = getattr(obj, label_attr, None) or str(obj.uuid)
+                missing.append(f"{model.__name__}:{label}")
+    if missing:
+        raise ValidationError(f"Missing consent for: {', '.join(missing)}")
+
+
 def submit_export_for_review(package, user):
     if not user or not getattr(user, "is_authenticated", False):
         raise PermissionDenied("Authentication required.")
@@ -178,6 +202,7 @@ def release_export(package, user):
     _require_status(package, ExportStatus.APPROVED)
     if not package.reporting_instance:
         raise ValidationError("Reporting instance is required to release exports.")
+    _validate_consents(package.reporting_instance)
     payload = build_export_payload(package.reporting_instance)
     now = timezone.now()
     package.status = ExportStatus.RELEASED

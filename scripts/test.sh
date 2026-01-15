@@ -11,7 +11,10 @@ else
   PYTHON="$PYTHON_BIN"
 fi
 
-TEST_ARGS=("--noinput")
+TEST_ARGS=("--keepdb")
+if [ "${CI:-0}" = "1" ] || [ "${NOINPUT:-0}" = "1" ]; then
+  TEST_ARGS=("--noinput")
+fi
 if [ "${KEEPDB:-0}" = "1" ]; then
   TEST_ARGS=("--keepdb")
 fi

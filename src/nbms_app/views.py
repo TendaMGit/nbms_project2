@@ -41,10 +41,13 @@ from nbms_app.models import (
     Notification,
     InstanceExportApproval,
     ApprovalDecision,
+    ConsentStatus,
+    SensitivityLevel,
 )
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_CONTRIBUTOR,
+    ROLE_COMMUNITY_REPRESENTATIVE,
     ROLE_DATA_STEWARD,
     ROLE_INDICATOR_LEAD,
     ROLE_SECRETARIAT,
@@ -53,6 +56,7 @@ from nbms_app.services.authorization import (
     user_has_role,
 )
 from nbms_app.services.audit import record_audit_event
+from nbms_app.services.consent import consent_status_for_instance, set_consent_status
 from nbms_app.services.exports import approve_export, reject_export, release_export, submit_export_for_review
 from nbms_app.services.instance_approvals import (
     approve_for_instance,
@@ -285,6 +289,14 @@ def _status_allows_edit(obj, user):
     return True
 
 
+def _can_manage_consent(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if _is_admin_user(user):
+        return True
+    return user_has_role(user, ROLE_COMMUNITY_REPRESENTATIVE, ROLE_SECRETARIAT, ROLE_DATA_STEWARD)
+
+
 def _require_export_creator(user):
     if not user or not getattr(user, "is_authenticated", False):
         raise PermissionDenied("Authentication required.")
@@ -346,6 +358,14 @@ def _build_approval_items(queryset, approvals):
                 "approved": bool(approval and approval.decision == ApprovalDecision.APPROVED),
             }
         )
+    return items
+
+
+def _consent_items(queryset, instance):
+    items = []
+    for obj in queryset:
+        status = consent_status_for_instance(instance, obj)
+        items.append({"obj": obj, "status": status})
     return items
 
 
@@ -976,6 +996,71 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
         raise Http404()
 
     return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance.uuid)
+
+
+@login_required
+def reporting_instance_consent(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _can_manage_consent(request.user):
+        raise PermissionDenied("Not allowed to access consent workspace.")
+
+    def _consent_queryset(model):
+        queryset = filter_queryset_for_user(
+            model.objects.select_related("organisation", "created_by"),
+            request.user,
+        )
+        return queryset.filter(sensitivity=SensitivityLevel.IPLC_SENSITIVE)
+
+    context = {
+        "instance": instance,
+        "indicator_items": _consent_items(_consent_queryset(Indicator), instance),
+        "target_items": _consent_items(_consent_queryset(NationalTarget), instance),
+        "evidence_items": _consent_items(_consent_queryset(Evidence), instance),
+        "dataset_items": _consent_items(_consent_queryset(Dataset), instance),
+    }
+    return render(request, "nbms_app/reporting/instance_consent.html", context)
+
+
+@login_required
+def reporting_instance_consent_action(request, instance_uuid, obj_type, obj_uuid, action):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_consent", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _can_manage_consent(request.user):
+        raise PermissionDenied("Not allowed to manage consent.")
+
+    model_map = {
+        "indicator": Indicator,
+        "target": NationalTarget,
+        "evidence": Evidence,
+        "dataset": Dataset,
+    }
+    model = model_map.get(obj_type)
+    if not model:
+        raise Http404()
+
+    queryset = filter_queryset_for_user(
+        model.objects.select_related("organisation", "created_by"),
+        request.user,
+    ).filter(sensitivity=SensitivityLevel.IPLC_SENSITIVE)
+    obj = get_object_or_404(queryset, uuid=obj_uuid)
+    note = request.POST.get("note", "").strip()
+    document = request.FILES.get("consent_document")
+
+    if action == "grant":
+        set_consent_status(instance, obj, request.user, ConsentStatus.GRANTED, note=note, document=document)
+        messages.success(request, "Consent granted.")
+    elif action == "revoke":
+        set_consent_status(instance, obj, request.user, ConsentStatus.REVOKED, note=note, document=document)
+        messages.success(request, "Consent revoked.")
+    elif action == "deny":
+        set_consent_status(instance, obj, request.user, ConsentStatus.DENIED, note=note, document=document)
+        messages.success(request, "Consent denied.")
+    else:
+        raise Http404()
+
+    return redirect("nbms_app:reporting_instance_consent", instance_uuid=instance.uuid)
 
 
 @staff_member_required

@@ -27,5 +27,6 @@
     {% endif %}
   </div>
   <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>
+  <p><a href="{% url 'nbms_app:reporting_instance_consent' instance.uuid %}">Consent workspace</a></p>
   <p><a href="{% url 'nbms_app:reporting_cycle_detail' instance.cycle.uuid %}">Back to cycle</a></p>
 {% endblock %}
