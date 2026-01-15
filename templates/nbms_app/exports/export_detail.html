@@ -8,6 +8,32 @@
     <p><strong>Description:</strong> {{ package.description|default:"-" }}</p>
     <p><strong>Review note:</strong> {{ package.review_note|default:"-" }}</p>
   </div>
+  <div class="card">
+    <h2>Export Readiness</h2>
+    {% if readiness.blockers %}
+      <p><strong>Blockers</strong></p>
+      <ul>
+        {% for item in readiness.blockers %}
+          <li>{{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if readiness.warnings %}
+      <p><strong>Warnings</strong></p>
+      <ul>
+        {% for item in readiness.warnings %}
+          <li>{{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if readiness.details.instance_uuid %}
+      <p>
+        <a href="{% url 'nbms_app:reporting_instance_detail' readiness.details.instance_uuid %}">
+          Open reporting instance
+        </a>
+      </p>
+    {% endif %}
+  </div>
 
   <div class="card">
     {% if can_submit and package.status == "draft" %}

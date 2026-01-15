@@ -66,7 +66,7 @@ from nbms_app.services.instance_approvals import (
     can_approve_instance,
     revoke_for_instance,
 )
-from nbms_app.services.readiness import get_instance_readiness
+from nbms_app.services.readiness import get_export_package_readiness, get_instance_readiness
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.workflows import approve, reject
 
@@ -813,10 +813,17 @@ def export_package_detail(request, package_uuid):
     can_submit = package.created_by_id == request.user.id or user_has_role(request.user, ROLE_SECRETARIAT)
     can_review = user_has_role(request.user, ROLE_DATA_STEWARD, ROLE_SECRETARIAT) or request.user.is_staff
     can_release = user_has_role(request.user, ROLE_SECRETARIAT) or request.user.is_staff
+    readiness = get_export_package_readiness(package, request.user)
     return render(
         request,
         "nbms_app/exports/export_detail.html",
-        {"package": package, "can_submit": can_submit, "can_review": can_review, "can_release": can_release},
+        {
+            "package": package,
+            "can_submit": can_submit,
+            "can_review": can_review,
+            "can_release": can_release,
+            "readiness": readiness,
+        },
     )
 
 
