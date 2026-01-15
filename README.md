@@ -64,6 +64,9 @@ copy .env.example .env
 
 ```
 python manage.py migrate
+python manage.py bootstrap_roles
+python manage.py seed_report_templates
+python manage.py seed_validation_rules
 python manage.py runserver
 ```
 
@@ -100,4 +103,18 @@ Notes:
 ## Reporting
 
 - The “Download PDF pack” link is a placeholder and returns HTTP 501 until PDF generation is implemented.
+
+## Rulesets
+
+ValidationRuleSet controls which sections and metadata fields are required for readiness checks.
+The readiness service uses the active ruleset (by default `7NR_DEFAULT`).
+
+Seed defaults:
+
+```
+python manage.py seed_validation_rules
+```
+
+You can override the rules in the admin UI, but keep only one active ruleset unless you
+intentionally want multiple active configurations.
 
