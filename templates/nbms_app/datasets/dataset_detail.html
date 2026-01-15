@@ -8,71 +8,17 @@
     <p><strong>Description:</strong> {{ dataset.description|default:"-" }}</p>
     <p><strong>Methodology:</strong> {{ dataset.methodology|default:"-" }}</p>
     <p><strong>Source URL:</strong> {% if dataset.source_url %}<a href="{{ dataset.source_url }}">{{ dataset.source_url }}</a>{% else %}-{% endif %}</p>
+    {% if dataset.review_note %}
+      <p><strong>Review note:</strong> {{ dataset.review_note }}</p>
+    {% endif %}
     {% if can_edit %}
       <p><a href="{% url 'nbms_app:dataset_edit' dataset.uuid %}">Edit dataset</a></p>
     {% endif %}
   </div>
-  <section class="card readiness-card readiness-{{ readiness.status }}">
-    <header class="card-header">
-      <div class="card-title">
-        <span aria-hidden="true">🧾</span>
-        <h2>Compliance Panel</h2>
-      </div>
-      <span class="badge badge-{{ readiness.status }}">{{ readiness.status|title }}</span>
-    </header>
-    <div class="card-body">
-      <p><strong>Release readiness:</strong> {{ readiness.status|title }}</p>
-      <h3>Metadata checks</h3>
-      {% for check in readiness.checks %}
-        {% if check.key != "approval" and check.key != "consent" %}
-          <div class="check-row">
-            <span class="check-icon">
-              {% if check.state == "ok" %}✔{% elif check.state == "missing" %}⛔{% else %}⚠{% endif %}
-            </span>
-            <span class="check-label">{{ check.label }}</span>
-          </div>
-        {% endif %}
-      {% endfor %}
-      {% if readiness.details.linked_indicator_count %}
-        <p><strong>Used by indicators:</strong> {{ readiness.details.linked_indicator_count }}</p>
-        {% if readiness.details.linked_indicator_codes %}
-          <p class="muted">Examples: {{ readiness.details.linked_indicator_codes|join:", " }}</p>
-        {% endif %}
-      {% endif %}
-      {% if current_instance %}
-        <p><strong>Approved indicators (current instance):</strong> {{ readiness.details.approved_linked_indicator_count }}</p>
-      {% endif %}
-      {% if dataset.review_note %}
-        <p><strong>Review note:</strong> {{ dataset.review_note }}</p>
-      {% endif %}
-      <h3>Instance readiness</h3>
-      {% if current_instance %}
-        <p><strong>Current instance:</strong> {{ current_instance }}</p>
-        <div class="check-row">
-          <span class="check-icon">{% if readiness.details.approval_status == "approved" %}✔{% else %}⛔{% endif %}</span>
-          <span class="check-label">Approval: {{ readiness.details.approval_status|default:"not approved"|title }}</span>
-        </div>
-        <div class="check-row">
-          <span class="check-icon">
-            {% if readiness.details.consent_required %}
-              {% if readiness.details.consent_status == "granted" %}✔{% else %}⛔{% endif %}
-            {% else %}
-              ○
-            {% endif %}
-          </span>
-          <span class="check-label">Consent: {{ readiness.details.consent_status|default:"n/a"|title }}</span>
-        </div>
-        <div class="check-row">
-          <span class="check-icon">{% if readiness.details.eligible_for_export %}✔{% else %}⛔{% endif %}</span>
-          <span class="check-label">Eligible for export: {% if readiness.details.eligible_for_export %}Yes{% else %}No{% endif %}</span>
-        </div>
-        {% if approvals_url %}<p><a href="{{ approvals_url }}">Go to instance approvals</a></p>{% endif %}
-        {% if consent_url %}<p><a href="{{ consent_url }}">Go to consent workspace</a></p>{% endif %}
-      {% else %}
-        <p class="muted">Set a current reporting instance to see export readiness.</p>
-      {% endif %}
-    </div>
-  </section>
+  <h2>Compliance Panel</h2>
+  {% for card in readiness_cards %}
+    {% include "nbms_app/includes/readiness_card.html" with card=card %}
+  {% endfor %}
   <div class="card">
     <h2>Releases</h2>
     <ul>
