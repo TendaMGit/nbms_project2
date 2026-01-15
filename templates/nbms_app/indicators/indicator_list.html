@@ -1,11 +1,11 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Indicators</title>
-  </head>
-  <body>
-    <h1>Indicators</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Indicators{% endblock %}
+{% block content %}
+  <h1>Indicators</h1>
+  {% if can_create_indicator %}
+    <p><a href="{% url 'nbms_app:indicator_create' %}">Create Indicator</a></p>
+  {% endif %}
+  <div class="card">
     <ul>
       {% for indicator in indicators %}
         <li>
@@ -17,8 +17,13 @@
           {% endif %}
         </li>
       {% empty %}
-        <li>No indicators available.</li>
+        <li>
+          No indicators available.
+          {% if can_create_indicator %}
+            <a href="{% url 'nbms_app:indicator_create' %}">Create the first one</a>.
+          {% endif %}
+        </li>
       {% endfor %}
     </ul>
-  </body>
-</html>
+  </div>
+{% endblock %}

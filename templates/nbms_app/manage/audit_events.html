@@ -1,11 +1,8 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Audit events</title>
-  </head>
-  <body>
-    <h1>Audit events</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Audit Events{% endblock %}
+{% block content %}
+  <h1>Audit Events</h1>
+  <div class="card">
     <table>
       <thead>
         <tr>
@@ -32,5 +29,5 @@
         {% endfor %}
       </tbody>
     </table>
-  </body>
-</html>
+  </div>
+{% endblock %}

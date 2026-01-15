@@ -1,24 +1,23 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>{% if mode == "edit" %}Edit{% else %}New{% endif %} user</title>
-  </head>
-  <body>
-    <h1>{% if mode == "edit" %}Edit{% else %}New{% endif %} user</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}User{% endblock %}
+{% block content %}
+  <h1>{% if mode == "edit" %}Edit{% else %}New{% endif %} user</h1>
+  <div class="card">
     <form method="post">
       {% csrf_token %}
       {{ form.as_p }}
       <button type="submit">Save</button>
     </form>
+  </div>
 
-    {% if mode == "edit" and managed_user %}
+  {% if mode == "edit" and managed_user %}
+    <div class="card">
       <form method="post" action="{% url 'nbms_app:manage_user_send_reset' managed_user.id %}">
         {% csrf_token %}
         <button type="submit">Send password reset</button>
       </form>
-    {% endif %}
+    </div>
+  {% endif %}
 
-    <p><a href="{% url 'nbms_app:manage_user_list' %}">Back to list</a></p>
-  </body>
-</html>
+  <p><a href="{% url 'nbms_app:manage_user_list' %}">Back to list</a></p>
+{% endblock %}

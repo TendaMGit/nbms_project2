@@ -10,11 +10,14 @@ from django.core.files.storage import default_storage
 from django.db import connections
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 
 from nbms_app.forms import (
     DatasetForm,
     EvidenceForm,
     ExportPackageForm,
+    IndicatorForm,
+    NationalTargetForm,
     OrganisationForm,
     UserCreateForm,
     UserUpdateForm,
@@ -29,8 +32,10 @@ from nbms_app.models import (
     NationalTarget,
     Organisation,
     User,
+    Notification,
 )
 from nbms_app.services.authorization import (
+    ROLE_ADMIN,
     ROLE_CONTRIBUTOR,
     ROLE_DATA_STEWARD,
     ROLE_INDICATOR_LEAD,
@@ -47,7 +52,174 @@ logger = logging.getLogger(__name__)
 
 
 def home(request):
-    return render(request, "nbms_app/home.html")
+    indicators_qs = filter_queryset_for_user(
+        Indicator.objects.select_related("organisation", "created_by", "national_target"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    targets_qs = filter_queryset_for_user(
+        NationalTarget.objects.select_related("organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    evidence_qs = filter_queryset_for_user(
+        Evidence.objects.select_related("organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_evidence",
+    )
+    datasets_qs = filter_queryset_for_user(
+        Dataset.objects.select_related("organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_dataset",
+    )
+    export_qs = _export_queryset_for_user(request.user)
+
+    counts = {
+        "indicators": indicators_qs.count(),
+        "targets": targets_qs.count(),
+        "evidence": evidence_qs.count(),
+        "datasets": datasets_qs.count(),
+        "exports": export_qs.count(),
+    }
+
+    my_drafts = []
+    if request.user.is_authenticated:
+        my_drafts.extend(
+            _build_items(
+                targets_qs.filter(created_by=request.user, status=LifecycleStatus.DRAFT),
+                "National Target",
+                "nbms_app:national_target_detail",
+                url_param="target_uuid",
+            )
+        )
+        my_drafts.extend(
+            _build_items(
+                indicators_qs.filter(created_by=request.user, status=LifecycleStatus.DRAFT),
+                "Indicator",
+                "nbms_app:indicator_detail",
+                url_param="indicator_uuid",
+            )
+        )
+        my_drafts.extend(
+            _build_items(
+                evidence_qs.filter(created_by=request.user, status=LifecycleStatus.DRAFT),
+                "Evidence",
+                "nbms_app:evidence_detail",
+                url_param="evidence_uuid",
+            )
+        )
+        my_drafts.extend(
+            _build_items(
+                datasets_qs.filter(created_by=request.user, status=LifecycleStatus.DRAFT),
+                "Dataset",
+                "nbms_app:dataset_detail",
+                url_param="dataset_uuid",
+            )
+        )
+        my_drafts.extend(
+            _build_items(
+                export_qs.filter(created_by=request.user, status=ExportStatus.DRAFT),
+                "Export Package",
+                "nbms_app:export_package_detail",
+                url_param="package_uuid",
+            )
+        )
+        my_drafts.sort(key=lambda item: item["updated_at"], reverse=True)
+
+    pending_review = []
+    if request.user.is_staff:
+        pending_review.extend(
+            _build_items(
+                NationalTarget.objects.filter(status=LifecycleStatus.PENDING_REVIEW).select_related("created_by"),
+                "National Target",
+                "nbms_app:review_detail",
+                url_kwargs={"obj_type": "target"},
+            )
+        )
+        pending_review.extend(
+            _build_items(
+                Indicator.objects.filter(status=LifecycleStatus.PENDING_REVIEW).select_related("created_by"),
+                "Indicator",
+                "nbms_app:review_detail",
+                url_kwargs={"obj_type": "indicator"},
+            )
+        )
+        pending_review.extend(
+            _build_items(
+                Evidence.objects.filter(status=LifecycleStatus.PENDING_REVIEW).select_related("created_by"),
+                "Evidence",
+                "nbms_app:evidence_detail",
+                url_param="evidence_uuid",
+            )
+        )
+        pending_review.extend(
+            _build_items(
+                Dataset.objects.filter(status=LifecycleStatus.PENDING_REVIEW).select_related("created_by"),
+                "Dataset",
+                "nbms_app:dataset_detail",
+                url_param="dataset_uuid",
+            )
+        )
+        pending_review.extend(
+            _build_items(
+                ExportPackage.objects.filter(status=ExportStatus.PENDING_REVIEW).select_related("created_by"),
+                "Export Package",
+                "nbms_app:export_package_detail",
+                url_param="package_uuid",
+            )
+        )
+        pending_review.sort(key=lambda item: item["updated_at"], reverse=True)
+
+    recently_published = []
+    recently_published.extend(
+        _build_items(
+            targets_qs.filter(status=LifecycleStatus.PUBLISHED),
+            "National Target",
+            "nbms_app:national_target_detail",
+            url_param="target_uuid",
+        )
+    )
+    recently_published.extend(
+        _build_items(
+            indicators_qs.filter(status=LifecycleStatus.PUBLISHED),
+            "Indicator",
+            "nbms_app:indicator_detail",
+            url_param="indicator_uuid",
+        )
+    )
+    recently_published.extend(
+        _build_items(
+            evidence_qs.filter(status=LifecycleStatus.PUBLISHED),
+            "Evidence",
+            "nbms_app:evidence_detail",
+            url_param="evidence_uuid",
+        )
+    )
+    recently_published.extend(
+        _build_items(
+            datasets_qs.filter(status=LifecycleStatus.PUBLISHED),
+            "Dataset",
+            "nbms_app:dataset_detail",
+            url_param="dataset_uuid",
+        )
+    )
+    recently_published.sort(key=lambda item: item["updated_at"], reverse=True)
+
+    unread_notifications = 0
+    if request.user.is_authenticated:
+        unread_notifications = Notification.objects.filter(recipient=request.user, is_read=False).count()
+
+    context = {
+        "counts": counts,
+        "my_drafts": my_drafts[:8],
+        "pending_review": pending_review[:8],
+        "recently_published": recently_published[:8],
+        "can_create_evidence": _can_create_data(request.user),
+        "can_create_dataset": _can_create_data(request.user),
+        "can_create_export": _can_create_export(request.user),
+        "unread_notifications": unread_notifications,
+    }
+    return render(request, "nbms_app/home.html", context)
 
 
 def health_db(request):
@@ -74,11 +246,29 @@ def health_storage(request):
 def _require_contributor(user):
     if not user or not getattr(user, "is_authenticated", False):
         raise PermissionDenied("Authentication required.")
-    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+    if _is_admin_user(user):
         return
     if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD, ROLE_CONTRIBUTOR):
         return
     raise PermissionDenied("Not allowed to manage records.")
+
+
+def _can_create_data(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return True
+    return user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD, ROLE_CONTRIBUTOR)
+
+
+def _is_admin_user(user):
+    return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
+
+
+def _status_allows_edit(obj, user):
+    if obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED} and not _is_admin_user(user):
+        return False
+    return True
 
 
 def _require_export_creator(user):
@@ -89,6 +279,14 @@ def _require_export_creator(user):
     if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD):
         return
     raise PermissionDenied("Not allowed to manage exports.")
+
+
+def _can_create_export(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return True
+    return user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD)
 
 
 def _export_queryset_for_user(user):
@@ -102,6 +300,25 @@ def _export_queryset_for_user(user):
         if org_id:
             return packages.filter(organisation_id=org_id)
     return packages.filter(created_by=user)
+
+
+def _build_items(queryset, label, url_name, url_param="obj_uuid", url_kwargs=None):
+    items = []
+    url_kwargs = url_kwargs or {}
+    for obj in queryset.order_by("-updated_at")[:10]:
+        kwargs = {url_param: obj.uuid}
+        if "obj_type" in url_kwargs:
+            kwargs = {"obj_type": url_kwargs["obj_type"], "obj_uuid": obj.uuid}
+        items.append(
+            {
+                "label": label,
+                "title": getattr(obj, "title", None) or getattr(obj, "code", None) or str(obj),
+                "url": reverse(url_name, kwargs=kwargs),
+                "updated_at": obj.updated_at,
+                "status": getattr(obj, "status", ""),
+            }
+        )
+    return items
 
 
 @staff_member_required
@@ -209,7 +426,11 @@ def national_target_list(request):
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
-    return render(request, "nbms_app/targets/nationaltarget_list.html", {"targets": targets})
+    return render(
+        request,
+        "nbms_app/targets/nationaltarget_list.html",
+        {"targets": targets, "can_create_target": _can_create_data(request.user)},
+    )
 
 
 def national_target_detail(request, target_uuid):
@@ -219,7 +440,56 @@ def national_target_detail(request, target_uuid):
         perm="nbms_app.view_nationaltarget",
     )
     target = get_object_or_404(targets, uuid=target_uuid)
-    return render(request, "nbms_app/targets/nationaltarget_detail.html", {"target": target})
+    can_edit = can_edit_object(request.user, target) and _status_allows_edit(target, request.user)
+    return render(
+        request,
+        "nbms_app/targets/nationaltarget_detail.html",
+        {"target": target, "can_edit": can_edit},
+    )
+
+
+@login_required
+def national_target_create(request):
+    _require_contributor(request.user)
+    form = NationalTargetForm(request.POST or None)
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        target = form.save(commit=False)
+        if not target.created_by:
+            target.created_by = request.user
+        if not target.organisation and getattr(request.user, "organisation", None):
+            target.organisation = request.user.organisation
+        target.save()
+        messages.success(request, "National target created.")
+        return redirect("nbms_app:national_target_detail", target_uuid=target.uuid)
+    return render(request, "nbms_app/targets/nationaltarget_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def national_target_edit(request, target_uuid):
+    targets = filter_queryset_for_user(
+        NationalTarget.objects.select_related("organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    if not can_edit_object(request.user, target):
+        raise PermissionDenied("Not allowed to edit this national target.")
+    if not _status_allows_edit(target, request.user):
+        raise PermissionDenied("National target cannot be edited at this status.")
+    form = NationalTargetForm(request.POST or None, instance=target)
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "National target updated.")
+        return redirect("nbms_app:national_target_detail", target_uuid=target.uuid)
+    return render(
+        request,
+        "nbms_app/targets/nationaltarget_form.html",
+        {"form": form, "mode": "edit", "target": target},
+    )
 
 
 def indicator_list(request):
@@ -228,7 +498,11 @@ def indicator_list(request):
         request.user,
         perm="nbms_app.view_indicator",
     )
-    return render(request, "nbms_app/indicators/indicator_list.html", {"indicators": indicators})
+    return render(
+        request,
+        "nbms_app/indicators/indicator_list.html",
+        {"indicators": indicators, "can_create_indicator": _can_create_data(request.user)},
+    )
 
 
 def indicator_detail(request, indicator_uuid):
@@ -238,7 +512,66 @@ def indicator_detail(request, indicator_uuid):
         perm="nbms_app.view_indicator",
     )
     indicator = get_object_or_404(indicators, uuid=indicator_uuid)
-    return render(request, "nbms_app/indicators/indicator_detail.html", {"indicator": indicator})
+    can_edit = can_edit_object(request.user, indicator) and _status_allows_edit(indicator, request.user)
+    return render(
+        request,
+        "nbms_app/indicators/indicator_detail.html",
+        {"indicator": indicator, "can_edit": can_edit},
+    )
+
+
+@login_required
+def indicator_create(request):
+    _require_contributor(request.user)
+    form = IndicatorForm(request.POST or None)
+    form.fields["national_target"].queryset = filter_queryset_for_user(
+        NationalTarget.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        indicator = form.save(commit=False)
+        if not indicator.created_by:
+            indicator.created_by = request.user
+        if not indicator.organisation and getattr(request.user, "organisation", None):
+            indicator.organisation = request.user.organisation
+        indicator.save()
+        messages.success(request, "Indicator created.")
+        return redirect("nbms_app:indicator_detail", indicator_uuid=indicator.uuid)
+    return render(request, "nbms_app/indicators/indicator_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def indicator_edit(request, indicator_uuid):
+    indicators = filter_queryset_for_user(
+        Indicator.objects.select_related("national_target", "organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    if not can_edit_object(request.user, indicator):
+        raise PermissionDenied("Not allowed to edit this indicator.")
+    if not _status_allows_edit(indicator, request.user):
+        raise PermissionDenied("Indicator cannot be edited at this status.")
+    form = IndicatorForm(request.POST or None, instance=indicator)
+    form.fields["national_target"].queryset = filter_queryset_for_user(
+        NationalTarget.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    if not request.user.is_staff:
+        form.fields["organisation"].disabled = True
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Indicator updated.")
+        return redirect("nbms_app:indicator_detail", indicator_uuid=indicator.uuid)
+    return render(
+        request,
+        "nbms_app/indicators/indicator_form.html",
+        {"form": form, "mode": "edit", "indicator": indicator},
+    )
 
 
 def evidence_list(request):

@@ -1,14 +1,11 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Datasets</title>
-  </head>
-  <body>
-    <h1>Datasets</h1>
-    {% if user.is_authenticated %}
-      <p><a href="{% url 'nbms_app:dataset_create' %}">Create dataset</a></p>
-    {% endif %}
+{% extends "nbms_app/base.html" %}
+{% block title %}Datasets{% endblock %}
+{% block content %}
+  <h1>Datasets</h1>
+  {% if user.is_authenticated %}
+    <p><a href="{% url 'nbms_app:dataset_create' %}">Create dataset</a></p>
+  {% endif %}
+  <div class="card">
     <ul>
       {% for dataset in datasets %}
         <li>
@@ -19,5 +16,5 @@
         <li>No datasets available.</li>
       {% endfor %}
     </ul>
-  </body>
-</html>
+  </div>
+{% endblock %}

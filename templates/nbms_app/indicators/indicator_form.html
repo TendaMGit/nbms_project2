@@ -1,7 +1,7 @@
 {% extends "nbms_app/base.html" %}
-{% block title %}Export Package{% endblock %}
+{% block title %}Indicator{% endblock %}
 {% block content %}
-  <h1>Create export package</h1>
+  <h1>{% if mode == "edit" %}Edit{% else %}Create{% endif %} indicator</h1>
   <div class="card">
     <form method="post">
       {% csrf_token %}
@@ -9,5 +9,5 @@
       <button type="submit">Save</button>
     </form>
   </div>
-  <p><a href="{% url 'nbms_app:export_package_list' %}">Back to list</a></p>
+  <p><a href="{% url 'nbms_app:indicator_list' %}">Back to list</a></p>
 {% endblock %}

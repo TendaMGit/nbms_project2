@@ -5,7 +5,7 @@ from django.conf import settings
 from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
 
-from nbms_app.models import Dataset, Evidence, ExportPackage, Organisation, User
+from nbms_app.models import Dataset, Evidence, ExportPackage, Indicator, NationalTarget, Organisation, User
 from nbms_app.roles import get_canonical_groups_queryset
 
 
@@ -114,6 +114,30 @@ class DatasetForm(forms.ModelForm):
             "description",
             "methodology",
             "source_url",
+            "organisation",
+            "sensitivity",
+        ]
+
+
+class IndicatorForm(forms.ModelForm):
+    class Meta:
+        model = Indicator
+        fields = [
+            "code",
+            "title",
+            "national_target",
+            "organisation",
+            "sensitivity",
+        ]
+
+
+class NationalTargetForm(forms.ModelForm):
+    class Meta:
+        model = NationalTarget
+        fields = [
+            "code",
+            "title",
+            "description",
             "organisation",
             "sensitivity",
         ]

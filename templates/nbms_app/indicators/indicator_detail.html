@@ -1,16 +1,13 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>{{ indicator.code }} - {{ indicator.title }}</title>
-  </head>
-  <body>
-    <h1>{{ indicator.code }} - {{ indicator.title }}</h1>
-    {% if indicator.national_target %}
-      <p>Target: {{ indicator.national_target.code }} - {{ indicator.national_target.title }}</p>
+{% extends "nbms_app/base.html" %}
+{% block title %}Indicator{% endblock %}
+{% block content %}
+  <h1>{{ indicator.code }} - {{ indicator.title }}</h1>
+  <div class="card">
+    <p><strong>Status:</strong> {{ indicator.status }}</p>
+    <p><strong>Sensitivity:</strong> {{ indicator.sensitivity }}</p>
+    <p><strong>National target:</strong> {{ indicator.national_target }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:indicator_edit' indicator.uuid %}">Edit indicator</a></p>
     {% endif %}
-    <p>Status: {{ indicator.status }}</p>
-    <p>Sensitivity: {{ indicator.sensitivity }}</p>
-    <p><a href="{% url 'nbms_app:indicator_list' %}">Back to list</a></p>
-  </body>
-</html>
+  </div>
+{% endblock %}

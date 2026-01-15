@@ -1,12 +1,9 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Export packages</title>
-  </head>
-  <body>
-    <h1>Export packages</h1>
-    <p><a href="{% url 'nbms_app:export_package_create' %}">Create export package</a></p>
+{% extends "nbms_app/base.html" %}
+{% block title %}Export Packages{% endblock %}
+{% block content %}
+  <h1>Export Packages</h1>
+  <p><a href="{% url 'nbms_app:export_package_create' %}">Create export package</a></p>
+  <div class="card">
     <ul>
       {% for package in packages %}
         <li>
@@ -17,5 +14,5 @@
         <li>No export packages yet.</li>
       {% endfor %}
     </ul>
-  </body>
-</html>
+  </div>
+{% endblock %}

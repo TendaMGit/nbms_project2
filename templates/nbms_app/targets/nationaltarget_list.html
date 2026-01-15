@@ -1,11 +1,11 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>National Targets</title>
-  </head>
-  <body>
-    <h1>National Targets</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}National Targets{% endblock %}
+{% block content %}
+  <h1>National Targets</h1>
+  {% if can_create_target %}
+    <p><a href="{% url 'nbms_app:national_target_create' %}">Create National Target</a></p>
+  {% endif %}
+  <div class="card">
     <ul>
       {% for target in targets %}
         <li>
@@ -14,8 +14,13 @@
           </a>
         </li>
       {% empty %}
-        <li>No targets available.</li>
+        <li>
+          No national targets available.
+          {% if can_create_target %}
+            <a href="{% url 'nbms_app:national_target_create' %}">Create the first one</a>.
+          {% endif %}
+        </li>
       {% endfor %}
     </ul>
-  </body>
-</html>
+  </div>
+{% endblock %}

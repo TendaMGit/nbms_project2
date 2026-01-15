@@ -1,31 +1,32 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Review {{ obj.code }}</title>
-  </head>
-  <body>
-    <h1>Review {{ obj.code }} - {{ obj.title }}</h1>
+{% extends "nbms_app/base.html" %}
+{% block title %}Review{% endblock %}
+{% block content %}
+  <h1>Review {{ obj.code }} - {{ obj.title }}</h1>
+  <div class="card">
     <p>Status: {{ obj.status }}</p>
     <p>Sensitivity: {{ obj.sensitivity }}</p>
     {% if obj.review_note %}
       <p>Review note: {{ obj.review_note }}</p>
     {% endif %}
+  </div>
 
+  <div class="card">
     <form method="post" action="{% url 'nbms_app:review_action' obj_type obj.uuid 'approve' %}">
       {% csrf_token %}
       <label for="note">Approval note</label>
       <textarea name="note" id="note"></textarea>
       <button type="submit">Approve</button>
     </form>
+  </div>
 
+  <div class="card">
     <form method="post" action="{% url 'nbms_app:review_action' obj_type obj.uuid 'reject' %}">
       {% csrf_token %}
       <label for="note_reject">Rejection note</label>
       <textarea name="note" id="note_reject" required></textarea>
       <button type="submit">Reject</button>
     </form>
+  </div>
 
-    <p><a href="{% url 'nbms_app:review_queue' %}">Back to queue</a></p>
-  </body>
-</html>
+  <p><a href="{% url 'nbms_app:review_queue' %}">Back to queue</a></p>
+{% endblock %}
