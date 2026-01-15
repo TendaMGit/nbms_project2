@@ -1035,6 +1035,133 @@ def reporting_instance_detail(request, instance_uuid):
         "evidence": f"{approvals_base}?{urlencode({'obj_type': 'evidence'})}",
         "datasets": f"{approvals_base}?{urlencode({'obj_type': 'datasets'})}",
     }
+    missing_required = readiness["details"]["sections"]["missing_required_sections"]
+    incomplete_required = readiness["details"]["sections"]["incomplete_required_sections"]
+    sections_band = "green"
+    if missing_required:
+        sections_band = "red" if settings.EXPORT_REQUIRE_SECTIONS else "amber"
+    elif incomplete_required:
+        sections_band = "amber"
+
+    approvals = readiness["details"]["approvals"]
+    approvals_pending = any(item["pending"] for item in approvals.values())
+    approvals_band = "amber" if approvals_pending else "green"
+
+    consent_missing = readiness["counts"]["missing_consents"]
+    consent_band = "red" if consent_missing else "green"
+
+    export_band = readiness["status"]
+    export_checks = []
+    for item in readiness["blockers"]:
+        export_checks.append({"label": item["message"], "state": "blocked"})
+    for item in readiness["warnings"]:
+        export_checks.append({"label": item["message"], "state": "warning"})
+
+    sections_checks = []
+    for section in section_items:
+        sections_checks.append(
+            {
+                "label": f"{section['code']} — {section['title']}",
+                "state": section["state"],
+                "actions": [
+                    {"label": "Edit", "url": section["edit_url"]},
+                    {"label": "Preview", "url": section["preview_url"]},
+                ],
+            }
+        )
+
+    approvals_checks = [
+        {
+            "label": "Indicators approved",
+            "state": "ok" if approvals["indicators"]["pending"] == 0 else "incomplete",
+            "count": f"{approvals['indicators']['approved']}/{approvals['indicators']['total']}",
+            "action_url": approvals_links["indicators"],
+        },
+        {
+            "label": "Targets approved",
+            "state": "ok" if approvals["targets"]["pending"] == 0 else "incomplete",
+            "count": f"{approvals['targets']['approved']}/{approvals['targets']['total']}",
+            "action_url": approvals_links["targets"],
+        },
+        {
+            "label": "Evidence approved",
+            "state": "ok" if approvals["evidence"]["pending"] == 0 else "incomplete",
+            "count": f"{approvals['evidence']['approved']}/{approvals['evidence']['total']}",
+            "action_url": approvals_links["evidence"],
+        },
+        {
+            "label": "Datasets approved",
+            "state": "ok" if approvals["datasets"]["pending"] == 0 else "incomplete",
+            "count": f"{approvals['datasets']['approved']}/{approvals['datasets']['total']}",
+            "action_url": approvals_links["datasets"],
+        },
+    ]
+
+    readiness_cards = [
+        {
+            "title": "Readiness Score",
+            "icon": "instance",
+            "band": readiness["readiness_band"],
+            "band_label": readiness["readiness_band"],
+            "score": readiness["readiness_score"],
+            "score_breakdown": readiness["score_breakdown"],
+        },
+        {
+            "title": "Sections completeness",
+            "icon": "sections",
+            "band": sections_band,
+            "band_label": sections_band,
+            "checks": sections_checks,
+            "message": (
+                "Missing required sections: "
+                + ", ".join(missing_required)
+                if missing_required
+                else "Incomplete required sections: " + ", ".join(incomplete_required)
+                if incomplete_required
+                else ""
+            ),
+            "footer_actions": [
+                {"label": "Open sections list", "url": reverse("nbms_app:reporting_instance_sections", kwargs={"instance_uuid": instance.uuid})}
+            ],
+        },
+        {
+            "title": "Approvals",
+            "icon": "approvals",
+            "band": approvals_band,
+            "band_label": approvals_band,
+            "checks": approvals_checks,
+            "footer_actions": [{"label": "Open approval workspace", "url": approvals_base}],
+        },
+        {
+            "title": "Consent",
+            "icon": "consent",
+            "band": consent_band,
+            "band_label": consent_band,
+            "checks": [
+                {
+                    "label": "Missing consent for approved IPLC records",
+                    "state": "blocked" if consent_missing else "ok",
+                    "count": consent_missing,
+                    "action_url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
+                }
+            ],
+        },
+        {
+            "title": "Export readiness",
+            "icon": "export",
+            "band": export_band,
+            "band_label": export_band,
+            "checks": export_checks or [{"label": "No export blockers detected.", "state": "ok"}],
+        },
+        {
+            "title": "Action queue",
+            "icon": "warning",
+            "band": readiness["status"],
+            "band_label": readiness["status"],
+            "queue": readiness.get("top_10_actions", []),
+            "message": "No blockers detected." if not readiness.get("top_10_actions") else "",
+        },
+    ]
     return render(
         request,
         "nbms_app/reporting/instance_detail.html",
@@ -1045,6 +1172,7 @@ def reporting_instance_detail(request, instance_uuid):
             "approvals_url": approvals_base,
             "approvals_links": approvals_links,
             "consent_url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
+            "readiness_cards": readiness_cards,
         },
     )
 

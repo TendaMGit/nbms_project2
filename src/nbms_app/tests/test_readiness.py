@@ -82,8 +82,8 @@ class ReadinessTests(TestCase):
         self.assertEqual(readiness["status"], "red")
         self.assertTrue(readiness["blockers"])
         self.assertIn("readiness_score", readiness)
-        self.assertTrue(readiness["action_queue"])
-        self.assertEqual(readiness["action_queue"][0]["title"], "Missing required sections")
+        self.assertTrue(readiness["top_10_actions"])
+        self.assertEqual(readiness["top_10_actions"][0]["title"], "Missing required sections")
 
         ReportSectionResponse.objects.create(
             reporting_instance=self.instance,

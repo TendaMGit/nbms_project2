@@ -2,7 +2,9 @@
   <header class="card-header">
     <div class="card-title">
       {% if card.icon %}
-        <span aria-hidden="true">{{ card.icon }}</span>
+        <span aria-hidden="true">
+          {% if card.icon == "instance" %}📋{% elif card.icon == "sections" %}🧾{% elif card.icon == "approvals" %}✅{% elif card.icon == "consent" %}🛡️{% elif card.icon == "export" %}📦{% elif card.icon == "audit" %}🕵️{% elif card.icon == "notifications" %}🔔{% elif card.icon == "warning" %}⚠️{% elif card.icon == "blocked" %}⛔{% else %}{{ card.icon }}{% endif %}
+        </span>
       {% endif %}
       <h2>{{ card.title }}</h2>
     </div>
@@ -39,7 +41,13 @@
           {% if check.count is not None %}
             <span class="check-count">{{ check.count }}</span>
           {% endif %}
-          {% if check.action_url %}
+          {% if check.actions %}
+            <span class="check-actions">
+              {% for action in check.actions %}
+                <a href="{{ action.url }}">{{ action.label }}</a>
+              {% endfor %}
+            </span>
+          {% elif check.action_url %}
             <span class="check-actions"><a href="{{ check.action_url }}">Fix</a></span>
           {% endif %}
         </div>
