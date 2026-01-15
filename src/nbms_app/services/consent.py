@@ -16,14 +16,32 @@ def consent_is_granted(instance, obj):
         content_type=content_type,
         object_uuid=obj.uuid,
         status=ConsentStatus.GRANTED,
-    ).filter(
-        reporting_instance=instance
+        reporting_instance=instance,
     ).exists() or ConsentRecord.objects.filter(
         content_type=content_type,
         object_uuid=obj.uuid,
         status=ConsentStatus.GRANTED,
         reporting_instance__isnull=True,
     ).exists()
+
+
+def consent_status_for_instance(instance, obj):
+    content_type = ContentType.objects.get_for_model(obj.__class__)
+    record = ConsentRecord.objects.filter(
+        content_type=content_type,
+        object_uuid=obj.uuid,
+        reporting_instance=instance,
+    ).first()
+    if record:
+        return record.status
+    record = ConsentRecord.objects.filter(
+        content_type=content_type,
+        object_uuid=obj.uuid,
+        reporting_instance__isnull=True,
+    ).first()
+    if record:
+        return record.status
+    return ConsentStatus.REQUIRED
 
 
 def set_consent_status(instance, obj, user, status, note="", document=None):

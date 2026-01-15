@@ -67,6 +67,16 @@ urlpatterns = [
         name="reporting_instance_approval_action",
     ),
     path(
+        "reporting/instances/<uuid:instance_uuid>/consent/",
+        views.reporting_instance_consent,
+        name="reporting_instance_consent",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/consent/<str:obj_type>/<uuid:obj_uuid>/<str:action>/",
+        views.reporting_instance_consent_action,
+        name="reporting_instance_consent_action",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/freeze/",
         views.reporting_instance_freeze,
         name="reporting_instance_freeze",
