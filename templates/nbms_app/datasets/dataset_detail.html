@@ -13,27 +13,40 @@
     {% endif %}
   </div>
   <div class="card">
-    <h2>Readiness</h2>
+    <h2>Compliance Panel</h2>
+    <p><strong>Release readiness:</strong> {{ readiness.status|title }}</p>
+    <h3>Metadata checks</h3>
+    <ul>
+      {% for check in readiness.checks %}
+        {% if check.key != "approval" and check.key != "consent" %}
+          <li>{{ check.label }}: {{ check.state|title }}</li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+    {% if readiness.details.linked_indicator_count %}
+      <p><strong>Used by indicators:</strong> {{ readiness.details.linked_indicator_count }}</p>
+      {% if readiness.details.linked_indicator_codes %}
+        <p class="muted">Examples: {{ readiness.details.linked_indicator_codes|join:", " }}</p>
+      {% endif %}
+    {% endif %}
+    {% if current_instance %}
+      <p><strong>Approved indicators (current instance):</strong> {{ readiness.details.approved_linked_indicator_count }}</p>
+    {% endif %}
+    {% if dataset.review_note %}
+      <p><strong>Review note:</strong> {{ dataset.review_note }}</p>
+    {% endif %}
+    <h3>Instance readiness</h3>
     {% if current_instance %}
       <p><strong>Current instance:</strong> {{ current_instance }}</p>
+      <ul>
+        <li>Approval: {{ readiness.details.approval_status|default:"not approved"|title }}</li>
+        <li>Consent: {{ readiness.details.consent_status|default:"n/a"|title }}</li>
+        <li>Eligible for export: {% if readiness.details.eligible_for_export %}Yes{% else %}No{% endif %}</li>
+      </ul>
+      {% if approvals_url %}<p><a href="{{ approvals_url }}">Go to instance approvals</a></p>{% endif %}
+      {% if consent_url %}<p><a href="{{ consent_url }}">Go to consent workspace</a></p>{% endif %}
     {% else %}
       <p class="muted">Set a current reporting instance to see export readiness.</p>
-    {% endif %}
-    {% if readiness.blockers %}
-      <p><strong>Blockers</strong></p>
-      <ul>
-        {% for item in readiness.blockers %}
-          <li>{{ item.message }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-    {% if readiness.warnings %}
-      <p><strong>Warnings</strong></p>
-      <ul>
-        {% for item in readiness.warnings %}
-          <li>{{ item.message }}</li>
-        {% endfor %}
-      </ul>
     {% endif %}
   </div>
   <div class="card">

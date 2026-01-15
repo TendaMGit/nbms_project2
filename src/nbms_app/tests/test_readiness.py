@@ -77,6 +77,7 @@ class ReadinessTests(TestCase):
         approve_for_instance(self.instance, target, self.staff, admin_override=True)
         readiness = get_instance_readiness(self.instance, self.staff)
         self.assertFalse(readiness["ok"])
+        self.assertEqual(readiness["status"], "red")
         self.assertTrue(readiness["blockers"])
 
         ReportSectionResponse.objects.create(
@@ -88,6 +89,26 @@ class ReadinessTests(TestCase):
         set_consent_status(self.instance, target, self.staff, ConsentStatus.GRANTED)
         readiness = get_instance_readiness(self.instance, self.staff)
         self.assertTrue(readiness["ok"])
+        self.assertEqual(readiness["status"], "green")
+
+    def test_instance_readiness_abac_counts(self):
+        other_org = Organisation.objects.create(name="Org B")
+        other_user = User.objects.create_user(
+            username="other",
+            password="pass1234",
+            organisation=other_org,
+        )
+        target = NationalTarget.objects.create(
+            code="NT-OTHER",
+            title="Target Other",
+            organisation=other_org,
+            created_by=other_user,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.INTERNAL,
+        )
+        approve_for_instance(self.instance, target, self.staff, admin_override=True)
+        readiness = get_instance_readiness(self.instance, self.reviewer)
+        self.assertEqual(readiness["details"]["approvals"]["targets"]["total"], 0)
 
     def test_indicator_readiness_blocker_and_ok(self):
         target = NationalTarget.objects.create(
@@ -115,6 +136,7 @@ class ReadinessTests(TestCase):
         approve_for_instance(self.instance, indicator, self.staff)
         readiness = get_indicator_readiness(indicator, self.staff, instance=self.instance)
         self.assertTrue(readiness["ok"])
+        self.assertEqual(readiness["status"], "amber")
 
     def test_target_readiness_blocker_and_ok(self):
         target = NationalTarget.objects.create(
@@ -133,6 +155,7 @@ class ReadinessTests(TestCase):
         approve_for_instance(self.instance, target, self.staff)
         readiness = get_target_readiness(target, self.staff, instance=self.instance)
         self.assertTrue(readiness["ok"])
+        self.assertEqual(readiness["status"], "amber")
 
     def test_evidence_readiness_blocker_and_ok(self):
         evidence = Evidence.objects.create(
@@ -150,6 +173,7 @@ class ReadinessTests(TestCase):
         approve_for_instance(self.instance, evidence, self.staff)
         readiness = get_evidence_readiness(evidence, self.staff, instance=self.instance)
         self.assertTrue(readiness["ok"])
+        self.assertEqual(readiness["status"], "amber")
 
     def test_dataset_readiness_blocker_and_ok(self):
         dataset = Dataset.objects.create(
@@ -178,6 +202,7 @@ class ReadinessTests(TestCase):
         approve_for_instance(self.instance, dataset, self.staff)
         readiness = get_dataset_readiness(dataset, self.staff, instance=self.instance)
         self.assertTrue(readiness["ok"])
+        self.assertEqual(readiness["status"], "amber")
 
     def test_export_package_readiness_blocker_and_ok(self):
         ReportSectionTemplate.objects.create(
@@ -200,3 +225,4 @@ class ReadinessTests(TestCase):
         package.save(update_fields=["status"])
         readiness = get_export_package_readiness(package, self.staff)
         self.assertTrue(readiness["ok"])
+        self.assertEqual(readiness["status"], "amber")

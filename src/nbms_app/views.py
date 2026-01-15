@@ -13,6 +13,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from urllib.parse import urlencode
 
 from nbms_app.forms import (
     DatasetForm,
@@ -387,7 +388,7 @@ def _consent_items(queryset, instance):
     return items
 
 
-def _approval_state_for_instance(instance, user):
+def _approval_state_for_instance(instance, user, obj_type=None, obj_uuid=None):
     models = {
         "indicators": Indicator,
         "targets": NationalTarget,
@@ -395,11 +396,16 @@ def _approval_state_for_instance(instance, user):
         "datasets": Dataset,
     }
     state = {}
-    for key, model in models.items():
+    items = models.items()
+    if obj_type and obj_type in models:
+        items = [(obj_type, models[obj_type])]
+    for key, model in items:
         queryset = filter_queryset_for_user(
             model.objects.select_related("organisation", "created_by").order_by("code" if key in {"indicators", "targets"} else "title"),
             user,
         )
+        if obj_uuid:
+            queryset = queryset.filter(uuid=obj_uuid)
         content_type = ContentType.objects.get_for_model(model)
         approvals = InstanceExportApproval.objects.filter(
             reporting_instance=instance,
@@ -408,6 +414,8 @@ def _approval_state_for_instance(instance, user):
         )
         approval_map = {approval.object_uuid: approval for approval in approvals}
         state[key] = _build_approval_items(queryset, approval_map)
+    for key in models:
+        state.setdefault(key, [])
     return state
 
 
@@ -533,6 +541,17 @@ def national_target_detail(request, target_uuid):
     can_edit = can_edit_object(request.user, target) and _status_allows_edit(target, request.user)
     current_instance = _current_reporting_instance(request)
     readiness = get_target_readiness(target, request.user, instance=current_instance)
+    approvals_url = None
+    consent_url = None
+    indicators_url = None
+    if current_instance:
+        base_approvals = reverse(
+            "nbms_app:reporting_instance_approvals",
+            kwargs={"instance_uuid": current_instance.uuid},
+        )
+        approvals_url = f"{base_approvals}?{urlencode({'obj_type': 'targets', 'obj_uuid': target.uuid})}"
+        consent_url = reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": current_instance.uuid})
+    indicators_url = f"{reverse('nbms_app:indicator_list')}?target={target.uuid}"
     return render(
         request,
         "nbms_app/targets/nationaltarget_detail.html",
@@ -541,6 +560,9 @@ def national_target_detail(request, target_uuid):
             "can_edit": can_edit,
             "readiness": readiness,
             "current_instance": current_instance,
+            "approvals_url": approvals_url,
+            "consent_url": consent_url,
+            "indicators_url": indicators_url,
         },
     )
 
@@ -595,6 +617,9 @@ def indicator_list(request):
         request.user,
         perm="nbms_app.view_indicator",
     )
+    target_uuid = request.GET.get("target")
+    if target_uuid:
+        indicators = indicators.filter(national_target__uuid=target_uuid)
     return render(
         request,
         "nbms_app/indicators/indicator_list.html",
@@ -612,6 +637,15 @@ def indicator_detail(request, indicator_uuid):
     can_edit = can_edit_object(request.user, indicator) and _status_allows_edit(indicator, request.user)
     current_instance = _current_reporting_instance(request)
     readiness = get_indicator_readiness(indicator, request.user, instance=current_instance)
+    approvals_url = None
+    consent_url = None
+    if current_instance:
+        base_approvals = reverse(
+            "nbms_app:reporting_instance_approvals",
+            kwargs={"instance_uuid": current_instance.uuid},
+        )
+        approvals_url = f"{base_approvals}?{urlencode({'obj_type': 'indicators', 'obj_uuid': indicator.uuid})}"
+        consent_url = reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": current_instance.uuid})
     return render(
         request,
         "nbms_app/indicators/indicator_detail.html",
@@ -620,6 +654,8 @@ def indicator_detail(request, indicator_uuid):
             "can_edit": can_edit,
             "readiness": readiness,
             "current_instance": current_instance,
+            "approvals_url": approvals_url,
+            "consent_url": consent_url,
         },
     )
 
@@ -697,6 +733,15 @@ def evidence_detail(request, evidence_uuid):
     can_edit = can_edit_object(request.user, evidence) if request.user.is_authenticated else False
     current_instance = _current_reporting_instance(request)
     readiness = get_evidence_readiness(evidence, request.user, instance=current_instance)
+    approvals_url = None
+    consent_url = None
+    if current_instance:
+        base_approvals = reverse(
+            "nbms_app:reporting_instance_approvals",
+            kwargs={"instance_uuid": current_instance.uuid},
+        )
+        approvals_url = f"{base_approvals}?{urlencode({'obj_type': 'evidence', 'obj_uuid': evidence.uuid})}"
+        consent_url = reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": current_instance.uuid})
     return render(
         request,
         "nbms_app/evidence/evidence_detail.html",
@@ -705,6 +750,8 @@ def evidence_detail(request, evidence_uuid):
             "can_edit": can_edit,
             "readiness": readiness,
             "current_instance": current_instance,
+            "approvals_url": approvals_url,
+            "consent_url": consent_url,
         },
     )
 
@@ -771,6 +818,15 @@ def dataset_detail(request, dataset_uuid):
     can_edit = can_edit_object(request.user, dataset) if request.user.is_authenticated else False
     current_instance = _current_reporting_instance(request)
     readiness = get_dataset_readiness(dataset, request.user, instance=current_instance)
+    approvals_url = None
+    consent_url = None
+    if current_instance:
+        base_approvals = reverse(
+            "nbms_app:reporting_instance_approvals",
+            kwargs={"instance_uuid": current_instance.uuid},
+        )
+        approvals_url = f"{base_approvals}?{urlencode({'obj_type': 'datasets', 'obj_uuid': dataset.uuid})}"
+        consent_url = reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": current_instance.uuid})
     return render(
         request,
         "nbms_app/datasets/dataset_detail.html",
@@ -780,6 +836,8 @@ def dataset_detail(request, dataset_uuid):
             "can_edit": can_edit,
             "readiness": readiness,
             "current_instance": current_instance,
+            "approvals_url": approvals_url,
+            "consent_url": consent_url,
         },
     )
 
@@ -963,6 +1021,13 @@ def reporting_instance_detail(request, instance_uuid):
             "nbms_app:reporting_instance_section_preview",
             kwargs={"instance_uuid": instance.uuid, "section_code": item["code"]},
         )
+    approvals_base = reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid})
+    approvals_links = {
+        "indicators": f"{approvals_base}?{urlencode({'obj_type': 'indicators'})}",
+        "targets": f"{approvals_base}?{urlencode({'obj_type': 'targets'})}",
+        "evidence": f"{approvals_base}?{urlencode({'obj_type': 'evidence'})}",
+        "datasets": f"{approvals_base}?{urlencode({'obj_type': 'datasets'})}",
+    }
     return render(
         request,
         "nbms_app/reporting/instance_detail.html",
@@ -970,7 +1035,8 @@ def reporting_instance_detail(request, instance_uuid):
             "instance": instance,
             "is_admin": _is_admin_user(request.user),
             "readiness": readiness,
-            "approvals_url": reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+            "approvals_url": approvals_base,
+            "approvals_links": approvals_links,
             "consent_url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
         },
     )
@@ -1090,7 +1156,9 @@ def reporting_instance_approvals(request, instance_uuid):
     if not can_approve_instance(request.user):
         raise PermissionDenied("Not allowed to access approvals.")
 
-    approval_state = _approval_state_for_instance(instance, request.user)
+    obj_type = request.GET.get("obj_type")
+    obj_uuid = request.GET.get("obj_uuid")
+    approval_state = _approval_state_for_instance(instance, request.user, obj_type=obj_type, obj_uuid=obj_uuid)
     context = {
         "instance": instance,
         "indicator_items": approval_state["indicators"],

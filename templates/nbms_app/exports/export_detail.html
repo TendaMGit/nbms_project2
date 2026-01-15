@@ -9,30 +9,42 @@
     <p><strong>Review note:</strong> {{ package.review_note|default:"-" }}</p>
   </div>
   <div class="card">
-    <h2>Export Readiness</h2>
-    {% if readiness.blockers %}
-      <p><strong>Blockers</strong></p>
-      <ul>
-        {% for item in readiness.blockers %}
-          <li>{{ item.message }}</li>
-        {% endfor %}
-      </ul>
+    <h2>Package Eligibility</h2>
+    <p><strong>Release readiness:</strong> {{ readiness.status|title }}</p>
+    {% if readiness.blockers or readiness.warnings %}
+      <details>
+        <summary>Why?</summary>
+        {% if readiness.blockers %}
+          <p><strong>Blockers</strong></p>
+          <ul>
+            {% for item in readiness.blockers %}
+              <li>{{ item.message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if readiness.warnings %}
+          <p><strong>Warnings</strong></p>
+          <ul>
+            {% for item in readiness.warnings %}
+              <li>{{ item.message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </details>
     {% endif %}
-    {% if readiness.warnings %}
-      <p><strong>Warnings</strong></p>
-      <ul>
-        {% for item in readiness.warnings %}
-          <li>{{ item.message }}</li>
-        {% endfor %}
-      </ul>
-    {% endif %}
-    {% if readiness.details.instance_uuid %}
-      <p>
-        <a href="{% url 'nbms_app:reporting_instance_detail' readiness.details.instance_uuid %}">
-          Open reporting instance
-        </a>
-      </p>
-    {% endif %}
+    <h3>Requirements</h3>
+    <ul>
+      {% for check in readiness.checks %}
+        <li>{{ check.label }}: {{ check.state|title }}{% if check.action_url %} (<a href="{{ check.action_url }}">Fix</a>){% endif %}</li>
+      {% endfor %}
+    </ul>
+    <h3>Included counts</h3>
+    <ul>
+      <li>Indicators: {{ readiness.counts.approved_indicators }}</li>
+      <li>Targets: {{ readiness.counts.approved_targets }}</li>
+      <li>Evidence: {{ readiness.counts.approved_evidence }}</li>
+      <li>Datasets: {{ readiness.counts.approved_datasets }}</li>
+    </ul>
   </div>
 
   <div class="card">

@@ -33,7 +33,7 @@ class ExportReadinessPanelTests(TestCase):
         )
         self.client.force_login(self.user)
         resp = self.client.get(reverse("nbms_app:export_package_detail", args=[package.uuid]))
-        self.assertContains(resp, "Export Readiness")
+        self.assertContains(resp, "Package Eligibility")
         self.assertContains(resp, "approved before release")
 
     def test_export_readiness_ok_when_approved(self):
@@ -46,4 +46,4 @@ class ExportReadinessPanelTests(TestCase):
         )
         self.client.force_login(self.user)
         resp = self.client.get(reverse("nbms_app:export_package_detail", args=[package.uuid]))
-        self.assertContains(resp, "Export Readiness")
+        self.assertContains(resp, "Package Eligibility")
