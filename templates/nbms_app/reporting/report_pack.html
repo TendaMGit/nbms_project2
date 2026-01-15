@@ -1,11 +1,262 @@
 {% extends "nbms_app/base.html" %}
-{% block title %}Report Pack{% endblock %}
+{% block title %}Manager Report Pack{% endblock %}
 {% block content %}
-  <h1>Report Pack</h1>
-  <div class="card">
-    <p><strong>Instance:</strong> {{ instance.cycle.code }} {{ instance.version_label }}</p>
-  <p>PDF report pack generation is not implemented yet.</p>
-  <p><strong>Status:</strong> Not implemented (HTTP 501)</p>
+  <style>
+    @media print {
+      nav,
+      .nav,
+      .top-nav,
+      .card-footer,
+      .check-actions,
+      .actions {
+        display: none !important;
+      }
+      .card {
+        box-shadow: none;
+        border: 1px solid #e2e8f0;
+      }
+      a[href]:after {
+        content: "";
+      }
+    }
+  </style>
+
+  <h1>Manager Report Pack</h1>
+
+  <section class="card">
+    <h2>Instance metadata</h2>
+    <p><strong>Cycle:</strong> {{ instance.cycle.title }} ({{ instance.cycle.code }})</p>
+    <p><strong>Instance:</strong> {{ instance.version_label }} - {{ instance.get_status_display }}</p>
+    <p>
+      <strong>Frozen:</strong>
+      {% if instance.frozen_at %}
+        Yes ({{ instance.frozen_at }} by {{ instance.frozen_by }})
+      {% else %}
+        No
+      {% endif %}
+    </p>
+  </section>
+
+  <div class="card-grid">
+    {% include "nbms_app/includes/readiness_card.html" with card=score_card %}
+    {% include "nbms_app/includes/readiness_card.html" with card=approvals_card %}
+    {% include "nbms_app/includes/readiness_card.html" with card=consent_card %}
+    {% include "nbms_app/includes/readiness_card.html" with card=export_card %}
   </div>
+
+  <section class="card">
+    <h2>Sections (I-V)</h2>
+    {% if sections %}
+      {% for section in sections %}
+        <section class="card readiness-card {% if section.state == 'completed' %}readiness-green{% elif section.state == 'draft' %}readiness-amber{% else %}readiness-red{% endif %}">
+          <header class="card-header">
+            <div class="card-title">
+              <span aria-hidden="true">[Section]</span>
+              <h3>{{ section.title }} ({{ section.code|upper }})</h3>
+            </div>
+            {% if section.state == "completed" %}
+              <span class="badge badge-green">Completed</span>
+            {% elif section.state == "draft" %}
+              <span class="badge badge-amber">Draft</span>
+            {% else %}
+              <span class="badge badge-red">Missing</span>
+            {% endif %}
+          </header>
+          <div class="card-body">
+            {% if section.fields %}
+              <dl>
+                {% for field in section.fields %}
+                  {% if field.value %}
+                    <dt><strong>{{ field.label }}</strong></dt>
+                    <dd>{{ field.value }}</dd>
+                  {% endif %}
+                {% endfor %}
+              </dl>
+            {% else %}
+              <p class="muted">No response captured.</p>
+            {% endif %}
+          </div>
+          <footer class="card-footer">
+            <div class="actions">
+              <a href="{{ section.edit_url }}">Edit</a>
+              <a href="{{ section.preview_url }}">Preview</a>
+            </div>
+          </footer>
+        </section>
+      {% endfor %}
+    {% else %}
+      <p>No required sections configured.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Approved scope summary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Object type</th>
+          <th>Approved + published</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Indicators</td>
+          <td>{{ approved_counts.indicators }}</td>
+        </tr>
+        <tr>
+          <td>National Targets</td>
+          <td>{{ approved_counts.targets }}</td>
+        </tr>
+        <tr>
+          <td>Evidence</td>
+          <td>{{ approved_counts.evidence }}</td>
+        </tr>
+        <tr>
+          <td>Datasets</td>
+          <td>{{ approved_counts.datasets }}</td>
+        </tr>
+        <tr>
+          <td>Dataset releases</td>
+          <td>{{ approved_counts.dataset_releases }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    {% if export_blockers %}
+      <div class="card readiness-card readiness-red">
+        <header class="card-header">
+          <div class="card-title">
+            <span aria-hidden="true">[Blocked]</span>
+            <h3>Export blockers</h3>
+          </div>
+          <span class="badge badge-red">Blocked</span>
+        </header>
+        <div class="card-body">
+          <ul>
+            {% for item in export_blockers %}
+              <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+
+    <p>
+      <a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approvals workspace</a> |
+      <a href="{% url 'nbms_app:reporting_instance_consent' instance.uuid %}">Consent workspace</a> |
+      <a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Section list</a>
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>Appendix: National Targets</h2>
+    {% if approved_targets %}
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for target in approved_targets %}
+            <tr>
+              <td>{{ target.code }}</td>
+              <td>{{ target.title }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No approved targets.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Appendix: Indicators</h2>
+    {% if approved_indicators %}
+      <table>
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Title</th>
+            <th>Target</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for indicator in approved_indicators %}
+            <tr>
+              <td>{{ indicator.code }}</td>
+              <td>{{ indicator.title }}</td>
+              <td>{{ indicator.national_target.code }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No approved indicators.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Appendix: Evidence</h2>
+    {% if approved_evidence %}
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Type</th>
+            <th>Sensitivity</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in approved_evidence %}
+            <tr>
+              <td>{{ item.title }}</td>
+              <td>{{ item.evidence_type }}</td>
+              <td>{{ item.get_sensitivity_display }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No approved evidence.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Appendix: Datasets</h2>
+    {% if approved_datasets %}
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Methodology</th>
+            <th>Release</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for dataset in approved_datasets %}
+            {% with release=dataset.releases.all|first %}
+              <tr>
+                <td>{{ dataset.title }}</td>
+                <td>{{ dataset.methodology }}</td>
+                <td>
+                  {% if release %}
+                    {{ release.version }}{% if release.release_date %} ({{ release.release_date }}){% endif %}
+                  {% else %}
+                    No published release
+                  {% endif %}
+                </td>
+              </tr>
+            {% endwith %}
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No approved datasets.</p>
+    {% endif %}
+  </section>
+
   <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
 {% endblock %}

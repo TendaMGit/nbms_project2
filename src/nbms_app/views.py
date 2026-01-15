@@ -9,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.db import connections
+from django.db.models import Prefetch
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -30,6 +31,7 @@ from nbms_app.forms import (
 )
 from nbms_app.models import (
     Dataset,
+    DatasetRelease,
     Evidence,
     ExportPackage,
     ExportStatus,
@@ -1456,10 +1458,200 @@ def reporting_instance_detail(request, instance_uuid):
     )
 
 
-@staff_member_required
+def build_report_pack_context(instance, user):
+    readiness = get_instance_readiness(instance, user)
+    section_state = readiness["details"]["sections"]
+    required_codes = set(section_state["required_section_codes"])
+    sections = []
+    for section in section_state["sections"]:
+        if section["code"] not in required_codes:
+            continue
+        template = section["template"]
+        response = section["response"]
+        response_json = response.response_json if response else {}
+        fields = []
+        for field in (template.schema_json or {}).get("fields", []):
+            key = field.get("key")
+            if not key:
+                continue
+            label = field.get("label") or key.replace("_", " ").title()
+            fields.append({"key": key, "label": label, "value": response_json.get(key, "")})
+        sections.append(
+            {
+                "template": template,
+                "code": section["code"],
+                "title": template.title,
+                "state": section["state"],
+                "response": response,
+                "fields": fields,
+                "edit_url": reverse(
+                    "nbms_app:reporting_instance_section_edit",
+                    kwargs={"instance_uuid": instance.uuid, "section_code": template.code},
+                ),
+                "preview_url": reverse(
+                    "nbms_app:reporting_instance_section_preview",
+                    kwargs={"instance_uuid": instance.uuid, "section_code": template.code},
+                ),
+            }
+        )
+
+    def approved_queryset(model, extra_select=None, extra_prefetch=None):
+        content_type = ContentType.objects.get_for_model(model)
+        approved_ids = InstanceExportApproval.objects.filter(
+            reporting_instance=instance,
+            content_type=content_type,
+            approval_scope="export",
+            decision=ApprovalDecision.APPROVED,
+        ).values_list("object_uuid", flat=True)
+        queryset = filter_queryset_for_user(model.objects.filter(uuid__in=approved_ids), user)
+        if extra_select:
+            queryset = queryset.select_related(*extra_select)
+        if extra_prefetch:
+            queryset = queryset.prefetch_related(*extra_prefetch)
+        return queryset
+
+    approved_indicators = approved_queryset(
+        Indicator,
+        extra_select=["national_target", "organisation", "created_by"],
+    ).filter(status=LifecycleStatus.PUBLISHED)
+    approved_targets = approved_queryset(
+        NationalTarget,
+        extra_select=["organisation", "created_by"],
+    ).filter(status=LifecycleStatus.PUBLISHED)
+    approved_evidence = approved_queryset(
+        Evidence,
+        extra_select=["organisation", "created_by"],
+    ).filter(status=LifecycleStatus.PUBLISHED)
+    approved_datasets = approved_queryset(
+        Dataset,
+        extra_select=["organisation", "created_by"],
+        extra_prefetch=[
+            Prefetch(
+                "releases",
+                queryset=DatasetRelease.objects.filter(status=LifecycleStatus.PUBLISHED).order_by("-release_date"),
+            )
+        ],
+    ).filter(status=LifecycleStatus.PUBLISHED)
+
+    missing_required = section_state["missing_required_sections"]
+    missing_consents = readiness["counts"]["missing_consents"]
+    export_blockers = []
+    if settings.EXPORT_REQUIRE_SECTIONS and missing_required:
+        export_blockers.append(f"Missing required sections: {', '.join(missing_required)}")
+    if missing_consents:
+        export_blockers.append("Missing consent for approved IPLC-sensitive items.")
+    section_state = "ok"
+    if missing_required:
+        section_state = "blocked" if settings.EXPORT_REQUIRE_SECTIONS else "missing"
+
+    approvals = readiness["details"]["approvals"]
+    approvals_card = {
+        "title": "Approvals coverage",
+        "icon": "approvals",
+        "band": "amber" if any(item["pending"] for item in approvals.values()) else "green",
+        "checks": [
+            {
+                "label": f"Indicators approved {approvals['indicators']['approved']} / {approvals['indicators']['total']}",
+                "state": "ok" if approvals["indicators"]["approved"] else "missing",
+            },
+            {
+                "label": f"Targets approved {approvals['targets']['approved']} / {approvals['targets']['total']}",
+                "state": "ok" if approvals["targets"]["approved"] else "missing",
+            },
+            {
+                "label": f"Evidence approved {approvals['evidence']['approved']} / {approvals['evidence']['total']}",
+                "state": "ok" if approvals["evidence"]["approved"] else "missing",
+            },
+            {
+                "label": f"Datasets approved {approvals['datasets']['approved']} / {approvals['datasets']['total']}",
+                "state": "ok" if approvals["datasets"]["approved"] else "missing",
+            },
+        ],
+        "footer_actions": [
+            {
+                "label": "Open approvals workspace",
+                "url": reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+            }
+        ],
+    }
+    consent_card = {
+        "title": "Consent readiness",
+        "icon": "consent",
+        "band": "red" if missing_consents else "green",
+        "checks": [
+            {
+                "label": "Missing IPLC consents",
+                "state": "blocked" if missing_consents else "ok",
+                "count": missing_consents,
+            }
+        ],
+        "footer_actions": [
+            {
+                "label": "Open consent workspace",
+                "url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
+            }
+        ],
+    }
+    export_card = {
+        "title": "Export readiness",
+        "icon": "export",
+        "band": "red" if export_blockers else "green",
+        "checks": [
+            {
+                "label": "Required sections complete" if settings.EXPORT_REQUIRE_SECTIONS else "Sections present",
+                "state": section_state,
+            },
+            {
+                "label": "Consent cleared",
+                "state": "blocked" if missing_consents else "ok",
+            },
+        ],
+        "message": "Export blocked: " + " ".join(export_blockers) if export_blockers else "",
+    }
+    score_card = {
+        "title": "Readiness score",
+        "icon": "instance",
+        "band": readiness["readiness_band"],
+        "score": readiness["readiness_score"],
+        "score_breakdown": readiness["score_breakdown"],
+    }
+
+    return {
+        "instance": instance,
+        "readiness": readiness,
+        "sections": sections,
+        "approved_indicators": approved_indicators,
+        "approved_targets": approved_targets,
+        "approved_evidence": approved_evidence,
+        "approved_datasets": approved_datasets,
+        "approved_counts": {
+            "indicators": approved_indicators.count(),
+            "targets": approved_targets.count(),
+            "evidence": approved_evidence.count(),
+            "datasets": approved_datasets.count(),
+            "dataset_releases": DatasetRelease.objects.filter(
+                dataset__in=approved_datasets,
+                status=LifecycleStatus.PUBLISHED,
+            ).count(),
+        },
+        "export_blockers": export_blockers,
+        "score_card": score_card,
+        "approvals_card": approvals_card,
+        "consent_card": consent_card,
+        "export_card": export_card,
+    }
+
+
 def reporting_instance_report_pack(request, instance_uuid):
-    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
-    return render(request, "nbms_app/reporting/report_pack.html", {"instance": instance}, status=501)
+    if not request.user.is_staff:
+        raise PermissionDenied("Staff-only action.")
+
+    instance = get_object_or_404(
+        ReportingInstance.objects.select_related("cycle", "frozen_by"),
+        uuid=instance_uuid,
+    )
+    context = build_report_pack_context(instance, request.user)
+    return render(request, "nbms_app/reporting/report_pack.html", context)
 
 
 @staff_member_required

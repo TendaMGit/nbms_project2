@@ -102,7 +102,8 @@ Notes:
 
 ## Reporting
 
-- The “Download PDF pack” link is a placeholder and returns HTTP 501 until PDF generation is implemented.
+- Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
+- Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
 
 ## Rulesets
 
