@@ -1667,6 +1667,9 @@ def reporting_instance_approval_bulk(request, instance_uuid):
         return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance_uuid)
 
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    approvals_base = reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid})
+    if not (request.user.is_staff or request.user.is_superuser):
+        raise PermissionDenied("Staff-only action.")
     if not can_approve_instance(request.user):
         raise PermissionDenied("Not allowed to approve.")
 
@@ -1759,6 +1762,11 @@ def reporting_instance_approval_bulk(request, instance_uuid):
                 obj,
                 metadata={"instance_uuid": str(instance.uuid), "bulk": True, "decision": ApprovalDecision.APPROVED},
             )
+            create_notification(
+                getattr(obj, "created_by", None),
+                f"Export approved for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+                url=approvals_base,
+            )
         record_audit_event(
             request.user,
             "instance_export_bulk",
@@ -1788,6 +1796,11 @@ def reporting_instance_approval_bulk(request, instance_uuid):
                 "instance_export_revoke",
                 obj,
                 metadata={"instance_uuid": str(instance.uuid), "bulk": True, "decision": ApprovalDecision.REVOKED},
+            )
+            create_notification(
+                getattr(obj, "created_by", None),
+                f"Export approval revoked for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+                url=approvals_base,
             )
         record_audit_event(
             request.user,
