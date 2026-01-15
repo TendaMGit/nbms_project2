@@ -4,7 +4,10 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
+from django.core.exceptions import ValidationError
+
 from nbms_app.models import (
+    ConsentStatus,
     Dataset,
     DatasetRelease,
     Evidence,
@@ -20,6 +23,7 @@ from nbms_app.models import (
     User,
 )
 from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT
+from nbms_app.services.consent import set_consent_status
 from nbms_app.services.exports import approve_export, build_export_payload, release_export, submit_export_for_review
 from nbms_app.services.instance_approvals import approve_for_instance
 
@@ -166,3 +170,35 @@ class ExportWorkflowTests(TestCase):
         self.client.force_login(self.viewer)
         resp = self.client.get(reverse("nbms_app:export_package_download", args=[package.uuid]))
         self.assertEqual(resp.status_code, 404)
+
+    def test_export_release_blocked_without_consent(self):
+        admin = User.objects.create_user(
+            username="admin",
+            password="pass1234",
+            organisation=self.org,
+            is_staff=True,
+        )
+        target = NationalTarget.objects.create(
+            code="NT-IPLC",
+            title="Target IPLC",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.IPLC_SENSITIVE,
+        )
+        approve_for_instance(self.instance, target, admin, admin_override=True)
+        package = ExportPackage.objects.create(
+            title="Export IPLC",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+        with self.assertRaises(ValidationError):
+            release_export(package, self.secretariat)
+
+        set_consent_status(self.instance, target, self.creator, ConsentStatus.GRANTED, note="ok")
+        release_export(package, self.secretariat)
+        package.refresh_from_db()
+        self.assertEqual(package.status, ExportStatus.RELEASED)
