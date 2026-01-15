@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>{{ target.code }} - {{ target.title }}</title>
+  </head>
+  <body>
+    <h1>{{ target.code }} - {{ target.title }}</h1>
+    <p>{{ target.description|default:"" }}</p>
+    <p>Status: {{ target.status }}</p>
+    <p>Sensitivity: {{ target.sensitivity }}</p>
+    <p><a href="{% url 'nbms_app:national_target_list' %}">Back to list</a></p>
+  </body>
+</html>
