@@ -57,6 +57,21 @@ urlpatterns = [
         name="reporting_instance_detail",
     ),
     path(
+        "reporting/instances/<uuid:instance_uuid>/sections/",
+        views.reporting_instance_sections,
+        name="reporting_instance_sections",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/sections/<str:section_code>/edit/",
+        views.reporting_instance_section_edit,
+        name="reporting_instance_section_edit",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/sections/<str:section_code>/preview/",
+        views.reporting_instance_section_preview,
+        name="reporting_instance_section_preview",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/approvals/",
         views.reporting_instance_approvals,
         name="reporting_instance_approvals",

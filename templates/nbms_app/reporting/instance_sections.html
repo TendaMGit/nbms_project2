@@ -1,0 +1,46 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Report Sections{% endblock %}
+{% block content %}
+  <h1>Report sections for {{ instance }}</h1>
+  {% if instance.frozen_at %}
+    <div class="card">
+      <p>This reporting instance is frozen. Sections are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.template.code }}</td>
+          <td>
+            {{ item.template.title }}
+            {% if item.is_required %}<span class="tag">Required</span>{% endif %}
+          </td>
+          <td>
+            {% if item.response %}Complete{% else %}Not started{% endif %}
+          </td>
+          <td>{{ item.response.updated_at|default:"-" }}</td>
+          <td>
+            <a href="{% url 'nbms_app:reporting_instance_section_edit' instance.uuid item.template.code %}">Edit</a>
+            |
+            <a href="{% url 'nbms_app:reporting_instance_section_preview' instance.uuid item.template.code %}">Preview</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No active section templates.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
+{% endblock %}

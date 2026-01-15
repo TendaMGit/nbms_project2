@@ -18,7 +18,7 @@
           <button type="submit">Unfreeze instance</button>
         </form>
       {% endif %}
-    {% else %}
+  {% else %}
       <form method="post" action="{% url 'nbms_app:reporting_instance_freeze' instance.uuid %}">
         {% csrf_token %}
         <input type="hidden" name="action" value="freeze" />
@@ -26,6 +26,7 @@
       </form>
     {% endif %}
   </div>
+  <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Report sections</a></p>
   <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>
   <p><a href="{% url 'nbms_app:reporting_instance_consent' instance.uuid %}">Consent workspace</a></p>
   <p><a href="{% url 'nbms_app:reporting_cycle_detail' instance.cycle.uuid %}">Back to cycle</a></p>

@@ -21,6 +21,7 @@ from nbms_app.forms import (
     IndicatorForm,
     NationalTargetForm,
     OrganisationForm,
+    ReportSectionResponseForm,
     ReportingCycleForm,
     ReportingInstanceForm,
     UserCreateForm,
@@ -35,6 +36,8 @@ from nbms_app.models import (
     LifecycleStatus,
     NationalTarget,
     Organisation,
+    ReportSectionResponse,
+    ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
     User,
@@ -902,6 +905,94 @@ def reporting_instance_detail(request, instance_uuid):
         request,
         "nbms_app/reporting/instance_detail.html",
         {"instance": instance, "is_admin": _is_admin_user(request.user)},
+    )
+
+
+@staff_member_required
+def reporting_instance_sections(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    templates = ReportSectionTemplate.objects.filter(is_active=True).order_by("ordering", "code")
+    responses = ReportSectionResponse.objects.filter(reporting_instance=instance).select_related("template", "updated_by")
+    response_map = {resp.template_id: resp for resp in responses}
+    items = []
+    for template in templates:
+        response = response_map.get(template.id)
+        items.append(
+            {
+                "template": template,
+                "response": response,
+                "is_required": bool((template.schema_json or {}).get("required", False)),
+            }
+        )
+    return render(
+        request,
+        "nbms_app/reporting/instance_sections.html",
+        {"instance": instance, "items": items, "is_admin": _is_admin_user(request.user)},
+    )
+
+
+@staff_member_required
+def reporting_instance_section_edit(request, instance_uuid, section_code):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    template = get_object_or_404(ReportSectionTemplate, code=section_code, is_active=True)
+    response = ReportSectionResponse.objects.filter(reporting_instance=instance, template=template).first()
+    initial_data = response.response_json if response else {}
+    form = ReportSectionResponseForm(request.POST or None, template=template, initial_data=initial_data)
+
+    read_only = bool(instance.frozen_at and not _is_admin_user(request.user))
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            data = form.to_response_json()
+            if response:
+                response.response_json = data
+                response.updated_by = request.user
+                response.save(update_fields=["response_json", "updated_by", "updated_at"])
+            else:
+                ReportSectionResponse.objects.create(
+                    reporting_instance=instance,
+                    template=template,
+                    response_json=data,
+                    updated_by=request.user,
+                )
+            messages.success(request, f"Updated {template.title}.")
+            return redirect("nbms_app:reporting_instance_sections", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_edit.html",
+        {"instance": instance, "template": template, "form": form, "read_only": read_only},
+    )
+
+
+@staff_member_required
+def reporting_instance_section_preview(request, instance_uuid, section_code):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    template = get_object_or_404(ReportSectionTemplate, code=section_code, is_active=True)
+    response = ReportSectionResponse.objects.filter(reporting_instance=instance, template=template).first()
+    response_json = response.response_json if response else {}
+    fields = []
+    for field in (template.schema_json or {}).get("fields", []):
+        key = field.get("key")
+        if not key:
+            continue
+        label = field.get("label") or key.replace("_", " ").title()
+        fields.append({"key": key, "label": label, "value": response_json.get(key, "")})
+    return render(
+        request,
+        "nbms_app/reporting/section_preview.html",
+        {
+            "instance": instance,
+            "template": template,
+            "response": response,
+            "fields": fields,
+            "response_json": response_json,
+        },
     )
 
 

@@ -1,0 +1,20 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Edit {{ template.title }}{% endblock %}
+{% block content %}
+  <h1>{{ template.title }}</h1>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. You can preview section content but cannot edit it.</p>
+    </div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" {% if read_only %}disabled{% endif %}>Save</button>
+  </form>
+  <p>
+    <a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Back to sections</a>
+    |
+    <a href="{% url 'nbms_app:reporting_instance_section_preview' instance.uuid template.code %}">Preview</a>
+  </p>
+{% endblock %}
