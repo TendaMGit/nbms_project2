@@ -66,7 +66,14 @@ from nbms_app.services.instance_approvals import (
     can_approve_instance,
     revoke_for_instance,
 )
-from nbms_app.services.readiness import get_export_package_readiness, get_instance_readiness
+from nbms_app.services.readiness import (
+    get_dataset_readiness,
+    get_evidence_readiness,
+    get_export_package_readiness,
+    get_indicator_readiness,
+    get_instance_readiness,
+    get_target_readiness,
+)
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.workflows import approve, reject
 
@@ -332,6 +339,13 @@ def _export_queryset_for_user(user):
     return packages.filter(created_by=user)
 
 
+def _current_reporting_instance(request):
+    instance_uuid = request.session.get("current_reporting_instance_uuid")
+    if not instance_uuid:
+        return None
+    return ReportingInstance.objects.select_related("cycle").filter(uuid=instance_uuid).first()
+
+
 def _build_items(queryset, label, url_name, url_param="obj_uuid", url_kwargs=None):
     items = []
     url_kwargs = url_kwargs or {}
@@ -517,10 +531,17 @@ def national_target_detail(request, target_uuid):
     )
     target = get_object_or_404(targets, uuid=target_uuid)
     can_edit = can_edit_object(request.user, target) and _status_allows_edit(target, request.user)
+    current_instance = _current_reporting_instance(request)
+    readiness = get_target_readiness(target, request.user, instance=current_instance)
     return render(
         request,
         "nbms_app/targets/nationaltarget_detail.html",
-        {"target": target, "can_edit": can_edit},
+        {
+            "target": target,
+            "can_edit": can_edit,
+            "readiness": readiness,
+            "current_instance": current_instance,
+        },
     )
 
 
@@ -589,10 +610,17 @@ def indicator_detail(request, indicator_uuid):
     )
     indicator = get_object_or_404(indicators, uuid=indicator_uuid)
     can_edit = can_edit_object(request.user, indicator) and _status_allows_edit(indicator, request.user)
+    current_instance = _current_reporting_instance(request)
+    readiness = get_indicator_readiness(indicator, request.user, instance=current_instance)
     return render(
         request,
         "nbms_app/indicators/indicator_detail.html",
-        {"indicator": indicator, "can_edit": can_edit},
+        {
+            "indicator": indicator,
+            "can_edit": can_edit,
+            "readiness": readiness,
+            "current_instance": current_instance,
+        },
     )
 
 
@@ -667,10 +695,17 @@ def evidence_detail(request, evidence_uuid):
     )
     evidence = get_object_or_404(evidence_qs, uuid=evidence_uuid)
     can_edit = can_edit_object(request.user, evidence) if request.user.is_authenticated else False
+    current_instance = _current_reporting_instance(request)
+    readiness = get_evidence_readiness(evidence, request.user, instance=current_instance)
     return render(
         request,
         "nbms_app/evidence/evidence_detail.html",
-        {"evidence": evidence, "can_edit": can_edit},
+        {
+            "evidence": evidence,
+            "can_edit": can_edit,
+            "readiness": readiness,
+            "current_instance": current_instance,
+        },
     )
 
 
@@ -734,10 +769,18 @@ def dataset_detail(request, dataset_uuid):
     dataset = get_object_or_404(datasets, uuid=dataset_uuid)
     releases = dataset.releases.order_by("-created_at")
     can_edit = can_edit_object(request.user, dataset) if request.user.is_authenticated else False
+    current_instance = _current_reporting_instance(request)
+    readiness = get_dataset_readiness(dataset, request.user, instance=current_instance)
     return render(
         request,
         "nbms_app/datasets/dataset_detail.html",
-        {"dataset": dataset, "releases": releases, "can_edit": can_edit},
+        {
+            "dataset": dataset,
+            "releases": releases,
+            "can_edit": can_edit,
+            "readiness": readiness,
+            "current_instance": current_instance,
+        },
     )
 
 

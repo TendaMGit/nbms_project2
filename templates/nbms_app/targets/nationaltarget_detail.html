@@ -10,4 +10,28 @@
       <p><a href="{% url 'nbms_app:national_target_edit' target.uuid %}">Edit national target</a></p>
     {% endif %}
   </div>
+  <div class="card">
+    <h2>Readiness</h2>
+    {% if current_instance %}
+      <p><strong>Current instance:</strong> {{ current_instance }}</p>
+    {% else %}
+      <p class="muted">Set a current reporting instance to see export readiness.</p>
+    {% endif %}
+    {% if readiness.blockers %}
+      <p><strong>Blockers</strong></p>
+      <ul>
+        {% for item in readiness.blockers %}
+          <li>{{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if readiness.warnings %}
+      <p><strong>Warnings</strong></p>
+      <ul>
+        {% for item in readiness.warnings %}
+          <li>{{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
 {% endblock %}
