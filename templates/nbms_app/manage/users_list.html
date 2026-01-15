@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Users</title>
+  </head>
+  <body>
+    <h1>Users</h1>
+    <p><a href="{% url 'nbms_app:manage_user_create' %}">New user</a></p>
+
+    <form method="get">
+      <label for="org">Filter by organisation:</label>
+      <select name="org" id="org" onchange="this.form.submit()">
+        <option value="">All</option>
+        {% for org in organisations %}
+          <option value="{{ org.id }}" {% if org_filter == org.id|stringformat:"s" %}selected{% endif %}>{{ org.name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Username</th>
+          <th>Email</th>
+          <th>Organisation</th>
+          <th>Groups</th>
+          <th>Active</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+          <tr>
+            <td>{{ user.username }}</td>
+            <td>{{ user.email }}</td>
+            <td>{{ user.organisation|default:"-" }}</td>
+            <td>
+              {% for group in user.groups.all %}
+                {{ group.name }}{% if not forloop.last %}, {% endif %}
+              {% empty %}
+                -
+              {% endfor %}
+            </td>
+            <td>{{ user.is_active|yesno:"Yes,No" }}</td>
+            <td>
+              <a href="{% url 'nbms_app:manage_user_edit' user.id %}">Edit</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6">No users found.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </body>
+</html>

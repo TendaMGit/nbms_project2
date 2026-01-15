@@ -153,6 +153,14 @@ if ENABLE_GIS and os.name == "nt":
 if ENABLE_GIS and os.environ.get("DJANGO_DB_ENGINE") == "django.contrib.gis.db.backends.spatialite":
     os.environ.setdefault("SPATIALITE_LIBRARY_PATH", os.environ.get("SPATIALITE_LIBRARY_PATH", "mod_spatialite"))
 
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@nbms.local")
+
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",
