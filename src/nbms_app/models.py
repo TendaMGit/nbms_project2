@@ -2,6 +2,7 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+from django.contrib.contenttypes.models import ContentType
 from django.db import models
 
 
@@ -57,6 +58,80 @@ class ExportStatus(models.TextChoices):
     APPROVED = "approved", "Approved"
     RELEASED = "released", "Released"
 
+
+class ReportingStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    PENDING_REVIEW = "pending_review", "Pending review"
+    APPROVED = "approved", "Approved"
+    RELEASED = "released", "Released"
+    ARCHIVED = "archived", "Archived"
+
+
+class ReportingCycle(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    start_date = models.DateField()
+    end_date = models.DateField()
+    due_date = models.DateField()
+    is_active = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
+class ReportingInstance(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    cycle = models.ForeignKey(ReportingCycle, on_delete=models.CASCADE, related_name="instances")
+    version_label = models.CharField(max_length=50, default="v1")
+    status = models.CharField(max_length=20, choices=ReportingStatus.choices, default=ReportingStatus.DRAFT)
+    frozen_at = models.DateTimeField(blank=True, null=True)
+    frozen_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="frozen_reporting_instances",
+        blank=True,
+        null=True,
+    )
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.cycle.code} {self.version_label}"
+
+
+class ApprovalDecision(models.TextChoices):
+    APPROVED = "approved", "Approved"
+    REVOKED = "revoked", "Revoked"
+
+
+class InstanceExportApproval(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="approvals",
+    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_uuid = models.UUIDField()
+    decision = models.CharField(max_length=20, choices=ApprovalDecision.choices, default=ApprovalDecision.APPROVED)
+    approval_scope = models.CharField(max_length=50, default="export")
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="instance_export_approvals",
+        blank=True,
+        null=True,
+    )
+    approved_at = models.DateTimeField(blank=True, null=True)
+    decision_note = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "content_type", "object_uuid", "approval_scope"],
+                name="uq_instance_export_approval",
+            ),
+        ]
 
 class NationalTarget(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -288,6 +363,13 @@ class ExportPackage(TimeStampedModel):
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=ExportStatus.choices, default=ExportStatus.DRAFT)
     review_note = models.TextField(blank=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.SET_NULL,
+        related_name="export_packages",
+        blank=True,
+        null=True,
+    )
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,

@@ -13,6 +13,7 @@ from nbms_app.models import (
 )
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT, user_has_role
+from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
 
@@ -31,27 +32,24 @@ def _require_reviewer(user):
         raise PermissionDenied("Not allowed to review exports.")
 
 
-def build_export_payload():
+def build_export_payload(instance):
+    if not instance:
+        raise ValidationError("Reporting instance is required for exports.")
     now_iso = timezone.now().isoformat()
-    targets = NationalTarget.objects.filter(
+    targets = approved_queryset(instance, NationalTarget).filter(
         status=LifecycleStatus.PUBLISHED,
-        export_approved=True,
     ).order_by("code")
-    indicators = Indicator.objects.filter(
+    indicators = approved_queryset(instance, Indicator).filter(
         status=LifecycleStatus.PUBLISHED,
-        export_approved=True,
     ).order_by("code")
-    evidence_items = Evidence.objects.filter(
+    evidence_items = approved_queryset(instance, Evidence).filter(
         status=LifecycleStatus.PUBLISHED,
-        export_approved=True,
     ).order_by("title")
-    datasets = Dataset.objects.filter(
+    datasets = approved_queryset(instance, Dataset).filter(
         status=LifecycleStatus.PUBLISHED,
-        export_approved=True,
     ).order_by("title")
-    releases = DatasetRelease.objects.filter(
+    releases = approved_queryset(instance, DatasetRelease).filter(
         status=LifecycleStatus.PUBLISHED,
-        export_approved=True,
     ).order_by("created_at")
 
     return {
@@ -178,7 +176,9 @@ def release_export(package, user):
         raise PermissionDenied("Not allowed to release exports.")
 
     _require_status(package, ExportStatus.APPROVED)
-    payload = build_export_payload()
+    if not package.reporting_instance:
+        raise ValidationError("Reporting instance is required to release exports.")
+    payload = build_export_payload(package.reporting_instance)
     now = timezone.now()
     package.status = ExportStatus.RELEASED
     package.payload = payload

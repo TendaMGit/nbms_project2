@@ -5,12 +5,14 @@ from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordResetForm
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied
 from django.core.files.storage import default_storage
 from django.db import connections
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
+from django.utils import timezone
 
 from nbms_app.forms import (
     DatasetForm,
@@ -19,6 +21,8 @@ from nbms_app.forms import (
     IndicatorForm,
     NationalTargetForm,
     OrganisationForm,
+    ReportingCycleForm,
+    ReportingInstanceForm,
     UserCreateForm,
     UserUpdateForm,
 )
@@ -31,8 +35,12 @@ from nbms_app.models import (
     LifecycleStatus,
     NationalTarget,
     Organisation,
+    ReportingCycle,
+    ReportingInstance,
     User,
     Notification,
+    InstanceExportApproval,
+    ApprovalDecision,
 )
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
@@ -46,6 +54,12 @@ from nbms_app.services.authorization import (
 )
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.exports import approve_export, reject_export, release_export, submit_export_for_review
+from nbms_app.services.instance_approvals import (
+    approve_for_instance,
+    can_approve_instance,
+    revoke_for_instance,
+)
+from nbms_app.services.notifications import create_notification
 from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
@@ -319,6 +333,44 @@ def _build_items(queryset, label, url_name, url_param="obj_uuid", url_kwargs=Non
             }
         )
     return items
+
+
+def _build_approval_items(queryset, approvals):
+    items = []
+    for obj in queryset:
+        approval = approvals.get(obj.uuid)
+        items.append(
+            {
+                "obj": obj,
+                "decision": approval.decision if approval else "",
+                "approved": bool(approval and approval.decision == ApprovalDecision.APPROVED),
+            }
+        )
+    return items
+
+
+def _approval_state_for_instance(instance, user):
+    models = {
+        "indicators": Indicator,
+        "targets": NationalTarget,
+        "evidence": Evidence,
+        "datasets": Dataset,
+    }
+    state = {}
+    for key, model in models.items():
+        queryset = filter_queryset_for_user(
+            model.objects.select_related("organisation", "created_by").order_by("code" if key in {"indicators", "targets"} else "title"),
+            user,
+        )
+        content_type = ContentType.objects.get_for_model(model)
+        approvals = InstanceExportApproval.objects.filter(
+            reporting_instance=instance,
+            content_type=content_type,
+            approval_scope="export",
+        )
+        approval_map = {approval.object_uuid: approval for approval in approvals}
+        state[key] = _build_approval_items(queryset, approval_map)
+    return state
 
 
 @staff_member_required
@@ -779,6 +831,201 @@ def export_package_download(request, package_uuid):
     response = JsonResponse(package.payload, json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="export-{package.uuid}.json"'
     return response
+
+
+@staff_member_required
+def reporting_cycle_list(request):
+    cycles = ReportingCycle.objects.order_by("-start_date", "code")
+    return render(request, "nbms_app/reporting/cycle_list.html", {"cycles": cycles})
+
+
+@staff_member_required
+def reporting_cycle_create(request):
+    form = ReportingCycleForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        cycle = form.save()
+        messages.success(request, f"Reporting cycle '{cycle.code}' created.")
+        return redirect("nbms_app:reporting_cycle_detail", cycle_uuid=cycle.uuid)
+    return render(request, "nbms_app/reporting/cycle_form.html", {"form": form, "mode": "create"})
+
+
+@staff_member_required
+def reporting_cycle_detail(request, cycle_uuid):
+    cycle = get_object_or_404(ReportingCycle, uuid=cycle_uuid)
+    instances = cycle.instances.order_by("-created_at")
+    return render(
+        request,
+        "nbms_app/reporting/cycle_detail.html",
+        {"cycle": cycle, "instances": instances},
+    )
+
+
+@staff_member_required
+def reporting_instance_create(request):
+    cycle_uuid = request.GET.get("cycle")
+    initial = {}
+    if cycle_uuid:
+        cycle = get_object_or_404(ReportingCycle, uuid=cycle_uuid)
+        initial["cycle"] = cycle
+    form = ReportingInstanceForm(request.POST or None, initial=initial)
+    if request.method == "POST" and form.is_valid():
+        instance = form.save()
+        messages.success(request, "Reporting instance created.")
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+    return render(request, "nbms_app/reporting/instance_form.html", {"form": form, "mode": "create"})
+
+
+@staff_member_required
+def reporting_instance_detail(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
+    return render(
+        request,
+        "nbms_app/reporting/instance_detail.html",
+        {"instance": instance, "is_admin": _is_admin_user(request.user)},
+    )
+
+
+@login_required
+def reporting_instance_approvals(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not can_approve_instance(request.user):
+        raise PermissionDenied("Not allowed to access approvals.")
+
+    approval_state = _approval_state_for_instance(instance, request.user)
+    context = {
+        "instance": instance,
+        "indicator_items": approval_state["indicators"],
+        "target_items": approval_state["targets"],
+        "evidence_items": approval_state["evidence"],
+        "dataset_items": approval_state["datasets"],
+        "is_admin": _is_admin_user(request.user),
+    }
+    return render(request, "nbms_app/reporting/instance_approvals.html", context)
+
+
+@login_required
+def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uuid, action):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not can_approve_instance(request.user):
+        raise PermissionDenied("Not allowed to approve.")
+
+    model_map = {
+        "indicator": Indicator,
+        "target": NationalTarget,
+        "evidence": Evidence,
+        "dataset": Dataset,
+    }
+    model = model_map.get(obj_type)
+    if not model:
+        raise Http404()
+
+    queryset = filter_queryset_for_user(
+        model.objects.select_related("organisation", "created_by"),
+        request.user,
+    )
+    obj = get_object_or_404(queryset, uuid=obj_uuid)
+    note = request.POST.get("note", "").strip()
+    admin_override = request.POST.get("admin_override") in {"1", "true", "yes"}
+
+    if action == "approve":
+        approve_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)
+        record_audit_event(
+            request.user,
+            "instance_export_approve",
+            obj,
+            metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.APPROVED},
+        )
+        if instance.frozen_at and admin_override and _is_admin_user(request.user):
+            record_audit_event(
+                request.user,
+                "instance_export_override",
+                obj,
+                metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.APPROVED},
+            )
+        create_notification(
+            getattr(obj, "created_by", None),
+            f"Export approved for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+            url=reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+        )
+        messages.success(request, "Approval recorded.")
+    elif action == "revoke":
+        revoke_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)
+        record_audit_event(
+            request.user,
+            "instance_export_revoke",
+            obj,
+            metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.REVOKED},
+        )
+        if instance.frozen_at and admin_override and _is_admin_user(request.user):
+            record_audit_event(
+                request.user,
+                "instance_export_override",
+                obj,
+                metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.REVOKED},
+            )
+        create_notification(
+            getattr(obj, "created_by", None),
+            f"Export approval revoked for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+            url=reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+        )
+        messages.success(request, "Approval revoked.")
+    else:
+        raise Http404()
+
+    return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance.uuid)
+
+
+@staff_member_required
+def reporting_instance_freeze(request, instance_uuid):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    action = request.POST.get("action", "freeze")
+
+    if action == "unfreeze":
+        if not _is_admin_user(request.user):
+            raise PermissionDenied("Only admins can unfreeze reporting instances.")
+        instance.frozen_at = None
+        instance.frozen_by = None
+        instance.save(update_fields=["frozen_at", "frozen_by"])
+        record_audit_event(
+            request.user,
+            "instance_unfreeze",
+            instance,
+            metadata={"instance_uuid": str(instance.uuid)},
+        )
+        create_notification(
+            request.user,
+            f"Reporting instance unfrozen: {instance}",
+            url=reverse("nbms_app:reporting_instance_detail", kwargs={"instance_uuid": instance.uuid}),
+        )
+        messages.success(request, "Reporting instance unfrozen.")
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+
+    if instance.frozen_at:
+        messages.info(request, "Reporting instance is already frozen.")
+        return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+
+    instance.frozen_at = timezone.now()
+    instance.frozen_by = request.user
+    instance.save(update_fields=["frozen_at", "frozen_by"])
+    record_audit_event(
+        request.user,
+        "instance_freeze",
+        instance,
+        metadata={"instance_uuid": str(instance.uuid)},
+    )
+    create_notification(
+        request.user,
+        f"Reporting instance frozen: {instance}",
+        url=reverse("nbms_app:reporting_instance_detail", kwargs={"instance_uuid": instance.uuid}),
+    )
+    messages.success(request, "Reporting instance frozen.")
+    return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
 
 
 @staff_member_required
