@@ -1459,7 +1459,7 @@ def reporting_instance_detail(request, instance_uuid):
 @staff_member_required
 def reporting_instance_report_pack(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
-    return render(request, "nbms_app/reporting/report_pack.html", {"instance": instance})
+    return render(request, "nbms_app/reporting/report_pack.html", {"instance": instance}, status=501)
 
 
 @staff_member_required

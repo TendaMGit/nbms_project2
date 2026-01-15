@@ -29,7 +29,7 @@
         <button type="submit">Freeze instance</button>
       </form>
     {% endif %}
-    <p><a href="{% url 'nbms_app:reporting_instance_report_pack' instance.uuid %}">Generate PDF report pack</a> (not implemented)</p>
+    <p><a href="{% url 'nbms_app:reporting_instance_report_pack' instance.uuid %}">Download PDF pack (coming soon)</a></p>
   </div>
   <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Report sections</a></p>
   <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>

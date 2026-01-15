@@ -97,3 +97,7 @@ Notes:
 - Test settings: `config.settings.test`
 - Prod settings: `config.settings.prod`
 
+## Reporting
+
+- The “Download PDF pack” link is a placeholder and returns HTTP 501 until PDF generation is implemented.
+
