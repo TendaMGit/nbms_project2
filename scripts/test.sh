@@ -11,9 +11,9 @@ else
   PYTHON="$PYTHON_BIN"
 fi
 
-TEST_ARGS=("--noinput")
+PYTEST_ARGS=()
 if [ "${KEEPDB:-0}" = "1" ]; then
-  TEST_ARGS=("--keepdb")
+  PYTEST_ARGS=("--reuse-db")
 fi
 
-PYTHONWARNINGS=default "$PYTHON" "$ROOT_DIR/manage.py" test "${TEST_ARGS[@]}"
+PYTHONWARNINGS=default "$PYTHON" -m pytest "${PYTEST_ARGS[@]}"
