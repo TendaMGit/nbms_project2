@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
@@ -10,6 +11,8 @@ from nbms_app.models import (
     Indicator,
     LifecycleStatus,
     NationalTarget,
+    ReportSectionResponse,
+    ReportSectionTemplate,
     SensitivityLevel,
 )
 from nbms_app.services.audit import record_audit_event
@@ -38,6 +41,29 @@ def build_export_payload(instance):
     if not instance:
         raise ValidationError("Reporting instance is required for exports.")
     now_iso = timezone.now().isoformat()
+    templates = ReportSectionTemplate.objects.filter(is_active=True).order_by("ordering", "code")
+    responses = ReportSectionResponse.objects.filter(reporting_instance=instance, template__in=templates).select_related(
+        "template",
+        "updated_by",
+    )
+    response_map = {resp.template_id: resp for resp in responses}
+    sections = []
+    missing_required_sections = []
+    for template in templates:
+        response = response_map.get(template.id)
+        is_required = bool((template.schema_json or {}).get("required", False))
+        if is_required and not response:
+            missing_required_sections.append(template.code)
+        sections.append(
+            {
+                "code": template.code,
+                "title": template.title,
+                "required": is_required,
+                "response": response.response_json if response else {},
+                "updated_at": response.updated_at.isoformat() if response else None,
+                "updated_by": response.updated_by.username if response and response.updated_by else None,
+            }
+        )
     targets = approved_queryset(instance, NationalTarget).filter(
         status=LifecycleStatus.PUBLISHED,
     ).order_by("code")
@@ -57,6 +83,16 @@ def build_export_payload(instance):
     return {
         "version": "0.1",
         "generated_at": now_iso,
+        "reporting_instance": {
+            "uuid": str(instance.uuid),
+            "cycle_code": instance.cycle.code,
+            "cycle_title": instance.cycle.title,
+            "version_label": instance.version_label,
+            "status": instance.status,
+            "frozen_at": instance.frozen_at.isoformat() if instance.frozen_at else None,
+        },
+        "sections": sections,
+        "missing_required_sections": missing_required_sections,
         "targets": [
             {"uuid": str(target.uuid), "code": target.code, "title": target.title}
             for target in targets
@@ -204,6 +240,9 @@ def release_export(package, user):
         raise ValidationError("Reporting instance is required to release exports.")
     _validate_consents(package.reporting_instance)
     payload = build_export_payload(package.reporting_instance)
+    missing_sections = payload.get("missing_required_sections", [])
+    if missing_sections and getattr(settings, "EXPORT_REQUIRE_SECTIONS", False):
+        raise ValidationError(f"Missing required sections: {', '.join(missing_sections)}")
     now = timezone.now()
     package.status = ExportStatus.RELEASED
     package.payload = payload

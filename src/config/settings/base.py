@@ -152,6 +152,8 @@ EVIDENCE_ALLOWED_EXTENSIONS = [
     if ext.strip()
 ]
 
+EXPORT_REQUIRE_SECTIONS = os.environ.get("EXPORT_REQUIRE_SECTIONS", "false").lower() == "true"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 if ENABLE_GIS and os.name == "nt":
