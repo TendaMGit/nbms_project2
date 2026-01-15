@@ -107,6 +107,8 @@ Notes:
 - Default test script uses `--keepdb` to avoid prompts on re-runs.
 - For CI, set `CI=1` (uses `--noinput`).
 - To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
+  Use this if `--keepdb` hits schema drift or test DB mismatch errors.
+  The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
 ## Manual smoke pass
 

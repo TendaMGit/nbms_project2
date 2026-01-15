@@ -19,6 +19,9 @@
           <a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">
             {{ instance.version_label }} ({{ instance.status }})
           </a>
+          <span class="actions">
+            <a href="{% url 'nbms_app:reporting_instance_report_pack' instance.uuid %}">Manager Report Pack</a>
+          </span>
         </li>
       {% empty %}
         <li>No instances yet.</li>

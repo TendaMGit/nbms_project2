@@ -1,7 +1,12 @@
 {% extends "nbms_app/base.html" %}
 {% block title %}Reporting Instance{% endblock %}
 {% block content %}
-  <h1>{{ instance.cycle.code }} {{ instance.version_label }}</h1>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+    <h1>{{ instance.cycle.code }} {{ instance.version_label }}</h1>
+    <div class="actions">
+      <a href="{% url 'nbms_app:reporting_instance_report_pack' instance.uuid %}">Manager Report Pack</a>
+    </div>
+  </div>
   <div class="card">
     <p><strong>Status:</strong> {{ instance.status }}</p>
     <p><strong>Notes:</strong> {{ instance.notes|default:"-" }}</p>
@@ -29,7 +34,6 @@
         <button type="submit">Freeze instance</button>
       </form>
     {% endif %}
-    <p><a href="{% url 'nbms_app:reporting_instance_report_pack' instance.uuid %}">Download PDF pack (coming soon)</a></p>
   </div>
   <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Report sections</a></p>
   <p><a href="{% url 'nbms_app:reporting_instance_approvals' instance.uuid %}">Approval workspace</a></p>
