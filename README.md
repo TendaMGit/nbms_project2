@@ -67,6 +67,8 @@ python manage.py migrate
 python manage.py bootstrap_roles
 python manage.py seed_report_templates
 python manage.py seed_validation_rules
+# or run both at once:
+python manage.py seed_reporting_defaults
 python manage.py runserver
 ```
 
