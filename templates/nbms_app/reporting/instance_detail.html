@@ -9,6 +9,68 @@
     <p><strong>Frozen by:</strong> {{ instance.frozen_by|default:"-" }}</p>
   </div>
   <div class="card">
+    <h2>Instance Readiness</h2>
+    {% if instance.frozen_at %}
+      <p><strong>Frozen:</strong> This instance is frozen.</p>
+    {% endif %}
+    {% if readiness.blockers %}
+      <p><strong>Blockers</strong></p>
+      <ul>
+        {% for item in readiness.blockers %}
+          <li>{{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if readiness.warnings %}
+      <p><strong>Warnings</strong></p>
+      <ul>
+        {% for item in readiness.warnings %}
+          <li>{{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    <h3>Sections</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for section in readiness.details.sections.sections %}
+          <tr>
+            <td>{{ section.code }}</td>
+            <td>{{ section.title }}</td>
+            <td>{% if section.complete %}Complete{% else %}Missing{% endif %}</td>
+            <td>
+              <a href="{{ section.edit_url }}">Edit</a> |
+              <a href="{{ section.preview_url }}">Preview</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="4">No sections configured.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h3>Approvals</h3>
+    <ul>
+      <li>Indicators: {{ readiness.details.approvals.indicators.approved }}/{{ readiness.details.approvals.indicators.total }}</li>
+      <li>Targets: {{ readiness.details.approvals.targets.approved }}/{{ readiness.details.approvals.targets.total }}</li>
+      <li>Evidence: {{ readiness.details.approvals.evidence.approved }}/{{ readiness.details.approvals.evidence.total }}</li>
+      <li>Datasets: {{ readiness.details.approvals.datasets.approved }}/{{ readiness.details.approvals.datasets.total }}</li>
+    </ul>
+    <p><a href="{{ approvals_url }}">Open approval workspace</a></p>
+
+    <h3>Consent</h3>
+    <p>Missing consent for IPLC records: {{ readiness.details.consent.indicators.missing|add:readiness.details.consent.targets.missing|add:readiness.details.consent.evidence.missing|add:readiness.details.consent.datasets.missing }}</p>
+    <p><a href="{{ consent_url }}">Open consent workspace</a></p>
+  </div>
+  <div class="card">
     {% if instance.frozen_at %}
       <p>This instance is frozen. Approvals are locked unless an admin override is used.</p>
       {% if is_admin %}

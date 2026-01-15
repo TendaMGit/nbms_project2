@@ -66,6 +66,7 @@ from nbms_app.services.instance_approvals import (
     can_approve_instance,
     revoke_for_instance,
 )
+from nbms_app.services.readiness import get_instance_readiness
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.workflows import approve, reject
 
@@ -901,10 +902,27 @@ def reporting_instance_create(request):
 @staff_member_required
 def reporting_instance_detail(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
+    readiness = get_instance_readiness(instance, request.user)
+    section_items = readiness["details"]["sections"]["sections"]
+    for item in section_items:
+        item["edit_url"] = reverse(
+            "nbms_app:reporting_instance_section_edit",
+            kwargs={"instance_uuid": instance.uuid, "section_code": item["code"]},
+        )
+        item["preview_url"] = reverse(
+            "nbms_app:reporting_instance_section_preview",
+            kwargs={"instance_uuid": instance.uuid, "section_code": item["code"]},
+        )
     return render(
         request,
         "nbms_app/reporting/instance_detail.html",
-        {"instance": instance, "is_admin": _is_admin_user(request.user)},
+        {
+            "instance": instance,
+            "is_admin": _is_admin_user(request.user),
+            "readiness": readiness,
+            "approvals_url": reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+            "consent_url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
+        },
     )
 
 
