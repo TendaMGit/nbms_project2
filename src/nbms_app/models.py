@@ -147,6 +147,34 @@ class ReportSectionResponse(TimeStampedModel):
         return f"{self.reporting_instance} - {self.template.code}"
 
 
+class ValidationScope(models.TextChoices):
+    REPORT_TYPE = "report_type", "Report type"
+    INSTANCE = "instance", "Instance"
+    CYCLE = "cycle", "Cycle"
+
+
+class ValidationRuleSet(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=100, unique=True)
+    applies_to = models.CharField(
+        max_length=20,
+        choices=ValidationScope.choices,
+        default=ValidationScope.REPORT_TYPE,
+    )
+    rules_json = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="validation_rule_sets",
+        blank=True,
+        null=True,
+    )
+
+    def __str__(self):
+        return f"{self.code} ({self.applies_to})"
+
+
 class ApprovalDecision(models.TextChoices):
     APPROVED = "approved", "Approved"
     REVOKED = "revoked", "Revoked"

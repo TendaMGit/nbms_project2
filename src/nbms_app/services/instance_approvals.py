@@ -56,6 +56,34 @@ def approve_for_instance(instance, obj, user, note="", scope="export", admin_ove
     return approval
 
 
+def bulk_approve_for_instance(
+    instance,
+    queryset,
+    user,
+    note="",
+    scope="export",
+    admin_override=False,
+    skip_missing_consent=True,
+):
+    approved = []
+    skipped = []
+    for obj in queryset:
+        if requires_consent(obj) and not consent_is_granted(instance, obj):
+            if skip_missing_consent:
+                skipped.append(obj)
+                continue
+        approval = approve_for_instance(
+            instance,
+            obj,
+            user,
+            note=note,
+            scope=scope,
+            admin_override=admin_override,
+        )
+        approved.append((obj, approval))
+    return {"approved": approved, "skipped": skipped}
+
+
 def revoke_for_instance(instance, obj, user, note="", scope="export", admin_override=False):
     if not can_approve_instance(user):
         raise PermissionDenied("Not allowed to revoke export approval.")
@@ -76,6 +104,21 @@ def revoke_for_instance(instance, obj, user, note="", scope="export", admin_over
         },
     )
     return approval
+
+
+def bulk_revoke_for_instance(instance, queryset, user, note="", scope="export", admin_override=False):
+    revoked = []
+    for obj in queryset:
+        approval = revoke_for_instance(
+            instance,
+            obj,
+            user,
+            note=note,
+            scope=scope,
+            admin_override=admin_override,
+        )
+        revoked.append((obj, approval))
+    return revoked
 
 
 def is_approved_for_instance(instance, obj, scope="export"):

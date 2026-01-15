@@ -60,11 +60,18 @@ from nbms_app.services.authorization import (
     user_has_role,
 )
 from nbms_app.services.audit import record_audit_event
-from nbms_app.services.consent import consent_status_for_instance, set_consent_status
+from nbms_app.services.consent import (
+    consent_is_granted,
+    consent_status_for_instance,
+    requires_consent,
+    set_consent_status,
+)
 from nbms_app.services.exports import approve_export, reject_export, release_export, submit_export_for_review
 from nbms_app.services.instance_approvals import (
     approve_for_instance,
     can_approve_instance,
+    bulk_approve_for_instance,
+    bulk_revoke_for_instance,
     revoke_for_instance,
 )
 from nbms_app.services.readiness import (
@@ -1043,6 +1050,12 @@ def reporting_instance_detail(request, instance_uuid):
 
 
 @staff_member_required
+def reporting_instance_report_pack(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    return render(request, "nbms_app/reporting/report_pack.html", {"instance": instance})
+
+
+@staff_member_required
 def reporting_set_current_instance(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     request.session["current_reporting_instance_uuid"] = str(instance.uuid)
@@ -1064,19 +1077,15 @@ def reporting_clear_current_instance(request):
 @staff_member_required
 def reporting_instance_sections(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
-    templates = ReportSectionTemplate.objects.filter(is_active=True).order_by("ordering", "code")
-    responses = ReportSectionResponse.objects.filter(reporting_instance=instance).select_related("template", "updated_by")
-    response_map = {resp.template_id: resp for resp in responses}
-    items = []
-    for template in templates:
-        response = response_map.get(template.id)
-        items.append(
-            {
-                "template": template,
-                "response": response,
-                "is_required": bool((template.schema_json or {}).get("required", False)),
-            }
-        )
+    readiness = get_instance_readiness(instance, request.user)
+    items = [
+        {
+            "template": section["template"],
+            "response": section["response"],
+            "is_required": section["required"],
+        }
+        for section in readiness["details"]["sections"]["sections"]
+    ]
     return render(
         request,
         "nbms_app/reporting/instance_sections.html",
@@ -1239,6 +1248,152 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
             url=reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
         )
         messages.success(request, "Approval revoked.")
+    else:
+        raise Http404()
+
+    return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance.uuid)
+
+
+@login_required
+def reporting_instance_approval_bulk(request, instance_uuid):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not can_approve_instance(request.user):
+        raise PermissionDenied("Not allowed to approve.")
+
+    obj_type = request.POST.get("obj_type", "").strip().lower()
+    action = request.POST.get("action", "").strip().lower()
+    mode = request.POST.get("mode", "selected").strip().lower()
+    admin_override = request.POST.get("admin_override") in {"1", "true", "yes"}
+    note = request.POST.get("note", "").strip()
+    rule_type = request.POST.get("rule_type", "").strip().lower()
+
+    if instance.frozen_at and not (admin_override and _is_admin_user(request.user)):
+        raise PermissionDenied("Reporting instance is frozen.")
+
+    model_map = {
+        "indicators": Indicator,
+        "indicator": Indicator,
+        "targets": NationalTarget,
+        "target": NationalTarget,
+        "evidence": Evidence,
+        "datasets": Dataset,
+        "dataset": Dataset,
+    }
+    model = model_map.get(obj_type)
+    if not model:
+        raise Http404()
+
+    queryset = filter_queryset_for_user(
+        model.objects.select_related("organisation", "created_by"),
+        request.user,
+    )
+    if action == "approve":
+        queryset = queryset.filter(status=LifecycleStatus.PUBLISHED)
+
+    if mode == "selected":
+        selected = request.POST.getlist("selected")
+        queryset = queryset.filter(uuid__in=selected)
+    elif mode == "rule" and rule_type == "indicator_by_target" and model is Indicator:
+        target_uuid = request.POST.get("target_uuid")
+        if not target_uuid:
+            messages.error(request, "Target is required for this rule.")
+            return redirect("nbms_app:reporting_instance_approvals", instance_uuid=instance.uuid)
+        target_qs = filter_queryset_for_user(
+            NationalTarget.objects.select_related("organisation", "created_by"),
+            request.user,
+        )
+        target = get_object_or_404(target_qs, uuid=target_uuid)
+        queryset = queryset.filter(national_target=target)
+
+    total_count = queryset.count()
+    sample = list(queryset[:10])
+    missing_consent_count = 0
+    for obj in queryset:
+        if requires_consent(obj) and not consent_is_granted(instance, obj):
+            missing_consent_count += 1
+    if request.POST.get("confirm") != "1":
+        return render(
+            request,
+            "nbms_app/reporting/instance_bulk_confirm.html",
+            {
+                "instance": instance,
+                "obj_type": obj_type,
+                "action": action,
+                "mode": mode,
+                "rule_type": rule_type,
+                "total_count": total_count,
+                "sample": sample,
+                "selected_ids": request.POST.getlist("selected"),
+                "target_uuid": request.POST.get("target_uuid", ""),
+                "admin_override": admin_override,
+                "note": note,
+                "missing_consent_count": missing_consent_count,
+            },
+        )
+
+    if action == "approve":
+        result = bulk_approve_for_instance(
+            instance,
+            queryset,
+            request.user,
+            note=note,
+            admin_override=admin_override,
+            skip_missing_consent=True,
+        )
+        approved = result["approved"]
+        skipped = result["skipped"]
+        for obj, _approval in approved:
+            record_audit_event(
+                request.user,
+                "instance_export_approve",
+                obj,
+                metadata={"instance_uuid": str(instance.uuid), "bulk": True, "decision": ApprovalDecision.APPROVED},
+            )
+        record_audit_event(
+            request.user,
+            "instance_export_bulk",
+            instance,
+            metadata={
+                "instance_uuid": str(instance.uuid),
+                "action": "approve",
+                "obj_type": obj_type,
+                "count": len(approved),
+                "skipped": len(skipped),
+            },
+        )
+        if skipped:
+            messages.warning(request, f"Skipped {len(skipped)} IPLC-sensitive items without consent.")
+        messages.success(request, f"Approved {len(approved)} items.")
+    elif action == "revoke":
+        revoked = bulk_revoke_for_instance(
+            instance,
+            queryset,
+            request.user,
+            note=note,
+            admin_override=admin_override,
+        )
+        for obj, _approval in revoked:
+            record_audit_event(
+                request.user,
+                "instance_export_revoke",
+                obj,
+                metadata={"instance_uuid": str(instance.uuid), "bulk": True, "decision": ApprovalDecision.REVOKED},
+            )
+        record_audit_event(
+            request.user,
+            "instance_export_bulk",
+            instance,
+            metadata={
+                "instance_uuid": str(instance.uuid),
+                "action": "revoke",
+                "obj_type": obj_type,
+                "count": len(revoked),
+            },
+        )
+        messages.success(request, f"Revoked {len(revoked)} items.")
     else:
         raise Http404()
 

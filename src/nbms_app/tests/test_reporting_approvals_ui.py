@@ -15,6 +15,8 @@ from nbms_app.models import (
     ReportingCycle,
     ReportingInstance,
     User,
+    LifecycleStatus,
+    SensitivityLevel,
 )
 from nbms_app.services.authorization import ROLE_DATA_STEWARD
 
@@ -112,4 +114,61 @@ class ReportingApprovalsUiTests(TestCase):
         )
         self.assertTrue(
             Notification.objects.filter(recipient=self.owner, message__icontains="revoked").exists()
+        )
+
+    def test_bulk_approve_preview_and_confirm(self):
+        self.indicator.status = LifecycleStatus.PUBLISHED
+        self.indicator.save(update_fields=["status"])
+        self.client.force_login(self.reviewer)
+        bulk_url = reverse("nbms_app:reporting_instance_approval_bulk", args=[self.instance.uuid])
+        preview = self.client.post(
+            bulk_url,
+            {"obj_type": "indicators", "mode": "visible", "action": "approve"},
+        )
+        self.assertEqual(preview.status_code, 200)
+        self.assertContains(preview, "Confirm bulk action")
+        confirm = self.client.post(
+            bulk_url,
+            {"obj_type": "indicators", "mode": "visible", "action": "approve", "confirm": "1"},
+        )
+        self.assertEqual(confirm.status_code, 302)
+        self.assertTrue(
+            InstanceExportApproval.objects.filter(
+                reporting_instance=self.instance,
+                object_uuid=self.indicator.uuid,
+                decision=ApprovalDecision.APPROVED,
+            ).exists()
+        )
+        self.assertTrue(
+            AuditEvent.objects.filter(action="instance_export_bulk", object_uuid=self.instance.uuid).exists()
+        )
+
+    def test_bulk_approve_skips_missing_consent(self):
+        iplc_indicator = Indicator.objects.create(
+            code="IND-IPLC",
+            title="IPLC Indicator",
+            national_target=self.target,
+            organisation=self.org_a,
+            created_by=self.owner,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.IPLC_SENSITIVE,
+        )
+        self.client.force_login(self.reviewer)
+        bulk_url = reverse("nbms_app:reporting_instance_approval_bulk", args=[self.instance.uuid])
+        self.client.post(
+            bulk_url,
+            {
+                "obj_type": "indicators",
+                "mode": "selected",
+                "action": "approve",
+                "selected": [str(iplc_indicator.uuid)],
+                "confirm": "1",
+            },
+        )
+        self.assertFalse(
+            InstanceExportApproval.objects.filter(
+                reporting_instance=self.instance,
+                object_uuid=iplc_indicator.uuid,
+                decision=ApprovalDecision.APPROVED,
+            ).exists()
         )

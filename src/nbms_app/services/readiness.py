@@ -15,6 +15,8 @@ from nbms_app.models import (
     ReportSectionResponse,
     ReportSectionTemplate,
     SensitivityLevel,
+    ValidationRuleSet,
+    ValidationScope,
 )
 from nbms_app.services.authorization import filter_queryset_for_user
 from nbms_app.services.consent import consent_is_granted, consent_status_for_instance, requires_consent
@@ -58,6 +60,42 @@ def _check(key, label, state, action_url=""):
     return {"key": key, "label": label, "state": state, "action_url": action_url}
 
 
+def _load_validation_rules(instance=None):
+    queryset = ValidationRuleSet.objects.filter(is_active=True).order_by("-created_at")
+    if instance:
+        instance_rule = queryset.filter(applies_to=ValidationScope.INSTANCE, code=str(instance.uuid)).first()
+        if instance_rule:
+            return instance_rule.rules_json or {}
+        cycle_rule = queryset.filter(applies_to=ValidationScope.CYCLE, code=instance.cycle.code).first()
+        if cycle_rule:
+            return cycle_rule.rules_json or {}
+    default_rule = queryset.filter(applies_to=ValidationScope.REPORT_TYPE, code="7NR_DEFAULT").first()
+    if default_rule:
+        return default_rule.rules_json or {}
+    return {}
+
+
+def _normalize_section_code(code):
+    if not code:
+        return ""
+    trimmed = str(code).strip().lower()
+    if trimmed.startswith("section-"):
+        return trimmed
+    roman_map = {
+        "i": "section-i",
+        "ii": "section-ii",
+        "iii": "section-iii",
+        "iv": "section-iv",
+        "v": "section-v",
+        "1": "section-i",
+        "2": "section-ii",
+        "3": "section-iii",
+        "4": "section-iv",
+        "5": "section-v",
+    }
+    return roman_map.get(trimmed, trimmed)
+
+
 def _visible_queryset(model, user):
     return filter_queryset_for_user(
         model.objects.select_related("organisation", "created_by"),
@@ -96,7 +134,7 @@ def _consent_missing(instance, model, user):
     return {"total": approved_visible.count(), "missing": missing}
 
 
-def _section_state(instance):
+def _section_state(instance, rules):
     templates = ReportSectionTemplate.objects.filter(is_active=True).order_by("ordering", "code")
     responses = ReportSectionResponse.objects.filter(
         reporting_instance=instance,
@@ -106,14 +144,28 @@ def _section_state(instance):
     sections = []
     missing_required = []
     incomplete_required = []
+    section_rules = (rules or {}).get("sections", {})
+    required_codes = section_rules.get("required", [])
+    required_codes = {_normalize_section_code(code) for code in (required_codes or []) if code}
+    if not required_codes:
+        required_codes = {
+            template.code for template in templates if (template.schema_json or {}).get("required", False)
+        }
+
+    required_fields_map = {}
+    for code, fields in (section_rules.get("required_fields", {}) or {}).items():
+        required_fields_map[_normalize_section_code(code)] = fields or []
+
     for template in templates:
         response = response_map.get(template.id)
         schema = template.schema_json or {}
         required_setting = schema.get("required", False)
-        required = bool(required_setting)
-        required_fields = [field.get("key") for field in schema.get("fields", []) if field.get("required")]
-        if isinstance(required_setting, (list, tuple)):
-            required_fields = list({*required_fields, *[key for key in required_setting if key]})
+        required = template.code in required_codes
+        required_fields = required_fields_map.get(template.code)
+        if required_fields is None:
+            required_fields = [field.get("key") for field in schema.get("fields", []) if field.get("required")]
+            if isinstance(required_setting, (list, tuple)):
+                required_fields = list({*required_fields, *[key for key in required_setting if key]})
         response_json = response.response_json if response else {}
         has_any_content = any(str(value).strip() for value in response_json.values()) if response_json else False
         if required_fields:
@@ -134,6 +186,7 @@ def _section_state(instance):
             state = "draft"
         sections.append(
             {
+                "template": template,
                 "code": template.code,
                 "title": template.title,
                 "required": required,
@@ -146,6 +199,7 @@ def _section_state(instance):
         "sections": sections,
         "missing_required_sections": missing_required,
         "incomplete_required_sections": incomplete_required,
+        "required_section_codes": sorted(required_codes),
         "total": templates.count(),
     }
 
@@ -177,10 +231,237 @@ def _eligible_for_export(obj, instance):
     return True
 
 
+def _score_sections(section_state):
+    required_sections = [section for section in section_state["sections"] if section.get("required")]
+    if not required_sections:
+        return 100
+    scores = []
+    for section in required_sections:
+        if section["state"] == "missing":
+            scores.append(0)
+        elif section["state"] == "draft":
+            scores.append(50)
+        else:
+            scores.append(100)
+    return round(sum(scores) / len(scores))
+
+
+def _score_approvals(approvals):
+    scores = []
+    for counts in approvals.values():
+        if counts["total"] == 0:
+            scores.append(0)
+        else:
+            scores.append(round(100 * counts["approved"] / counts["total"]))
+    if not scores:
+        return 100
+    return round(sum(scores) / len(scores))
+
+
+def _score_consent(consent):
+    total = sum(item["total"] for item in consent.values())
+    missing = sum(item["missing"] for item in consent.values())
+    if total == 0:
+        return 100
+    return round(100 * (1 - (missing / total)))
+
+
+def _score_publication_quality(instance, user):
+    total = 0
+    published = 0
+    for model in (Indicator, NationalTarget, Evidence, Dataset):
+        approved_ids = _approved_ids(instance, model)
+        if not approved_ids:
+            continue
+        approved_qs = filter_queryset_for_user(model.objects.filter(uuid__in=approved_ids), user)
+        total += approved_qs.count()
+        published += approved_qs.filter(status=LifecycleStatus.PUBLISHED).count()
+    if total == 0:
+        return 100
+    return round(100 * published / total)
+
+
+def _metadata_complete(obj, required_fields, field_map):
+    for field_key in required_fields:
+        mapped = field_map.get(field_key, field_key)
+        if mapped == "file":
+            if not getattr(obj, "file", None) and not getattr(obj, "source_url", None):
+                return False
+            continue
+        if mapped.endswith("_id"):
+            if not getattr(obj, mapped, None):
+                return False
+            continue
+        value = getattr(obj, mapped, None)
+        if value is None or (isinstance(value, str) and not value.strip()):
+            return False
+    return True
+
+
+def _metadata_rules(rules, key, default):
+    required_fields = (rules or {}).get(key, {}).get("required_fields", None)
+    if required_fields is None:
+        return default
+    return required_fields
+
+
+def _score_metadata(instance, user, rules):
+    totals = 0
+    complete = 0
+    definitions = [
+        (
+            "indicator",
+            Indicator,
+            ["code", "title", "national_target", "organisation", "created_by"],
+            {
+                "national_target": "national_target_id",
+                "organisation": "organisation_id",
+                "created_by": "created_by_id",
+                "name": "title",
+            },
+        ),
+        (
+            "target",
+            NationalTarget,
+            ["code", "title", "description", "organisation", "created_by"],
+            {
+                "organisation": "organisation_id",
+                "created_by": "created_by_id",
+                "name": "title",
+            },
+        ),
+        (
+            "evidence",
+            Evidence,
+            ["title", "evidence_type", "file"],
+            {"source_url": "source_url"},
+        ),
+        (
+            "dataset",
+            Dataset,
+            ["title", "methodology", "source_url"],
+            {"organisation": "organisation_id", "created_by": "created_by_id"},
+        ),
+    ]
+    for key, model, default_fields, field_map in definitions:
+        required_fields = _metadata_rules(rules, key, default_fields)
+        if not required_fields:
+            continue
+        queryset = filter_queryset_for_user(model.objects.all(), user).filter(status=LifecycleStatus.PUBLISHED)
+        if not queryset.exists():
+            continue
+        for obj in queryset:
+            totals += 1
+            if _metadata_complete(obj, required_fields, field_map):
+                complete += 1
+    if totals == 0:
+        return 100
+    return round(100 * complete / totals)
+
+
+def _build_action_queue(instance, user, readiness):
+    items = []
+    approvals = readiness["details"]["approvals"]
+    consent = readiness["details"]["consent"]
+    section_state = readiness["details"]["sections"]
+
+    missing_required = section_state["missing_required_sections"]
+    if missing_required:
+        severity = "BLOCKER" if settings.EXPORT_REQUIRE_SECTIONS else "WARNING"
+        items.append(
+            {
+                "severity": severity,
+                "title": "Missing required sections",
+                "details": ", ".join(missing_required),
+                "count_affected": len(missing_required),
+                "action_url": reverse("nbms_app:reporting_instance_sections", kwargs={"instance_uuid": instance.uuid}),
+                "owner_hint": "Contributor",
+            }
+        )
+
+    missing_consents = readiness["counts"]["missing_consents"]
+    if missing_consents:
+        items.append(
+            {
+                "severity": "BLOCKER",
+                "title": "Missing IPLC consent",
+                "details": "Consent required before export approval.",
+                "count_affected": missing_consents,
+                "action_url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
+                "owner_hint": "Community Representative",
+            }
+        )
+
+    pending_count = sum(item["pending"] for item in approvals.values())
+    if pending_count:
+        items.append(
+            {
+                "severity": "WARNING",
+                "title": "Pending approvals",
+                "details": "Approved items required for export.",
+                "count_affected": pending_count,
+                "action_url": reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid}),
+                "owner_hint": "Data Steward",
+            }
+        )
+
+    not_published_total = 0
+    for model in (Indicator, NationalTarget, Evidence, Dataset):
+        approved_ids = _approved_ids(instance, model)
+        if not approved_ids:
+            continue
+        approved_qs = filter_queryset_for_user(model.objects.filter(uuid__in=approved_ids), user)
+        not_published_total += approved_qs.exclude(status=LifecycleStatus.PUBLISHED).count()
+    if not_published_total:
+        items.append(
+            {
+                "severity": "BLOCKER",
+                "title": "Approved items not published",
+                "details": "Only published items are exportable.",
+                "count_affected": not_published_total,
+                "action_url": reverse("nbms_app:review_queue"),
+                "owner_hint": "Secretariat",
+            }
+        )
+
+    if instance.frozen_at:
+        if missing_required or pending_count:
+            items.append(
+                {
+                    "severity": "WARNING",
+                    "title": "Instance frozen with gaps",
+                    "details": "Unfreeze or use admin override to resolve items.",
+                    "count_affected": pending_count + len(missing_required),
+                    "action_url": reverse(
+                        "nbms_app:reporting_instance_detail", kwargs={"instance_uuid": instance.uuid}
+                    ),
+                    "owner_hint": "Admin",
+                }
+            )
+    else:
+        items.append(
+            {
+                "severity": "WARNING",
+                "title": "Instance not frozen",
+                "details": "Freeze before releasing export packages.",
+                "count_affected": 1,
+                "action_url": reverse(
+                    "nbms_app:reporting_instance_detail", kwargs={"instance_uuid": instance.uuid}
+                ),
+                "owner_hint": "Secretariat",
+            }
+        )
+
+    severity_rank = {"BLOCKER": 0, "WARNING": 1}
+    items.sort(key=lambda item: (severity_rank.get(item["severity"], 2), -item.get("count_affected", 0)))
+    return items[:10]
+
+
 def get_instance_readiness(instance, user):
     blockers = []
     warnings = []
-    section_state = _section_state(instance)
+    rules = _load_validation_rules(instance)
+    section_state = _section_state(instance, rules)
     missing_required = section_state["missing_required_sections"]
     incomplete_required = section_state["incomplete_required_sections"]
     if missing_required:
@@ -265,7 +546,43 @@ def get_instance_readiness(instance, user):
         "approvals": approvals,
         "missing_consents": missing_consent,
     }
-    return _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
+    result = _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
+    section_score = _score_sections(section_state)
+    approvals_score = _score_approvals(approvals)
+    consent_score = _score_consent(consent)
+    publication_score = _score_publication_quality(instance, user)
+    metadata_score = _score_metadata(instance, user, rules)
+    weighted_score = round(
+        (
+            section_score * 30
+            + approvals_score * 25
+            + consent_score * 25
+            + publication_score * 10
+            + metadata_score * 10
+        )
+        / 100
+    )
+    if weighted_score >= 80:
+        band = "green"
+    elif weighted_score >= 50:
+        band = "amber"
+    else:
+        band = "red"
+    result.update(
+        {
+            "readiness_score": weighted_score,
+            "readiness_band": band,
+            "score_breakdown": [
+                {"key": "sections", "label": "Sections completeness", "score": section_score, "weight": 30},
+                {"key": "approvals", "label": "Approvals coverage", "score": approvals_score, "weight": 25},
+                {"key": "consent", "label": "Consent clearance", "score": consent_score, "weight": 25},
+                {"key": "publication", "label": "Publication quality", "score": publication_score, "weight": 10},
+                {"key": "metadata", "label": "Metadata completeness", "score": metadata_score, "weight": 10},
+            ],
+            "action_queue": _build_action_queue(instance, user, result),
+        }
+    )
+    return result
 
 
 def _object_base_readiness(obj, instance=None):
@@ -285,23 +602,33 @@ def _object_base_readiness(obj, instance=None):
 
 
 def get_indicator_readiness(indicator, user, instance=None):
+    rules = _load_validation_rules(instance)
     blockers, warnings = _object_base_readiness(indicator, instance=instance)
     checks = []
+    field_map = {
+        "national_target": "national_target_id",
+        "organisation": "organisation_id",
+        "created_by": "created_by_id",
+        "name": "title",
+    }
+    required_fields = _metadata_rules(
+        rules,
+        "indicator",
+        ["code", "title", "national_target", "organisation", "created_by"],
+    )
     missing_fields = []
-    for key, label in [
-        ("code", "Code"),
-        ("title", "Title"),
-        ("national_target_id", "National target"),
-        ("organisation_id", "Organisation"),
-        ("created_by_id", "Created by"),
-    ]:
-        if not getattr(indicator, key, None):
-            missing_fields.append(label)
+    for field in required_fields:
+        if not _metadata_complete(indicator, [field], field_map):
+            missing_fields.append(field)
     if missing_fields:
-        warnings.append(_warning("missing_metadata", f"Missing required fields: {', '.join(missing_fields)}"))
-    for label in ["Code", "Title", "National target", "Organisation", "Created by"]:
-        state = "ok" if label not in missing_fields else "missing"
-        checks.append(_check(f"field_{label.lower().replace(' ', '_')}", label, state))
+        labels = [field.replace("_", " ").title() for field in missing_fields]
+        warnings.append(_warning("missing_metadata", f"Missing required fields: {', '.join(labels)}"))
+    for field in required_fields:
+        label = field.replace("_", " ").title()
+        if field == "national_target":
+            label = "National target"
+        state = "missing" if field in missing_fields else "ok"
+        checks.append(_check(f"field_{field}", label, state))
 
     evidence_qs = Evidence.objects.filter(indicator_links__indicator=indicator).distinct()
     evidence_qs = filter_queryset_for_user(evidence_qs, user)
@@ -344,6 +671,7 @@ def get_indicator_readiness(indicator, user, instance=None):
         "dataset_count": dataset_qs.count(),
         "approval_status": approval_status,
         "consent_status": consent_status,
+        "consent_required": requires_consent(indicator),
         "eligible_for_export": eligible,
     }
     counts = {"evidence": evidence_qs.count(), "datasets": dataset_qs.count()}
@@ -351,17 +679,21 @@ def get_indicator_readiness(indicator, user, instance=None):
 
 
 def get_target_readiness(target, user, instance=None):
+    rules = _load_validation_rules(instance)
     blockers, warnings = _object_base_readiness(target, instance=instance)
+    field_map = {"organisation": "organisation_id", "created_by": "created_by_id", "name": "title"}
+    required_fields = _metadata_rules(
+        rules,
+        "target",
+        ["code", "title", "description", "organisation", "created_by"],
+    )
     missing_fields = []
-    for key, label in [
-        ("code", "Code"),
-        ("title", "Title"),
-        ("description", "Description"),
-    ]:
-        if not getattr(target, key, None):
-            missing_fields.append(label)
+    for field in required_fields:
+        if not _metadata_complete(target, [field], field_map):
+            missing_fields.append(field)
     if missing_fields:
-        warnings.append(_warning("missing_metadata", f"Missing required fields: {', '.join(missing_fields)}"))
+        labels = [field.replace("_", " ").title() for field in missing_fields]
+        warnings.append(_warning("missing_metadata", f"Missing required fields: {', '.join(labels)}"))
     indicators_qs = Indicator.objects.filter(national_target=target).distinct()
     indicators_qs = filter_queryset_for_user(indicators_qs, user).filter(status=LifecycleStatus.PUBLISHED)
     published_indicator_count = indicators_qs.count()
@@ -369,9 +701,10 @@ def get_target_readiness(target, user, instance=None):
         warnings.append(_warning("missing_indicators", "No published indicators linked to this target."))
 
     checks = []
-    for label in ["Code", "Title", "Description"]:
-        state = "ok" if label not in missing_fields else "missing"
-        checks.append(_check(f"field_{label.lower()}", label, state))
+    for field in required_fields:
+        label = field.replace("_", " ").title()
+        state = "missing" if field in missing_fields else "ok"
+        checks.append(_check(f"field_{field}", label, state))
     checks.append(
         _check(
             "linked_indicators",
@@ -409,6 +742,7 @@ def get_target_readiness(target, user, instance=None):
         "approved_indicator_count": indicators_approved,
         "approval_status": approval_status,
         "consent_status": consent_status,
+        "consent_required": requires_consent(target),
         "eligible_for_export": eligible,
     }
     counts = {
@@ -419,19 +753,22 @@ def get_target_readiness(target, user, instance=None):
 
 
 def get_evidence_readiness(evidence, user, instance=None):
+    rules = _load_validation_rules(instance)
     blockers, warnings = _object_base_readiness(evidence, instance=instance)
     checks = []
-    if not evidence.title:
-        warnings.append(_warning("missing_title", "Missing evidence title."))
-    if not evidence.evidence_type:
-        warnings.append(_warning("missing_type", "Missing evidence type."))
-    if not evidence.file and not evidence.source_url:
-        warnings.append(_warning("missing_source", "Evidence is missing a file or source URL."))
-    checks.append(_check("title", "Title", "ok" if evidence.title else "missing"))
-    checks.append(_check("type", "Type", "ok" if evidence.evidence_type else "missing"))
-    checks.append(
-        _check("source", "File or URL", "ok" if evidence.file or evidence.source_url else "missing")
-    )
+    field_map = {"file": "file", "source_url": "source_url"}
+    required_fields = _metadata_rules(rules, "evidence", ["title", "evidence_type", "file"])
+    missing_fields = []
+    for field in required_fields:
+        if not _metadata_complete(evidence, [field], field_map):
+            missing_fields.append(field)
+    if missing_fields:
+        labels = [field.replace("_", " ").title() for field in missing_fields]
+        warnings.append(_warning("missing_metadata", f"Missing required fields: {', '.join(labels)}"))
+    for field in required_fields:
+        label = field.replace("_", " ").title()
+        state = "missing" if field in missing_fields else "ok"
+        checks.append(_check(f"field_{field}", label, state))
     approval_status = _approval_status(instance, evidence) if instance else None
     consent_status = consent_status_for_instance(instance, evidence) if instance else None
     eligible = _eligible_for_export(evidence, instance) if instance else False
@@ -452,29 +789,35 @@ def get_evidence_readiness(evidence, user, instance=None):
         "review_note": evidence.review_note,
         "approval_status": approval_status,
         "consent_status": consent_status,
+        "consent_required": requires_consent(evidence),
         "eligible_for_export": eligible,
     }
     return _readiness_result(blockers, warnings, details, checks=checks)
 
 
 def get_dataset_readiness(dataset, user, instance=None):
+    rules = _load_validation_rules(instance)
     blockers, warnings = _object_base_readiness(dataset, instance=instance)
     checks = []
-    if not dataset.title:
-        warnings.append(_warning("missing_title", "Missing dataset title."))
-    if not dataset.methodology:
-        warnings.append(_warning("missing_methodology", "Missing methodology."))
-    if not dataset.source_url:
-        warnings.append(_warning("missing_source", "Missing source URL."))
+    field_map = {"organisation": "organisation_id", "created_by": "created_by_id"}
+    required_fields = _metadata_rules(rules, "dataset", ["title", "methodology", "source_url"])
+    missing_fields = []
+    for field in required_fields:
+        if not _metadata_complete(dataset, [field], field_map):
+            missing_fields.append(field)
+    if missing_fields:
+        labels = [field.replace("_", " ").title() for field in missing_fields]
+        warnings.append(_warning("missing_metadata", f"Missing required fields: {', '.join(labels)}"))
     has_release = DatasetRelease.objects.filter(
         dataset=dataset,
         status=LifecycleStatus.PUBLISHED,
     ).exists()
     if not has_release:
         warnings.append(_warning("missing_release", "No published dataset release."))
-    checks.append(_check("title", "Title", "ok" if dataset.title else "missing"))
-    checks.append(_check("methodology", "Methodology", "ok" if dataset.methodology else "missing"))
-    checks.append(_check("source", "Source URL", "ok" if dataset.source_url else "missing"))
+    for field in required_fields:
+        label = field.replace("_", " ").title()
+        state = "missing" if field in missing_fields else "ok"
+        checks.append(_check(f"field_{field}", label, state))
     checks.append(_check("release", "Published release", "ok" if has_release else "missing"))
 
     approval_status = _approval_status(instance, dataset) if instance else None
@@ -506,6 +849,7 @@ def get_dataset_readiness(dataset, user, instance=None):
         "review_note": dataset.review_note,
         "approval_status": approval_status,
         "consent_status": consent_status,
+        "consent_required": requires_consent(dataset),
         "eligible_for_export": eligible,
         "linked_indicator_count": linked_indicators.count(),
         "linked_indicator_codes": linked_indicator_codes,

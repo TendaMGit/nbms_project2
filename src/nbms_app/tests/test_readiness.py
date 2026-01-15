@@ -20,6 +20,8 @@ from nbms_app.models import (
     ReportingInstance,
     SensitivityLevel,
     User,
+    ValidationRuleSet,
+    ValidationScope,
 )
 from nbms_app.services.authorization import ROLE_DATA_STEWARD
 from nbms_app.services.consent import set_consent_status
@@ -79,6 +81,9 @@ class ReadinessTests(TestCase):
         self.assertFalse(readiness["ok"])
         self.assertEqual(readiness["status"], "red")
         self.assertTrue(readiness["blockers"])
+        self.assertIn("readiness_score", readiness)
+        self.assertTrue(readiness["action_queue"])
+        self.assertEqual(readiness["action_queue"][0]["title"], "Missing required sections")
 
         ReportSectionResponse.objects.create(
             reporting_instance=self.instance,
@@ -90,6 +95,7 @@ class ReadinessTests(TestCase):
         readiness = get_instance_readiness(self.instance, self.staff)
         self.assertTrue(readiness["ok"])
         self.assertEqual(readiness["status"], "green")
+        self.assertGreaterEqual(readiness["readiness_score"], 50)
 
     def test_instance_readiness_abac_counts(self):
         other_org = Organisation.objects.create(name="Org B")
@@ -226,3 +232,20 @@ class ReadinessTests(TestCase):
         readiness = get_export_package_readiness(package, self.staff)
         self.assertTrue(readiness["ok"])
         self.assertEqual(readiness["status"], "amber")
+
+    @override_settings(EXPORT_REQUIRE_SECTIONS=True)
+    def test_validation_rule_set_overrides_required_sections(self):
+        ValidationRuleSet.objects.create(
+            code="7NR_DEFAULT",
+            applies_to=ValidationScope.REPORT_TYPE,
+            rules_json={"sections": {"required": ["I"]}},
+        )
+        ReportSectionTemplate.objects.create(
+            code="section-i",
+            title="Section I",
+            ordering=1,
+            schema_json={"required": False, "fields": [{"key": "summary"}]},
+        )
+        readiness = get_instance_readiness(self.instance, self.staff)
+        self.assertFalse(readiness["ok"])
+        self.assertTrue(readiness["blockers"])

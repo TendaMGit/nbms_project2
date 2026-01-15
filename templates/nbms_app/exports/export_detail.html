@@ -8,44 +8,68 @@
     <p><strong>Description:</strong> {{ package.description|default:"-" }}</p>
     <p><strong>Review note:</strong> {{ package.review_note|default:"-" }}</p>
   </div>
-  <div class="card">
-    <h2>Package Eligibility</h2>
-    <p><strong>Release readiness:</strong> {{ readiness.status|title }}</p>
-    {% if readiness.blockers or readiness.warnings %}
-      <details>
-        <summary>Why?</summary>
-        {% if readiness.blockers %}
-          <p><strong>Blockers</strong></p>
-          <ul>
-            {% for item in readiness.blockers %}
-              <li>{{ item.message }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-        {% if readiness.warnings %}
-          <p><strong>Warnings</strong></p>
-          <ul>
-            {% for item in readiness.warnings %}
-              <li>{{ item.message }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      </details>
-    {% endif %}
-    <h3>Requirements</h3>
-    <ul>
+  <section class="card readiness-card readiness-{{ readiness.status }}">
+    <header class="card-header">
+      <div class="card-title">
+        <span aria-hidden="true">📦</span>
+        <h2>Package Eligibility</h2>
+      </div>
+      <span class="badge badge-{{ readiness.status }}">{{ readiness.status|title }}</span>
+    </header>
+    <div class="card-body">
+      <p><strong>Release readiness:</strong> {{ readiness.status|title }}</p>
+      {% if readiness.blockers or readiness.warnings %}
+        <details>
+          <summary>Why?</summary>
+          {% if readiness.blockers %}
+            <p><strong>Blockers</strong></p>
+            <ul>
+              {% for item in readiness.blockers %}
+                <li>{{ item.message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+          {% if readiness.warnings %}
+            <p><strong>Warnings</strong></p>
+            <ul>
+              {% for item in readiness.warnings %}
+                <li>{{ item.message }}</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        </details>
+      {% endif %}
+      <h3>Requirements</h3>
       {% for check in readiness.checks %}
-        <li>{{ check.label }}: {{ check.state|title }}{% if check.action_url %} (<a href="{{ check.action_url }}">Fix</a>){% endif %}</li>
+        <div class="check-row">
+          <span class="check-icon">
+            {% if check.state == "ok" %}✔{% elif check.state == "missing" or check.state == "blocked" %}⛔{% elif check.state == "incomplete" %}⚠{% else %}○{% endif %}
+          </span>
+          <span class="check-label">{{ check.label }}</span>
+          {% if check.action_url %}
+            <span class="check-actions"><a href="{{ check.action_url }}">Fix</a></span>
+          {% endif %}
+        </div>
       {% endfor %}
-    </ul>
-    <h3>Included counts</h3>
-    <ul>
-      <li>Indicators: {{ readiness.counts.approved_indicators }}</li>
-      <li>Targets: {{ readiness.counts.approved_targets }}</li>
-      <li>Evidence: {{ readiness.counts.approved_evidence }}</li>
-      <li>Datasets: {{ readiness.counts.approved_datasets }}</li>
-    </ul>
-  </div>
+      <h3>Included counts</h3>
+      <div class="check-row">
+        <span class="check-icon">✔</span>
+        <span class="check-label">Indicators: {{ readiness.counts.approved_indicators }}</span>
+      </div>
+      <div class="check-row">
+        <span class="check-icon">✔</span>
+        <span class="check-label">Targets: {{ readiness.counts.approved_targets }}</span>
+      </div>
+      <div class="check-row">
+        <span class="check-icon">✔</span>
+        <span class="check-label">Evidence: {{ readiness.counts.approved_evidence }}</span>
+      </div>
+      <div class="check-row">
+        <span class="check-icon">✔</span>
+        <span class="check-label">Datasets: {{ readiness.counts.approved_datasets }}</span>
+      </div>
+    </div>
+  </section>
 
   <div class="card">
     {% if can_submit and package.status == "draft" %}
