@@ -939,7 +939,8 @@ def reporting_instance_section_edit(request, instance_uuid, section_code):
     initial_data = response.response_json if response else {}
     form = ReportSectionResponseForm(request.POST or None, template=template, initial_data=initial_data)
 
-    read_only = bool(instance.frozen_at and not _is_admin_user(request.user))
+    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
     if read_only:
         for field in form.fields.values():
             field.disabled = True
