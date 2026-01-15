@@ -1,0 +1,87 @@
+<section class="card readiness-card readiness-{{ card.band|default:'grey' }}">
+  <header class="card-header">
+    <div class="card-title">
+      {% if card.icon %}
+        <span aria-hidden="true">{{ card.icon }}</span>
+      {% endif %}
+      <h2>{{ card.title }}</h2>
+    </div>
+    {% if card.band %}
+      <span class="badge badge-{{ card.band }}">{{ card.band_label|default:card.band|title }}</span>
+    {% endif %}
+  </header>
+  <div class="card-body">
+    {% if card.subtitle %}
+      <p>{{ card.subtitle }}</p>
+    {% endif %}
+    {% if card.score is not None %}
+      <div class="score-box">
+        <div class="score-number">{{ card.score }}</div>
+        <div class="score-band badge badge-{{ card.band }}">{{ card.band_label|default:card.band|title }}</div>
+      </div>
+    {% endif %}
+    {% if card.score_breakdown %}
+      {% for item in card.score_breakdown %}
+        <div class="check-row">
+          <span class="check-icon">✔</span>
+          <span class="check-label">{{ item.label }}</span>
+          <span class="check-count">{{ item.score }} / 100 ({{ item.weight }}%)</span>
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% if card.checks %}
+      {% for check in card.checks %}
+        <div class="check-row">
+          <span class="check-icon">
+            {% if check.state == "ok" %}✔{% elif check.state == "missing" or check.state == "blocked" %}⛔{% elif check.state == "incomplete" or check.state == "warning" or check.state == "draft" %}⚠{% else %}○{% endif %}
+          </span>
+          <span class="check-label">{{ check.label }}</span>
+          {% if check.count is not None %}
+            <span class="check-count">{{ check.count }}</span>
+          {% endif %}
+          {% if check.action_url %}
+            <span class="check-actions"><a href="{{ check.action_url }}">Fix</a></span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% if card.queue %}
+      <ul class="action-queue">
+        {% for item in card.queue %}
+          <li>
+            {% if item.severity == "BLOCKER" %}
+              <span class="badge badge-red">BLOCKER</span>
+            {% else %}
+              <span class="badge badge-amber">WARNING</span>
+            {% endif %}
+            <div class="action-details">
+              <strong>{{ item.title }}</strong>
+              <div class="muted">{{ item.details }}</div>
+              <div class="muted">Owner: {{ item.owner_hint }} • Affected: {{ item.count_affected }}</div>
+            </div>
+            {% if item.action_url %}
+              <div class="actions"><a href="{{ item.action_url }}">Fix</a></div>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+    {% if card.message %}
+      <p class="muted">{{ card.message }}</p>
+    {% endif %}
+  </div>
+  {% if card.footer_actions or card.updated_at %}
+    <footer class="card-footer">
+      <div class="meta">
+        {% if card.updated_at %}Last updated: {{ card.updated_at }}{% endif %}
+      </div>
+      <div class="actions">
+        {% if card.footer_actions %}
+          {% for action in card.footer_actions %}
+            <a href="{{ action.url }}">{{ action.label }}</a>
+          {% endfor %}
+        {% endif %}
+      </div>
+    </footer>
+  {% endif %}
+</section>
