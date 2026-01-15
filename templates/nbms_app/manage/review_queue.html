@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Review queue</title>
+  </head>
+  <body>
+    <h1>Review queue</h1>
+
+    <h2>National targets</h2>
+    <ul>
+      {% for target in targets %}
+        <li>
+          <a href="{% url 'nbms_app:review_detail' 'target' target.uuid %}">
+            {{ target.code }} - {{ target.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No targets pending review.</li>
+      {% endfor %}
+    </ul>
+
+    <h2>Indicators</h2>
+    <ul>
+      {% for indicator in indicators %}
+        <li>
+          <a href="{% url 'nbms_app:review_detail' 'indicator' indicator.uuid %}">
+            {{ indicator.code }} - {{ indicator.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No indicators pending review.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

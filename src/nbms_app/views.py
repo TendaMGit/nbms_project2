@@ -10,8 +10,9 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
 from nbms_app.forms import OrganisationForm, UserCreateForm, UserUpdateForm
-from nbms_app.models import Indicator, NationalTarget, Organisation, User
+from nbms_app.models import Indicator, LifecycleStatus, NationalTarget, Organisation, User
 from nbms_app.services.authorization import filter_queryset_for_user
+from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
 
@@ -177,3 +178,60 @@ def indicator_detail(request, indicator_uuid):
     )
     indicator = get_object_or_404(indicators, uuid=indicator_uuid)
     return render(request, "nbms_app/indicators/indicator_detail.html", {"indicator": indicator})
+
+
+@staff_member_required
+def review_queue(request):
+    targets = NationalTarget.objects.filter(status=LifecycleStatus.PENDING_REVIEW).order_by("code")
+    indicators = Indicator.objects.filter(status=LifecycleStatus.PENDING_REVIEW).order_by("code")
+    return render(
+        request,
+        "nbms_app/manage/review_queue.html",
+        {"targets": targets, "indicators": indicators},
+    )
+
+
+@staff_member_required
+def review_detail(request, obj_type, obj_uuid):
+    if obj_type == "target":
+        obj = get_object_or_404(NationalTarget, uuid=obj_uuid)
+        perm_code = "nbms_app.view_nationaltarget"
+    elif obj_type == "indicator":
+        obj = get_object_or_404(Indicator, uuid=obj_uuid)
+        perm_code = "nbms_app.view_indicator"
+    else:
+        raise Http404()
+
+    if not request.user.has_perm(perm_code, obj) and not request.user.is_superuser:
+        raise Http404()
+
+    return render(request, "nbms_app/manage/review_detail.html", {"obj": obj, "obj_type": obj_type})
+
+
+@staff_member_required
+def review_action(request, obj_type, obj_uuid, action):
+    if request.method != "POST":
+        return redirect("nbms_app:review_queue")
+
+    note = request.POST.get("note", "").strip()
+
+    if obj_type == "target":
+        obj = get_object_or_404(NationalTarget, uuid=obj_uuid)
+    elif obj_type == "indicator":
+        obj = get_object_or_404(Indicator, uuid=obj_uuid)
+    else:
+        raise Http404()
+
+    try:
+        if action == "approve":
+            approve(obj, request.user, note=note)
+            messages.success(request, "Item approved.")
+        elif action == "reject":
+            reject(obj, request.user, note=note)
+            messages.success(request, "Item rejected.")
+        else:
+            raise Http404()
+    except Exception as exc:  # noqa: BLE001
+        messages.error(request, str(exc))
+
+    return redirect("nbms_app:review_detail", obj_type=obj_type, obj_uuid=obj.uuid)
