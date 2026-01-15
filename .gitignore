@@ -4,6 +4,7 @@ __pycache__/
 *.pyo
 *.pyd
 *.log
+celery_worker.err
 .pytest_cache/
 
 # Virtual environments

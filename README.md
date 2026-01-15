@@ -2,6 +2,31 @@
 
 Clean, portable baseline for the NBMS platform (PostGIS + MinIO + GeoServer).
 
+## Purpose and scope
+
+NBMS Project 2 is a manager-ready prototype for biodiversity reporting workflows,
+including governance, consent checks, and instance-scoped approvals.
+
+## Feature summary
+
+- Auth and staff management UI (no Django admin needed for day-to-day)
+- ABAC and object-level access controls
+- Workflow transitions with audit trail and notifications
+- Reporting cycles and instances with freeze and approvals
+- Consent gating for IPLC-sensitive content
+- Export packages with instance-scoped approvals
+- Manager report pack preview (HTML)
+
+## Demo flow
+
+1) Create a reporting cycle and reporting instance.
+2) Seed section templates and validation rules.
+3) Capture Section I to V narrative content.
+4) Create targets, indicators, evidence, and datasets.
+5) Approve items for the instance and resolve consent blockers.
+6) Review the manager report pack preview.
+7) Release an export package once blockers are cleared.
+
 ## Clean slate on the same server (Docker)
 
 1) Copy the environment file and fill in credentials:
@@ -128,6 +153,30 @@ ABAC quick check:
 - `ENABLE_GEOSERVER=1` enables GeoServer checks in scripts.
 - Configure `EMAIL_*` vars to enable password reset emails in non-dev environments.
 
+## Environment variables reference
+
+Core:
+- `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `ENVIRONMENT`
+- `DJANGO_ALLOWED_HOSTS`, `DJANGO_CSRF_TRUSTED_ORIGINS`, `DJANGO_TIME_ZONE`
+
+Database:
+- `DATABASE_URL` (optional; overrides other DB settings)
+- `NBMS_DB_NAME`, `NBMS_DB_USER`, `NBMS_DB_PASSWORD`
+- `NBMS_TEST_DB_NAME` (defaults to test database)
+- `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
+- `ENABLE_GIS` to toggle PostGIS usage
+
+Storage and media:
+- `USE_S3`, `S3_ENDPOINT_URL`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`
+- `S3_BUCKET`, `S3_REGION`, `S3_ADDRESSING_STYLE`
+
+Reporting and exports:
+- `EXPORT_REQUIRE_SECTIONS` (set to 1 to block export when required sections are missing)
+
+Security and monitoring:
+- `RATE_LIMIT_LOGIN`, `RATE_LIMIT_PASSWORD_RESET`, `RATE_LIMIT_WORKFLOW`
+- `METRICS_TOKEN` (optional; protects /metrics when set)
+
 ## Settings
 
 - Dev settings: `config.settings.dev`
@@ -152,4 +201,10 @@ python manage.py seed_validation_rules
 
 You can override the rules in the admin UI, but keep only one active ruleset unless you
 intentionally want multiple active configurations.
+
+## Known limitations
+
+- Report pack is HTML only; use print-to-PDF for now.
+- Background jobs (Celery) are not wired yet.
+- ORT mapping is a stub and not a full 7NR export.
 
