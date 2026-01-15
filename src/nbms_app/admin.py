@@ -13,6 +13,8 @@ from nbms_app.models import (
     LifecycleStatus,
     NationalTarget,
     Organisation,
+    ReportSectionResponse,
+    ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
     User,
@@ -215,6 +217,21 @@ class ReportingInstanceAdmin(admin.ModelAdmin):
     list_display = ("cycle", "version_label", "status", "frozen_at", "frozen_by")
     search_fields = ("cycle__code", "version_label")
     list_filter = ("status",)
+
+
+@admin.register(ReportSectionTemplate)
+class ReportSectionTemplateAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "ordering", "is_active", "updated_at")
+    search_fields = ("code", "title")
+    list_filter = ("is_active",)
+    ordering = ("ordering", "code")
+
+
+@admin.register(ReportSectionResponse)
+class ReportSectionResponseAdmin(admin.ModelAdmin):
+    list_display = ("template", "reporting_instance", "updated_by", "updated_at")
+    search_fields = ("template__code", "template__title", "reporting_instance__cycle__code")
+    list_filter = ("template",)
 
 
 @admin.register(ExportPackage)

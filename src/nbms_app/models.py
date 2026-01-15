@@ -99,6 +99,54 @@ class ReportingInstance(TimeStampedModel):
         return f"{self.cycle.code} {self.version_label}"
 
 
+class ReportSectionTemplate(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    ordering = models.PositiveIntegerField(default=0)
+    schema_json = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["ordering", "code"]
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+
+class ReportSectionResponse(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="section_responses",
+    )
+    template = models.ForeignKey(
+        ReportSectionTemplate,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    response_json = models.JSONField(default=dict, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="report_section_responses",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "template"],
+                name="uq_report_section_response",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.reporting_instance} - {self.template.code}"
+
+
 class ApprovalDecision(models.TextChoices):
     APPROVED = "approved", "Approved"
     REVOKED = "revoked", "Revoked"

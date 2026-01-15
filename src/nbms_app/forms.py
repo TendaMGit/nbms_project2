@@ -12,6 +12,7 @@ from nbms_app.models import (
     Indicator,
     NationalTarget,
     Organisation,
+    ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
     User,
@@ -191,3 +192,48 @@ class ReportingInstanceForm(forms.ModelForm):
             "status",
             "notes",
         ]
+
+
+class ReportSectionResponseForm(forms.Form):
+    def __init__(self, *args, template: ReportSectionTemplate, initial_data=None, **kwargs):
+        if template is None:
+            raise ValueError("template is required")
+        self.template = template
+        self.initial_data = initial_data or {}
+        super().__init__(*args, **kwargs)
+
+        schema = template.schema_json or {}
+        fields = schema.get("fields", [])
+        if not fields:
+            self.fields["response_json"] = forms.JSONField(
+                required=False,
+                widget=forms.Textarea(attrs={"rows": 10}),
+                help_text="Provide a JSON object for this section.",
+            )
+            if self.initial_data:
+                self.fields["response_json"].initial = self.initial_data
+            return
+
+        for field in fields:
+            key = field.get("key")
+            if not key:
+                continue
+            label = field.get("label") or key.replace("_", " ").title()
+            required = bool(field.get("required", False))
+            help_text = field.get("help", "")
+            self.fields[key] = forms.CharField(
+                label=label,
+                required=required,
+                help_text=help_text,
+                widget=forms.Textarea(attrs={"rows": 5}),
+            )
+            if key in self.initial_data:
+                self.fields[key].initial = self.initial_data[key]
+
+    def to_response_json(self):
+        if "response_json" in self.fields:
+            return self.cleaned_data.get("response_json") or {}
+        data = {}
+        for key in self.fields:
+            data[key] = self.cleaned_data.get(key, "")
+        return data

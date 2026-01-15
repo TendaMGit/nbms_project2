@@ -1,0 +1,20 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Preview {{ template.title }}{% endblock %}
+{% block content %}
+  <h1>{{ template.title }}</h1>
+  {% if fields %}
+    <dl>
+      {% for field in fields %}
+        <dt>{{ field.label }}</dt>
+        <dd>{{ field.value|default:"-"|linebreaksbr }}</dd>
+      {% endfor %}
+    </dl>
+  {% else %}
+    <pre>{{ response_json|default:"{}" }}</pre>
+  {% endif %}
+  <p>
+    <a href="{% url 'nbms_app:reporting_instance_section_edit' instance.uuid template.code %}">Edit</a>
+    |
+    <a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Back to sections</a>
+  </p>
+{% endblock %}

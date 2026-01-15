@@ -1,7 +1,7 @@
 from datetime import date
 
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from django.core.exceptions import ValidationError
@@ -17,6 +17,8 @@ from nbms_app.models import (
     LifecycleStatus,
     NationalTarget,
     Organisation,
+    ReportSectionResponse,
+    ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
     SensitivityLevel,
@@ -41,6 +43,24 @@ class ExportPayloadTests(TestCase):
             due_date=date(2026, 1, 31),
         )
         self.instance = ReportingInstance.objects.create(cycle=self.cycle, version_label="v1")
+        self.template_required = ReportSectionTemplate.objects.create(
+            code="section-i",
+            title="Section I",
+            ordering=1,
+            schema_json={"required": True, "fields": [{"key": "summary", "label": "Summary", "required": True}]},
+        )
+        self.template_missing = ReportSectionTemplate.objects.create(
+            code="section-ii",
+            title="Section II",
+            ordering=2,
+            schema_json={"required": True, "fields": [{"key": "notes", "label": "Notes"}]},
+        )
+        ReportSectionResponse.objects.create(
+            reporting_instance=self.instance,
+            template=self.template_required,
+            response_json={"summary": "Section summary"},
+            updated_by=self.user,
+        )
 
         self.target_ok = NationalTarget.objects.create(
             code="NT-OK",
@@ -103,6 +123,10 @@ class ExportPayloadTests(TestCase):
 
     def test_build_export_payload_filters_by_instance_approvals(self):
         payload = build_export_payload(self.instance)
+        self.assertEqual(payload["reporting_instance"]["uuid"], str(self.instance.uuid))
+        section_map = {section["code"]: section for section in payload["sections"]}
+        self.assertEqual(section_map["section-i"]["response"]["summary"], "Section summary")
+        self.assertIn("section-ii", payload["missing_required_sections"])
         target_codes = {item["code"] for item in payload["targets"]}
         self.assertIn(self.target_ok.code, target_codes)
         self.assertNotIn(self.target_hidden.code, target_codes)
@@ -202,3 +226,31 @@ class ExportWorkflowTests(TestCase):
         release_export(package, self.secretariat)
         package.refresh_from_db()
         self.assertEqual(package.status, ExportStatus.RELEASED)
+
+    @override_settings(EXPORT_REQUIRE_SECTIONS=True)
+    def test_export_release_blocked_when_sections_missing(self):
+        ReportSectionTemplate.objects.create(
+            code="section-i",
+            title="Section I",
+            ordering=1,
+            schema_json={"required": True, "fields": [{"key": "summary", "label": "Summary", "required": True}]},
+        )
+        target = NationalTarget.objects.create(
+            code="NT-OK",
+            title="Target OK",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        approve_for_instance(self.instance, target, self.creator)
+        package = ExportPackage.objects.create(
+            title="Export Missing Sections",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+        with self.assertRaises(ValidationError):
+            release_export(package, self.secretariat)
