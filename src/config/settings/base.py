@@ -53,6 +53,8 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "nbms_app.middleware.RateLimitMiddleware",
+    "nbms_app.middleware_metrics.MetricsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -236,6 +238,26 @@ CACHES = {
     }
 }
 
+RATE_LIMITS = {
+    "login": {
+        "rate": os.environ.get("RATE_LIMIT_LOGIN", "5/300"),
+        "methods": ["POST"],
+        "paths": ["/accounts/login/", "/account/login/"],
+    },
+    "password_reset": {
+        "rate": os.environ.get("RATE_LIMIT_PASSWORD_RESET", "5/300"),
+        "methods": ["POST"],
+        "paths": ["/accounts/password_reset/"],
+    },
+    "workflow": {
+        "rate": os.environ.get("RATE_LIMIT_WORKFLOW", "10/60"),
+        "methods": ["POST"],
+        "paths": ["/manage/review-queue/"],
+        "actions": ["approve", "reject", "publish", "archive"],
+    },
+}
+
+METRICS_TOKEN = os.environ.get("METRICS_TOKEN", "")
 
 LOGIN_URL = "two_factor:login"
 LOGIN_REDIRECT_URL = "/"

@@ -2,6 +2,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 
 from nbms_app.models import LifecycleStatus
 from nbms_app.services.audit import record_audit_event
+from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
@@ -32,6 +33,10 @@ def submit_for_review(obj, user):
     obj.review_note = ""
     obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "submit_for_review", obj, metadata={"status": obj.status})
+    inc_counter(
+        "workflow_transitions_total",
+        labels={"action": "submit_for_review", "object_type": obj.__class__.__name__},
+    )
     create_notification(
         getattr(obj, "created_by", None),
         f"{obj.__class__.__name__} submitted for review: {obj.code}",
@@ -51,6 +56,10 @@ def approve(obj, user, note=""):
     obj.review_note = note or ""
     obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "approve", obj, metadata={"status": obj.status, "note": obj.review_note})
+    inc_counter(
+        "workflow_transitions_total",
+        labels={"action": "approve", "object_type": obj.__class__.__name__},
+    )
     create_notification(
         getattr(obj, "created_by", None),
         f"{obj.__class__.__name__} approved: {obj.code}",
@@ -72,6 +81,10 @@ def reject(obj, user, note):
     obj.review_note = note
     obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "reject", obj, metadata={"status": obj.status, "note": obj.review_note})
+    inc_counter(
+        "workflow_transitions_total",
+        labels={"action": "reject", "object_type": obj.__class__.__name__},
+    )
     create_notification(
         getattr(obj, "created_by", None),
         f"{obj.__class__.__name__} rejected: {obj.code}",
@@ -90,6 +103,10 @@ def publish(obj, user):
     obj.status = LifecycleStatus.PUBLISHED
     obj.save(update_fields=["status"])
     record_audit_event(user, "publish", obj, metadata={"status": obj.status})
+    inc_counter(
+        "workflow_transitions_total",
+        labels={"action": "publish", "object_type": obj.__class__.__name__},
+    )
     create_notification(
         getattr(obj, "created_by", None),
         f"{obj.__class__.__name__} published: {obj.code}",
@@ -108,4 +125,8 @@ def archive(obj, user):
     obj.status = LifecycleStatus.ARCHIVED
     obj.save(update_fields=["status"])
     record_audit_event(user, "archive", obj, metadata={"status": obj.status})
+    inc_counter(
+        "workflow_transitions_total",
+        labels={"action": "archive", "object_type": obj.__class__.__name__},
+    )
     return obj
