@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Dataset detail</title>
+  </head>
+  <body>
+    <h1>{{ dataset.title }}</h1>
+    <p><strong>Status:</strong> {{ dataset.status }}</p>
+    <p><strong>Sensitivity:</strong> {{ dataset.sensitivity }}</p>
+    <p><strong>Description:</strong> {{ dataset.description|default:"-" }}</p>
+    <p><strong>Methodology:</strong> {{ dataset.methodology|default:"-" }}</p>
+    <p><strong>Source URL:</strong> {% if dataset.source_url %}<a href="{{ dataset.source_url }}">{{ dataset.source_url }}</a>{% else %}-{% endif %}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:dataset_edit' dataset.uuid %}">Edit dataset</a></p>
+    {% endif %}
+    <h2>Releases</h2>
+    <ul>
+      {% for release in releases %}
+        <li>{{ release.version }} ({{ release.status }})</li>
+      {% empty %}
+        <li>No releases yet.</li>
+      {% endfor %}
+    </ul>
+    <p><a href="{% url 'nbms_app:dataset_list' %}">Back to list</a></p>
+  </body>
+</html>

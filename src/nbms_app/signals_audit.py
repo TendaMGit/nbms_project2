@@ -1,7 +1,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from nbms_app.models import Indicator, NationalTarget
+from nbms_app.models import Dataset, DatasetRelease, Evidence, Indicator, NationalTarget
 from nbms_app.services.audit import record_audit_event
 
 
@@ -22,4 +22,19 @@ def audit_nationaltarget_update(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Indicator)
 def audit_indicator_update(sender, instance, created, **kwargs):
+    _track_changes(sender, instance, created, **kwargs)
+
+
+@receiver(post_save, sender=Evidence)
+def audit_evidence_update(sender, instance, created, **kwargs):
+    _track_changes(sender, instance, created, **kwargs)
+
+
+@receiver(post_save, sender=Dataset)
+def audit_dataset_update(sender, instance, created, **kwargs):
+    _track_changes(sender, instance, created, **kwargs)
+
+
+@receiver(post_save, sender=DatasetRelease)
+def audit_datasetrelease_update(sender, instance, created, **kwargs):
     _track_changes(sender, instance, created, **kwargs)

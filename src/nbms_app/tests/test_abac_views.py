@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
-from nbms_app.models import Indicator, LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
+from nbms_app.models import Dataset, Evidence, Indicator, LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
 from nbms_app.services.authorization import ROLE_SECURITY_OFFICER
 
 
@@ -71,6 +71,36 @@ class AbacViewTests(TestCase):
             sensitivity=SensitivityLevel.PUBLIC,
         )
 
+        self.evidence_public = Evidence.objects.create(
+            title="Public Evidence",
+            organisation=self.org_a,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        self.evidence_internal = Evidence.objects.create(
+            title="Internal Evidence",
+            organisation=self.org_b,
+            created_by=self.other_user,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.INTERNAL,
+        )
+
+        self.dataset_public = Dataset.objects.create(
+            title="Public Dataset",
+            organisation=self.org_a,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        self.dataset_internal = Dataset.objects.create(
+            title="Internal Dataset",
+            organisation=self.org_b,
+            created_by=self.other_user,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.INTERNAL,
+        )
+
     def test_anonymous_sees_only_public_targets(self):
         resp = self.client.get(reverse("nbms_app:national_target_list"))
         targets = list(resp.context["targets"])
@@ -102,3 +132,23 @@ class AbacViewTests(TestCase):
     def test_indicator_detail_anonymous_public(self):
         resp = self.client.get(reverse("nbms_app:indicator_detail", args=[self.indicator_public.uuid]))
         self.assertEqual(resp.status_code, 200)
+
+    def test_evidence_list_anonymous_public_only(self):
+        resp = self.client.get(reverse("nbms_app:evidence_list"))
+        evidence_items = list(resp.context["evidence_items"])
+        self.assertIn(self.evidence_public, evidence_items)
+        self.assertNotIn(self.evidence_internal, evidence_items)
+
+    def test_evidence_detail_anonymous_blocked(self):
+        resp = self.client.get(reverse("nbms_app:evidence_detail", args=[self.evidence_internal.uuid]))
+        self.assertEqual(resp.status_code, 404)
+
+    def test_dataset_list_anonymous_public_only(self):
+        resp = self.client.get(reverse("nbms_app:dataset_list"))
+        datasets = list(resp.context["datasets"])
+        self.assertIn(self.dataset_public, datasets)
+        self.assertNotIn(self.dataset_internal, datasets)
+
+    def test_dataset_detail_anonymous_blocked(self):
+        resp = self.client.get(reverse("nbms_app:dataset_detail", args=[self.dataset_internal.uuid]))
+        self.assertEqual(resp.status_code, 404)

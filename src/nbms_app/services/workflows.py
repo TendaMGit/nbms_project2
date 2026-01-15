@@ -21,6 +21,13 @@ def _require_status(obj, *allowed_statuses):
     if obj.status not in allowed_statuses:
         raise ValidationError("Invalid status transition.")
 
+def _object_label(obj):
+    for attr in ("code", "title", "version"):
+        value = getattr(obj, attr, None)
+        if value:
+            return value
+    return str(obj)
+
 
 def submit_for_review(obj, user):
     if not user or not getattr(user, "is_authenticated", False):
@@ -37,9 +44,10 @@ def submit_for_review(obj, user):
         "workflow_transitions_total",
         labels={"action": "submit_for_review", "object_type": obj.__class__.__name__},
     )
+    label = _object_label(obj)
     create_notification(
         getattr(obj, "created_by", None),
-        f"{obj.__class__.__name__} submitted for review: {obj.code}",
+        f"{obj.__class__.__name__} submitted for review: {label}",
         url="",
     )
     return obj
@@ -60,9 +68,10 @@ def approve(obj, user, note=""):
         "workflow_transitions_total",
         labels={"action": "approve", "object_type": obj.__class__.__name__},
     )
+    label = _object_label(obj)
     create_notification(
         getattr(obj, "created_by", None),
-        f"{obj.__class__.__name__} approved: {obj.code}",
+        f"{obj.__class__.__name__} approved: {label}",
         url="",
     )
     return obj
@@ -85,9 +94,10 @@ def reject(obj, user, note):
         "workflow_transitions_total",
         labels={"action": "reject", "object_type": obj.__class__.__name__},
     )
+    label = _object_label(obj)
     create_notification(
         getattr(obj, "created_by", None),
-        f"{obj.__class__.__name__} rejected: {obj.code}",
+        f"{obj.__class__.__name__} rejected: {label}",
         url="",
     )
     return obj
@@ -107,9 +117,10 @@ def publish(obj, user):
         "workflow_transitions_total",
         labels={"action": "publish", "object_type": obj.__class__.__name__},
     )
+    label = _object_label(obj)
     create_notification(
         getattr(obj, "created_by", None),
-        f"{obj.__class__.__name__} published: {obj.code}",
+        f"{obj.__class__.__name__} published: {label}",
         url="",
     )
     return obj

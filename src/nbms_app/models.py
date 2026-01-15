@@ -51,6 +51,13 @@ class SensitivityLevel(models.TextChoices):
     IPLC_SENSITIVE = "iplc_sensitive", "IPLC-sensitive"
 
 
+class ExportStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    PENDING_REVIEW = "pending_review", "Pending review"
+    APPROVED = "approved", "Approved"
+    RELEASED = "released", "Released"
+
+
 class NationalTarget(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -72,6 +79,7 @@ class NationalTarget(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -107,6 +115,7 @@ class Indicator(TimeStampedModel):
     )
     status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
 
     def __str__(self):
@@ -116,6 +125,193 @@ class Indicator(TimeStampedModel):
         indexes = [
             models.Index(fields=["status"]),
             models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class Evidence(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    evidence_type = models.CharField(max_length=100, blank=True)
+    source_url = models.URLField(blank=True)
+    file = models.FileField(upload_to="evidence/", blank=True, null=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="evidence_items",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_evidence_items",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class Dataset(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    methodology = models.TextField(blank=True)
+    source_url = models.URLField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="datasets",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_datasets",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class DatasetRelease(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="releases")
+    version = models.CharField(max_length=50)
+    release_date = models.DateField(blank=True, null=True)
+    snapshot_title = models.CharField(max_length=255)
+    snapshot_description = models.TextField(blank=True)
+    snapshot_methodology = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="dataset_releases",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_dataset_releases",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.dataset.title} {self.version}"
+
+    def save(self, *args, **kwargs):
+        if self.dataset:
+            if not self.snapshot_title:
+                self.snapshot_title = self.dataset.title
+            if not self.snapshot_description:
+                self.snapshot_description = self.dataset.description
+            if not self.snapshot_methodology:
+                self.snapshot_methodology = self.dataset.methodology
+            if not self.organisation:
+                self.organisation = self.dataset.organisation
+            if not self.created_by:
+                self.created_by = self.dataset.created_by
+            if not self.sensitivity:
+                self.sensitivity = self.dataset.sensitivity
+        super().save(*args, **kwargs)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class IndicatorEvidenceLink(TimeStampedModel):
+    indicator = models.ForeignKey(Indicator, on_delete=models.CASCADE, related_name="evidence_links")
+    evidence = models.ForeignKey(Evidence, on_delete=models.CASCADE, related_name="indicator_links")
+    note = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["indicator", "evidence"], name="uq_indicator_evidence"),
+        ]
+
+
+class IndicatorDatasetLink(TimeStampedModel):
+    indicator = models.ForeignKey(Indicator, on_delete=models.CASCADE, related_name="dataset_links")
+    dataset = models.ForeignKey(Dataset, on_delete=models.CASCADE, related_name="indicator_links")
+    note = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["indicator", "dataset"], name="uq_indicator_dataset"),
+        ]
+
+
+class ExportPackage(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=ExportStatus.choices, default=ExportStatus.DRAFT)
+    review_note = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="export_packages",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_export_packages",
+        blank=True,
+        null=True,
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    generated_at = models.DateTimeField(blank=True, null=True)
+    released_at = models.DateTimeField(blank=True, null=True)
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
             models.Index(fields=["organisation"]),
             models.Index(fields=["created_by"]),
         ]

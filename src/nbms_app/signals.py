@@ -3,7 +3,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from guardian.shortcuts import assign_perm
 
-from nbms_app.models import Indicator, NationalTarget
+from nbms_app.models import Dataset, DatasetRelease, Evidence, Indicator, NationalTarget
 from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT
 
 
@@ -34,3 +34,27 @@ def grant_indicator_perms(sender, instance, created, **kwargs):
         return
     _assign_perms_to_creator(instance, "indicator")
     _assign_perms_to_groups(instance, "indicator")
+
+
+@receiver(post_save, sender=Evidence)
+def grant_evidence_perms(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _assign_perms_to_creator(instance, "evidence")
+    _assign_perms_to_groups(instance, "evidence")
+
+
+@receiver(post_save, sender=Dataset)
+def grant_dataset_perms(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _assign_perms_to_creator(instance, "dataset")
+    _assign_perms_to_groups(instance, "dataset")
+
+
+@receiver(post_save, sender=DatasetRelease)
+def grant_datasetrelease_perms(sender, instance, created, **kwargs):
+    if not created:
+        return
+    _assign_perms_to_creator(instance, "datasetrelease")
+    _assign_perms_to_groups(instance, "datasetrelease")

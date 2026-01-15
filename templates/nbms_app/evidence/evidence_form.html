@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Evidence form</title>
+  </head>
+  <body>
+    <h1>{% if mode == "edit" %}Edit{% else %}Create{% endif %} evidence</h1>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+    <p><a href="{% url 'nbms_app:evidence_list' %}">Back to list</a></p>
+  </body>
+</html>

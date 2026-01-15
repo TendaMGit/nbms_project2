@@ -1,8 +1,11 @@
+from pathlib import Path
+
 from django import forms
+from django.conf import settings
 from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
 
-from nbms_app.models import Organisation, User
+from nbms_app.models import Dataset, Evidence, ExportPackage, Organisation, User
 from nbms_app.roles import get_canonical_groups_queryset
 
 
@@ -74,3 +77,53 @@ class UserUpdateForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["email"].required = True
         self.fields["groups"].queryset = get_canonical_groups_queryset()
+
+
+class EvidenceForm(forms.ModelForm):
+    class Meta:
+        model = Evidence
+        fields = [
+            "title",
+            "description",
+            "evidence_type",
+            "source_url",
+            "file",
+            "organisation",
+            "sensitivity",
+        ]
+
+    def clean_file(self):
+        uploaded = self.cleaned_data.get("file")
+        if not uploaded:
+            return uploaded
+        max_size = getattr(settings, "EVIDENCE_MAX_FILE_SIZE", 25 * 1024 * 1024)
+        if uploaded.size > max_size:
+            raise ValidationError("File exceeds the maximum allowed size.")
+        allowed_exts = getattr(settings, "EVIDENCE_ALLOWED_EXTENSIONS", [])
+        ext = Path(uploaded.name).suffix.lower()
+        if allowed_exts and ext not in allowed_exts:
+            raise ValidationError("File type is not allowed.")
+        return uploaded
+
+
+class DatasetForm(forms.ModelForm):
+    class Meta:
+        model = Dataset
+        fields = [
+            "title",
+            "description",
+            "methodology",
+            "source_url",
+            "organisation",
+            "sensitivity",
+        ]
+
+
+class ExportPackageForm(forms.ModelForm):
+    class Meta:
+        model = ExportPackage
+        fields = [
+            "title",
+            "description",
+            "organisation",
+        ]

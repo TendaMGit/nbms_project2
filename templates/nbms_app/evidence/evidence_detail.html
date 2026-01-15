@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Evidence detail</title>
+  </head>
+  <body>
+    <h1>{{ evidence.title }}</h1>
+    <p><strong>Status:</strong> {{ evidence.status }}</p>
+    <p><strong>Sensitivity:</strong> {{ evidence.sensitivity }}</p>
+    <p><strong>Type:</strong> {{ evidence.evidence_type|default:"-" }}</p>
+    <p><strong>Description:</strong> {{ evidence.description|default:"-" }}</p>
+    <p><strong>Source URL:</strong> {% if evidence.source_url %}<a href="{{ evidence.source_url }}">{{ evidence.source_url }}</a>{% else %}-{% endif %}</p>
+    <p><strong>File:</strong> {% if evidence.file %}<a href="{{ evidence.file.url }}">Download</a>{% else %}-{% endif %}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:evidence_edit' evidence.uuid %}">Edit evidence</a></p>
+    {% endif %}
+    <p><a href="{% url 'nbms_app:evidence_list' %}">Back to list</a></p>
+  </body>
+</html>

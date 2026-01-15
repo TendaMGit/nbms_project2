@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Export packages</title>
+  </head>
+  <body>
+    <h1>Export packages</h1>
+    <p><a href="{% url 'nbms_app:export_package_create' %}">Create export package</a></p>
+    <ul>
+      {% for package in packages %}
+        <li>
+          <a href="{% url 'nbms_app:export_package_detail' package.uuid %}">{{ package.title }}</a>
+          ({{ package.status }})
+        </li>
+      {% empty %}
+        <li>No export packages yet.</li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>
