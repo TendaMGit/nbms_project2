@@ -568,6 +568,7 @@ def get_instance_readiness(instance, user):
         band = "amber"
     else:
         band = "red"
+    action_queue = _build_action_queue(instance, user, result)
     result.update(
         {
             "readiness_score": weighted_score,
@@ -579,7 +580,8 @@ def get_instance_readiness(instance, user):
                 {"key": "publication", "label": "Publication quality", "score": publication_score, "weight": 10},
                 {"key": "metadata", "label": "Metadata completeness", "score": metadata_score, "weight": 10},
             ],
-            "action_queue": _build_action_queue(instance, user, result),
+            "action_queue": action_queue,
+            "top_10_actions": action_queue,
         }
     )
     return result

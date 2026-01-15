@@ -64,6 +64,11 @@ copy .env.example .env
 
 ```
 python manage.py migrate
+python manage.py bootstrap_roles
+python manage.py seed_report_templates
+python manage.py seed_validation_rules
+# or run both at once:
+python manage.py seed_reporting_defaults
 python manage.py runserver
 ```
 
@@ -77,6 +82,38 @@ Notes:
 - Default test script uses `--keepdb` to avoid prompts on re-runs.
 - For CI, set `CI=1` (uses `--noinput`).
 - To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
+
+## Manual smoke pass
+
+Setup order:
+1) python manage.py migrate
+2) python manage.py bootstrap_roles
+3) python manage.py seed_report_templates
+4) python manage.py seed_validation_rules (or seed_reporting_defaults)
+5) python manage.py runserver
+
+Staff login expected behavior:
+- Staff user can access management and reporting pages.
+- Non-staff is blocked from staff-only pages.
+
+Key URLs to test:
+- /
+- /manage/users/
+- /manage/organisations/
+- /reporting/cycles/
+- /reporting/instances/<uuid>/
+- /reporting/instances/<uuid>/sections/
+- /reporting/instances/<uuid>/approvals/
+- /reporting/instances/<uuid>/consent/
+- /reporting/instances/<uuid>/report-pack/
+- /exports/
+
+Confirm export blockers:
+- Missing required sections should block export when EXPORT_REQUIRE_SECTIONS=1.
+- Missing consent for IPLC-sensitive approved items should block export.
+
+ABAC quick check:
+- Create a restricted item in Org A and verify it is not visible to a user in Org B.
 
 ## GeoServer
 
@@ -96,4 +133,23 @@ Notes:
 - Dev settings: `config.settings.dev`
 - Test settings: `config.settings.test`
 - Prod settings: `config.settings.prod`
+
+## Reporting
+
+- Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
+- Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
+
+## Rulesets
+
+ValidationRuleSet controls which sections and metadata fields are required for readiness checks.
+The readiness service uses the active ruleset (by default `7NR_DEFAULT`).
+
+Seed defaults:
+
+```
+python manage.py seed_validation_rules
+```
+
+You can override the rules in the admin UI, but keep only one active ruleset unless you
+intentionally want multiple active configurations.
 

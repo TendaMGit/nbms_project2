@@ -6,13 +6,12 @@ def reporting_instance_context(request):
     if not user or not getattr(user, "is_staff", False):
         return {}
 
-    instances = ReportingInstance.objects.select_related("cycle").order_by("-created_at")[:20]
+    base_queryset = ReportingInstance.objects.select_related("cycle").order_by("-created_at")
+    instances = base_queryset[:20]
     current_uuid = request.session.get("current_reporting_instance_uuid")
     current_instance = None
     if current_uuid:
-        current_instance = instances.filter(uuid=current_uuid).first()
-        if not current_instance:
-            current_instance = ReportingInstance.objects.select_related("cycle").filter(uuid=current_uuid).first()
+        current_instance = base_queryset.filter(uuid=current_uuid).first()
     return {
         "current_reporting_instance": current_instance,
         "reporting_instances": instances,

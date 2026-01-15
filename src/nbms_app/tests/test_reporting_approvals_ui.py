@@ -35,7 +35,15 @@ class ReportingApprovalsUiTests(TestCase):
             password="pass1234",
             organisation=self.org_a,
         )
-        self.reviewer.groups.add(Group.objects.create(name=ROLE_DATA_STEWARD))
+        steward_group, _ = Group.objects.get_or_create(name=ROLE_DATA_STEWARD)
+        self.reviewer.groups.add(steward_group)
+        self.staff_reviewer = User.objects.create_user(
+            username="staff-reviewer",
+            password="pass1234",
+            organisation=self.org_a,
+            is_staff=True,
+        )
+        self.staff_reviewer.groups.add(steward_group)
         self.viewer = User.objects.create_user(
             username="viewer",
             password="pass1234",
@@ -119,7 +127,7 @@ class ReportingApprovalsUiTests(TestCase):
     def test_bulk_approve_preview_and_confirm(self):
         self.indicator.status = LifecycleStatus.PUBLISHED
         self.indicator.save(update_fields=["status"])
-        self.client.force_login(self.reviewer)
+        self.client.force_login(self.staff_reviewer)
         bulk_url = reverse("nbms_app:reporting_instance_approval_bulk", args=[self.instance.uuid])
         preview = self.client.post(
             bulk_url,
@@ -140,6 +148,9 @@ class ReportingApprovalsUiTests(TestCase):
             ).exists()
         )
         self.assertTrue(
+            Notification.objects.filter(recipient=self.owner, message__icontains="Export approved").exists()
+        )
+        self.assertTrue(
             AuditEvent.objects.filter(action="instance_export_bulk", object_uuid=self.instance.uuid).exists()
         )
 
@@ -153,7 +164,7 @@ class ReportingApprovalsUiTests(TestCase):
             status=LifecycleStatus.PUBLISHED,
             sensitivity=SensitivityLevel.IPLC_SENSITIVE,
         )
-        self.client.force_login(self.reviewer)
+        self.client.force_login(self.staff_reviewer)
         bulk_url = reverse("nbms_app:reporting_instance_approval_bulk", args=[self.instance.uuid])
         self.client.post(
             bulk_url,
@@ -171,4 +182,7 @@ class ReportingApprovalsUiTests(TestCase):
                 object_uuid=iplc_indicator.uuid,
                 decision=ApprovalDecision.APPROVED,
             ).exists()
+        )
+        self.assertFalse(
+            Notification.objects.filter(recipient=self.owner, message__icontains="IPLC Indicator").exists()
         )
