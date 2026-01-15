@@ -57,6 +57,16 @@ urlpatterns = [
         name="reporting_instance_detail",
     ),
     path(
+        "reporting/set-current/<uuid:instance_uuid>/",
+        views.reporting_set_current_instance,
+        name="reporting_set_current_instance",
+    ),
+    path(
+        "reporting/clear-current/",
+        views.reporting_clear_current_instance,
+        name="reporting_clear_current_instance",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/sections/",
         views.reporting_instance_sections,
         name="reporting_instance_sections",

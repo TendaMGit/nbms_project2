@@ -909,6 +909,25 @@ def reporting_instance_detail(request, instance_uuid):
 
 
 @staff_member_required
+def reporting_set_current_instance(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    request.session["current_reporting_instance_uuid"] = str(instance.uuid)
+    next_url = request.GET.get("next") or request.META.get("HTTP_REFERER")
+    if next_url:
+        return redirect(next_url)
+    return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
+
+
+@staff_member_required
+def reporting_clear_current_instance(request):
+    request.session.pop("current_reporting_instance_uuid", None)
+    next_url = request.GET.get("next") or request.META.get("HTTP_REFERER")
+    if next_url:
+        return redirect(next_url)
+    return redirect("nbms_app:home")
+
+
+@staff_member_required
 def reporting_instance_sections(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     templates = ReportSectionTemplate.objects.filter(is_active=True).order_by("ordering", "code")

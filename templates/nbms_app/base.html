@@ -37,6 +37,26 @@
         <span class="nav-spacer"></span>
         {% if user.is_staff %}
           <div class="dropdown">
+            <span>
+              Instance
+              {% if current_reporting_instance %}
+                : {{ current_reporting_instance.cycle.code }} {{ current_reporting_instance.version_label }}
+              {% else %}
+                : none
+              {% endif %}
+            </span>
+            <div class="dropdown-content">
+              {% for instance in reporting_instances %}
+                <a href="{% url 'nbms_app:reporting_set_current_instance' instance.uuid %}?next={{ request.path }}">
+                  {{ instance.cycle.code }} {{ instance.version_label }}
+                </a>
+              {% empty %}
+                <span class="muted">No instances</span>
+              {% endfor %}
+              <a href="{% url 'nbms_app:reporting_clear_current_instance' %}?next={{ request.path }}">Clear current</a>
+            </div>
+          </div>
+          <div class="dropdown">
             <span>Staff</span>
             <div class="dropdown-content">
               <a href="{% url 'nbms_app:manage_organisation_list' %}">Manage Orgs</a>
