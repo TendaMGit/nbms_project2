@@ -4,6 +4,9 @@ from django.utils import timezone
 
 from nbms_app.models import ApprovalDecision, InstanceExportApproval
 from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, user_has_role
+from nbms_app.services.audit import record_audit_event
+from nbms_app.services.consent import consent_is_granted, requires_consent
+from nbms_app.services.notifications import create_notification
 
 
 def _is_admin(user):
@@ -23,6 +26,19 @@ def approve_for_instance(instance, obj, user, note="", scope="export", admin_ove
         raise PermissionDenied("Not allowed to approve for export.")
     if instance.frozen_at and not (_is_admin(user) and admin_override):
         raise PermissionDenied("Reporting instance is frozen.")
+    if requires_consent(obj) and not (consent_is_granted(instance, obj) or (_is_admin(user) and admin_override)):
+        record_audit_event(
+            user,
+            "instance_export_blocked_consent",
+            obj,
+            metadata={"instance_uuid": str(instance.uuid)},
+        )
+        create_notification(
+            user,
+            f"Approval blocked: consent required for {obj.__class__.__name__} {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
+            url="",
+        )
+        raise PermissionDenied("Consent required before export approval.")
 
     content_type = ContentType.objects.get_for_model(obj.__class__)
     approval, _ = InstanceExportApproval.objects.update_or_create(
