@@ -1,0 +1,73 @@
+{
+  "exporter_version": "0.1",
+  "generated_at": "2026-01-16T12:00:00+00:00",
+  "documents": {
+    "nationalReport7": [
+      {
+        "header": {
+          "schema": "nationalReport7",
+          "identifier": "11111111-1111-1111-1111-111111111111",
+          "languages": [
+            "en"
+          ],
+          "legacyIdentifier": ""
+        },
+        "government": {
+          "identifier": "ZA"
+        },
+        "sectionI": {
+          "summary": "Section I summary"
+        },
+        "sectionII": {},
+        "sectionIII": {},
+        "sectionIV": {},
+        "sectionV": {},
+        "sectionOtherInfo": {},
+        "notes": ""
+      }
+    ],
+    "nationalTarget7": [
+      {
+        "header": {
+          "schema": "nationalTarget7",
+          "identifier": "22222222-2222-2222-2222-222222222222",
+          "languages": [
+            "en"
+          ],
+          "legacyIdentifier": ""
+        },
+        "government": {
+          "identifier": "ZA"
+        },
+        "title": {
+          "en": "Target 1"
+        },
+        "description": {
+          "en": "Target desc"
+        },
+        "sequence": 1,
+        "otherNationalIndicators": [
+          {
+            "identifier": "IND-1",
+            "value": {
+              "en": "Indicator 1"
+            }
+          }
+        ],
+        "notes": ""
+      }
+    ],
+    "nationalTarget7Mapping": [],
+    "nationalReport7IndicatorData": [],
+    "nationalReport7BinaryIndicatorData": []
+  },
+  "nbms_meta": {
+    "reporting_instance_uuid": "11111111-1111-1111-1111-111111111111",
+    "reporting_cycle_code": "CYCLE-1",
+    "reporting_cycle_title": "Cycle 1",
+    "reporting_instance_status": "draft",
+    "ruleset_code": "7NR_DEFAULT",
+    "export_require_sections": true,
+    "missing_required_sections": []
+  }
+}

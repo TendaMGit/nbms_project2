@@ -15,6 +15,7 @@ including governance, consent checks, and instance-scoped approvals.
 - Reporting cycles and instances with freeze and approvals
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
+- ORT 7NR export v1 (minimal JSON payload with governance gating)
 - Manager report pack preview (HTML)
 
 ## Demo flow
@@ -134,6 +135,7 @@ Key URLs to test:
 - /reporting/instances/<uuid>/consent/
 - /reporting/instances/<uuid>/report-pack/
 - /exports/
+- /exports/instances/<uuid>/ort7nr.json
 
 Confirm export blockers:
 - Missing required sections should block export when EXPORT_REQUIRE_SECTIONS=1.
@@ -174,6 +176,7 @@ Storage and media:
 
 Reporting and exports:
 - `EXPORT_REQUIRE_SECTIONS` (set to 1 to block export when required sections are missing)
+- `NBMS_ORT_GOVERNMENT_ID` (identifier used in ORT 7NR export; falls back to NBMS_GOVERNMENT_IDENTIFIER)
 
 Security and monitoring:
 - `RATE_LIMIT_LOGIN`, `RATE_LIMIT_PASSWORD_RESET`, `RATE_LIMIT_WORKFLOW`
@@ -189,6 +192,12 @@ Security and monitoring:
 
 - Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
 - Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
+
+## ORT 7NR export (v1)
+
+- Staff-only JSON endpoint: `/exports/instances/<uuid>/ort7nr.json`.
+- Requires: required sections per ValidationRuleSet (when EXPORT_REQUIRE_SECTIONS=1), approvals, consent, and ABAC visibility.
+- Mapping spec: `docs/exports/ort7nr_mapping_spec.md`.
 
 ## Rulesets
 
@@ -217,4 +226,4 @@ intentionally want multiple active configurations.
 
 - Report pack is HTML only; use print-to-PDF for now.
 - Background jobs (Celery) are not wired yet.
-- ORT mapping is a stub and not a full 7NR export.
+- ORT 7NR export v1 is minimal (no indicator data, binary questions, or target alignment yet).
