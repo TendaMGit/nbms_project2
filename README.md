@@ -204,6 +204,15 @@ python manage.py seed_validation_rules
 You can override the rules in the admin UI, but keep only one active ruleset unless you
 intentionally want multiple active configurations.
 
+## Branching and releases
+
+- `main` is the integrated release branch and source of truth.
+- Feature work happens on `feat/*` branches and merges via PRs.
+- Keep PRs small; ensure tests are green before merge.
+- Tags (e.g., `v0.3-manager-pack`) mark release snapshots.
+- `rescue/*` branches capture recovery snapshots; treat as read-only.
+- Start new work from `main` and cut a fresh `feat/*` branch.
+
 ## Known limitations
 
 - Report pack is HTML only; use print-to-PDF for now.
