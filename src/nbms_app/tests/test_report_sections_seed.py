@@ -8,6 +8,6 @@ class ReportSectionSeedTests(TestCase):
     def test_seed_report_templates(self):
         self.assertEqual(ReportSectionTemplate.objects.count(), 0)
         call_command("seed_report_templates")
-        self.assertEqual(ReportSectionTemplate.objects.count(), 5)
+        self.assertEqual(ReportSectionTemplate.objects.count(), 6)
         call_command("seed_report_templates")
-        self.assertEqual(ReportSectionTemplate.objects.count(), 5)
+        self.assertEqual(ReportSectionTemplate.objects.count(), 6)

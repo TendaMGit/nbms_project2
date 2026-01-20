@@ -66,6 +66,26 @@ TEMPLATES = [
             ],
         },
     },
+    {
+        "code": "section-other-information",
+        "title": "Section Other Information (Annex)",
+        "ordering": 6,
+        "schema_json": {
+            "required": False,
+            "fields": [
+                {
+                    "key": "additional_information",
+                    "label": "Additional information",
+                    "required": False,
+                },
+                {
+                    "key": "additional_documents",
+                    "label": "Additional documents",
+                    "required": False,
+                },
+            ],
+        },
+    },
 ]
 
 
