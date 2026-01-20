@@ -1,0 +1,2611 @@
+[
+  {
+    "group_key": "binaryResponseGoalB",
+    "target": "GBF-GOAL-B",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-B",
+    "question_key": "b_1",
+    "section": "goalB",
+    "number": "B.1",
+    "question_type": "option",
+    "question_text_key": "goalB_question1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 0
+  },
+  {
+    "group_key": "binaryResponseGoalB",
+    "target": "GBF-GOAL-B",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-B",
+    "question_key": "b_2",
+    "section": "goalB",
+    "number": "B.2",
+    "question_type": "option",
+    "question_text_key": "goalB_question2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 1
+  },
+  {
+    "group_key": "binaryResponseGoalB",
+    "target": "GBF-GOAL-B",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-B",
+    "question_key": "b_3",
+    "section": "goalB",
+    "number": "B.3",
+    "question_type": "option",
+    "question_text_key": "goalB_question3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 2
+  },
+  {
+    "group_key": "binaryResponseGoalB",
+    "target": "GBF-GOAL-B",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-B",
+    "question_key": "b_4",
+    "section": "goalB",
+    "number": "B.4",
+    "question_type": "option",
+    "question_text_key": "goalB_question4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 3
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_1",
+    "section": "binaryResponseTarget13",
+    "number": "13.1",
+    "question_type": "option",
+    "question_text_key": "target13_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 1000
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_2",
+    "section": "binaryResponseTarget13",
+    "number": "13.2",
+    "question_type": "option",
+    "question_text_key": "target13_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 1001
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_3",
+    "section": "binaryResponseTarget13",
+    "number": "13.3",
+    "question_type": "option",
+    "question_text_key": "target13_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 1002
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_4",
+    "section": "binaryResponseTarget13",
+    "number": "13.4",
+    "question_type": "option",
+    "question_text_key": "target13_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "yes",
+        "label_key": "yes"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 1003
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_5",
+    "section": "binaryResponseTarget13",
+    "number": "13.5",
+    "question_type": "option",
+    "question_text_key": "target13_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 1004
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_6",
+    "section": "binaryResponseTarget13",
+    "number": "13.6",
+    "question_type": "option",
+    "question_text_key": "target13_question_6",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 1005
+  },
+  {
+    "group_key": "binaryResponseGoalC",
+    "target": "GBF-GOAL-C",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_7",
+    "section": "binaryResponseTarget13",
+    "number": "13.7",
+    "question_type": "option",
+    "question_text_key": "target13_question_7",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 1006
+  },
+  {
+    "group_key": "binaryResponseTarget1",
+    "target": "GBF-TARGET-01",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-1",
+    "question_key": "1",
+    "section": "GBF-TARGET-01",
+    "number": "1",
+    "question_type": "option",
+    "question_text_key": "target1_question_1_add",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "yes",
+        "label_key": "yes"
+      },
+      {
+        "value": "no",
+        "label_key": "no"
+      }
+    ],
+    "sort_order": 2000
+  },
+  {
+    "group_key": "binaryResponseTarget1",
+    "target": "GBF-TARGET-01",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-1",
+    "question_key": "1_1_a",
+    "section": "1_1",
+    "number": "(a)",
+    "question_type": "option",
+    "question_text_key": "target1_question_1_a",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 2001
+  },
+  {
+    "group_key": "binaryResponseTarget1",
+    "target": "GBF-TARGET-01",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-1",
+    "question_key": "1_1_b",
+    "section": "1_1",
+    "number": "(b)",
+    "question_type": "option",
+    "question_text_key": "target1_question_1_b",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 2002
+  },
+  {
+    "group_key": "binaryResponseTarget1",
+    "target": "GBF-TARGET-01",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-1",
+    "question_key": "1_1_c",
+    "section": "1_1",
+    "number": "(c)",
+    "question_type": "option",
+    "question_text_key": "target1_question_1_c",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 2003
+  },
+  {
+    "group_key": "binaryResponseTarget1",
+    "target": "GBF-TARGET-01",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-1",
+    "question_key": "1_2",
+    "section": "GBF-TARGET-01",
+    "number": "1.2",
+    "question_type": "checkbox",
+    "question_text_key": "target1_question_2",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "forTerrestrialPlanning",
+        "label_key": "forTerrestrialPlanning"
+      },
+      {
+        "value": "forInlandWaterPlanning",
+        "label_key": "forInlandWaterPlanning"
+      },
+      {
+        "value": "forCostalMarinePlanning",
+        "label_key": "forCostalMarinePlanning"
+      },
+      {
+        "value": "none",
+        "label_key": "none"
+      }
+    ],
+    "sort_order": 2004
+  },
+  {
+    "group_key": "binaryResponseTarget5",
+    "target": "GBF-TARGET-05",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-5",
+    "question_key": "5_1",
+    "section": "GBF-TARGET-05",
+    "number": "5.1",
+    "question_type": "checkbox",
+    "question_text_key": "target5_question_1",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "terrestrialSpecies",
+        "label_key": "terrestrialSpecies"
+      },
+      {
+        "value": "freshwaterSpecies",
+        "label_key": "freshwaterSpecies"
+      },
+      {
+        "value": "marineSpecies",
+        "label_key": "marineSpecies"
+      },
+      {
+        "value": "internationalTrade",
+        "label_key": "internationalTrade"
+      },
+      {
+        "value": "none",
+        "label_key": "none"
+      }
+    ],
+    "sort_order": 3000
+  },
+  {
+    "group_key": "binaryResponseTarget6",
+    "target": "GBF-TARGET-06",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-6",
+    "question_key": "6_1",
+    "section": "binaryResponseTarget6",
+    "number": "6.1",
+    "question_type": "option",
+    "question_text_key": "target6_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 4000
+  },
+  {
+    "group_key": "binaryResponseTarget6",
+    "target": "GBF-TARGET-06",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-6",
+    "question_key": "6_2",
+    "section": "binaryResponseTarget6",
+    "number": "6.2",
+    "question_type": "option",
+    "question_text_key": "target6_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 4001
+  },
+  {
+    "group_key": "binaryResponseTarget6",
+    "target": "GBF-TARGET-06",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-6",
+    "question_key": "6_3",
+    "section": "binaryResponseTarget6",
+    "number": "6.3",
+    "question_type": "option",
+    "question_text_key": "target6_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 4002
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_1",
+    "section": "binaryResponseTarget8",
+    "number": "8.1",
+    "question_type": "checkbox",
+    "question_text_key": "target8_question_1",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "climateChange",
+        "label_key": "climateChange"
+      },
+      {
+        "value": "oceanAcidification",
+        "label_key": "oceanAcidification"
+      },
+      {
+        "value": "none",
+        "label_key": "none"
+      }
+    ],
+    "sort_order": 5000
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_2",
+    "section": "binaryResponseTarget8",
+    "number": "8.2",
+    "question_type": "option",
+    "question_text_key": "target8_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5001
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_3",
+    "section": "binaryResponseTarget8",
+    "number": "8.3",
+    "question_type": "option",
+    "question_text_key": "target8_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5002
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_4",
+    "section": "binaryResponseTarget8",
+    "number": "8.4",
+    "question_type": "option",
+    "question_text_key": "target8_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5003
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_5",
+    "section": "binaryResponseTarget8",
+    "number": "8.5",
+    "question_type": "option",
+    "question_text_key": "target8_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5004
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_6",
+    "section": "binaryResponseTarget8",
+    "number": "8.6",
+    "question_type": "option",
+    "question_text_key": "target8_question_6",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5005
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_7",
+    "section": "binaryResponseTarget8",
+    "number": "8.7",
+    "question_type": "checkbox",
+    "question_text_key": "target8_question_7",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "mitigation",
+        "label_key": "mitigation"
+      },
+      {
+        "value": "adaptation",
+        "label_key": "adaptation"
+      },
+      {
+        "value": "disasterRiskReduction",
+        "label_key": "disasterRiskReduction"
+      },
+      {
+        "value": "natureBasedSolutions",
+        "label_key": "natureBasedSolutions"
+      },
+      {
+        "value": "policiesToMinimize",
+        "label_key": "policiesToMinimize"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 5006
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_8",
+    "section": "binaryResponseTarget8",
+    "number": "8.8",
+    "question_type": "option",
+    "question_text_key": "target8_question_8",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5007
+  },
+  {
+    "group_key": "binaryResponseTarget8",
+    "target": "GBF-TARGET-08",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-8",
+    "question_key": "8_9",
+    "section": "binaryResponseTarget8",
+    "number": "8.9",
+    "question_type": "option",
+    "question_text_key": "target8_question_9",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 5008
+  },
+  {
+    "group_key": "binaryResponseTarget9",
+    "target": "GBF-TARGET-09",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-9",
+    "question_key": "9_1",
+    "section": "binaryResponseTarget9",
+    "number": "9.1",
+    "question_type": "option",
+    "question_text_key": "target9_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 6000
+  },
+  {
+    "group_key": "binaryResponseTarget9",
+    "target": "GBF-TARGET-09",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-9",
+    "question_key": "9_2",
+    "section": "binaryResponseTarget9",
+    "number": "9.2",
+    "question_type": "option",
+    "question_text_key": "target9_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 6001
+  },
+  {
+    "group_key": "binaryResponseTarget9",
+    "target": "GBF-TARGET-09",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-9",
+    "question_key": "9_3",
+    "section": "binaryResponseTarget9",
+    "number": "9.3",
+    "question_type": "checkbox",
+    "question_text_key": "target9_question_3",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 6002
+  },
+  {
+    "group_key": "binaryResponseTarget9",
+    "target": "GBF-TARGET-09",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-9",
+    "question_key": "9_3_1",
+    "section": "binaryResponseTarget9",
+    "number": "9.3.1",
+    "question_type": "checkbox",
+    "question_text_key": "target9_question_3_1",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      }
+    ],
+    "sort_order": 6003
+  },
+  {
+    "group_key": "binaryResponseTarget9",
+    "target": "GBF-TARGET-09",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-9",
+    "question_key": "9_4",
+    "section": "binaryResponseTarget9",
+    "number": "9.4",
+    "question_type": "option",
+    "question_text_key": "target9_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 6004
+  },
+  {
+    "group_key": "binaryResponseTarget12",
+    "target": "GBF-TARGET-012",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-12",
+    "question_key": "12_1",
+    "section": "binaryResponseTarget12",
+    "number": "12.1",
+    "question_type": "option",
+    "question_text_key": "target12_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 7000
+  },
+  {
+    "group_key": "binaryResponseTarget12",
+    "target": "GBF-TARGET-012",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-12",
+    "question_key": "12_2",
+    "section": "binaryResponseTarget12",
+    "number": "12.2",
+    "question_type": "option",
+    "question_text_key": "target12_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 7001
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_1",
+    "section": "binaryResponseTarget13",
+    "number": "13.1",
+    "question_type": "option",
+    "question_text_key": "target13_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 8000
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_2",
+    "section": "binaryResponseTarget13",
+    "number": "13.2",
+    "question_type": "option",
+    "question_text_key": "target13_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 8001
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_3",
+    "section": "binaryResponseTarget13",
+    "number": "13.3",
+    "question_type": "option",
+    "question_text_key": "target13_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 8002
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_4",
+    "section": "binaryResponseTarget13",
+    "number": "13.4",
+    "question_type": "option",
+    "question_text_key": "target13_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "yes",
+        "label_key": "yes"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 8003
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_5",
+    "section": "binaryResponseTarget13",
+    "number": "13.5",
+    "question_type": "option",
+    "question_text_key": "target13_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 8004
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_6",
+    "section": "binaryResponseTarget13",
+    "number": "13.6",
+    "question_type": "option",
+    "question_text_key": "target13_question_6",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 8005
+  },
+  {
+    "group_key": "binaryResponseTarget13",
+    "target": "GBF-TARGET-013",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-13",
+    "question_key": "13_7",
+    "section": "binaryResponseTarget13",
+    "number": "13.7",
+    "question_type": "option",
+    "question_text_key": "target13_question_7",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 8006
+  },
+  {
+    "group_key": "binaryResponseTarget14",
+    "target": "GBF-TARGET-014",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-14",
+    "question_key": "14_1",
+    "section": "binaryResponseTarget14",
+    "number": "14.1",
+    "question_type": "option",
+    "question_text_key": "target14_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 9000
+  },
+  {
+    "group_key": "binaryResponseTarget14",
+    "target": "GBF-TARGET-014",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-14",
+    "question_key": "14_2",
+    "section": "binaryResponseTarget14",
+    "number": "14.2",
+    "question_type": "option",
+    "question_text_key": "target14_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 9001
+  },
+  {
+    "group_key": "binaryResponseTarget14",
+    "target": "GBF-TARGET-014",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-14",
+    "question_key": "14_3",
+    "section": "binaryResponseTarget14",
+    "number": "14.3",
+    "question_type": "option",
+    "question_text_key": "target14_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 9002
+  },
+  {
+    "group_key": "binaryResponseTarget14",
+    "target": "GBF-TARGET-014",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-14",
+    "question_key": "14_3_a",
+    "section": "binaryResponseTarget14",
+    "number": "",
+    "question_type": "checkbox",
+    "question_text_key": "target14_question_3_a",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "agriculture",
+        "label_key": "agriculture"
+      },
+      {
+        "value": "fisheries",
+        "label_key": "fisheries"
+      },
+      {
+        "value": "forestry",
+        "label_key": "forestry"
+      },
+      {
+        "value": "aquaculture",
+        "label_key": "aquaculture"
+      },
+      {
+        "value": "finance",
+        "label_key": "finance"
+      },
+      {
+        "value": "tourism",
+        "label_key": "tourism"
+      },
+      {
+        "value": "health",
+        "label_key": "health"
+      },
+      {
+        "value": "infrastructure",
+        "label_key": "infrastructure"
+      },
+      {
+        "value": "energy",
+        "label_key": "energy"
+      },
+      {
+        "value": "mining",
+        "label_key": "mining"
+      },
+      {
+        "value": "manufacturingAndProcessing",
+        "label_key": "manufacturingAndProcessing"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 9003
+  },
+  {
+    "group_key": "binaryResponseTarget14",
+    "target": "GBF-TARGET-014",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-14",
+    "question_key": "14_4",
+    "section": "binaryResponseTarget14",
+    "number": "14.4",
+    "question_type": "option",
+    "question_text_key": "target14_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 9004
+  },
+  {
+    "group_key": "binaryResponseTarget14",
+    "target": "GBF-TARGET-014",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-C-14",
+    "question_key": "14_5",
+    "section": "binaryResponseTarget14",
+    "number": "14.5",
+    "question_type": "option",
+    "question_text_key": "target14_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 9005
+  },
+  {
+    "group_key": "binaryResponseTarget15",
+    "target": "GBF-TARGET-015",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-15",
+    "question_key": "15_1",
+    "section": "GBF-TARGET-015",
+    "number": "15.1",
+    "question_type": "option",
+    "question_text_key": "target15_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 10000
+  },
+  {
+    "group_key": "binaryResponseTarget15",
+    "target": "GBF-TARGET-015",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-15",
+    "question_key": "15_2",
+    "section": "GBF-TARGET-015",
+    "number": "15.2",
+    "question_type": "option",
+    "question_text_key": "target15_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 10001
+  },
+  {
+    "group_key": "binaryResponseTarget15",
+    "target": "GBF-TARGET-015",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-15",
+    "question_key": "15_3",
+    "section": "GBF-TARGET-015",
+    "number": "15.3",
+    "question_type": "option",
+    "question_text_key": "target15_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 10002
+  },
+  {
+    "group_key": "binaryResponseTarget15",
+    "target": "GBF-TARGET-015",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-15",
+    "question_key": "15_4",
+    "section": "GBF-TARGET-015",
+    "number": "15.4",
+    "question_type": "option",
+    "question_text_key": "target15_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 10003
+  },
+  {
+    "group_key": "binaryResponseTarget15",
+    "target": "GBF-TARGET-015",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-15",
+    "question_key": "15_5",
+    "section": "GBF-TARGET-015",
+    "number": "15.5",
+    "question_type": "option",
+    "question_text_key": "target15_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 10004
+  },
+  {
+    "group_key": "binaryResponseTarget16",
+    "target": "GBF-TARGET-016",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-16",
+    "question_key": "16_1",
+    "section": "GBF-TARGET-016",
+    "number": "16.1",
+    "question_type": "option",
+    "question_text_key": "target16_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 11000
+  },
+  {
+    "group_key": "binaryResponseTarget16",
+    "target": "GBF-TARGET-016",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-16",
+    "question_key": "16_2",
+    "section": "GBF-TARGET-016",
+    "number": "16.2",
+    "question_type": "option",
+    "question_text_key": "target16_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 11001
+  },
+  {
+    "group_key": "binaryResponseTarget16",
+    "target": "GBF-TARGET-016",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-16",
+    "question_key": "16_3",
+    "section": "GBF-TARGET-016",
+    "number": "16.3",
+    "question_type": "option",
+    "question_text_key": "target16_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 11002
+  },
+  {
+    "group_key": "binaryResponseTarget17",
+    "target": "GBF-TARGET-017",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-17",
+    "question_key": "17_1",
+    "section": "GBF-TARGET-017",
+    "number": "17.1",
+    "question_type": "option",
+    "question_text_key": "target17_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 12000
+  },
+  {
+    "group_key": "binaryResponseTarget17",
+    "target": "GBF-TARGET-017",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-17",
+    "question_key": "17_2",
+    "section": "GBF-TARGET-017",
+    "number": "17.2",
+    "question_type": "option",
+    "question_text_key": "target17_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 12001
+  },
+  {
+    "group_key": "binaryResponseTarget17",
+    "target": "GBF-TARGET-017",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-17",
+    "question_key": "17_3",
+    "section": "GBF-TARGET-017",
+    "number": "17.3",
+    "question_type": "option",
+    "question_text_key": "target17_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 12002
+  },
+  {
+    "group_key": "binaryResponseTarget17",
+    "target": "GBF-TARGET-017",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-17",
+    "question_key": "17_4",
+    "section": "GBF-TARGET-017",
+    "number": "17.4",
+    "question_type": "option",
+    "question_text_key": "target17_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 12003
+  },
+  {
+    "group_key": "binaryResponseTarget17",
+    "target": "GBF-TARGET-017",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-17",
+    "question_key": "17_5",
+    "section": "GBF-TARGET-017",
+    "number": "17.5",
+    "question_type": "option",
+    "question_text_key": "target17_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 12004
+  },
+  {
+    "group_key": "binaryResponseTarget17",
+    "target": "GBF-TARGET-017",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-17",
+    "question_key": "17_6",
+    "section": "GBF-TARGET-017",
+    "number": "17.6",
+    "question_type": "option",
+    "question_text_key": "target17_question_6",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 12005
+  },
+  {
+    "group_key": "binaryResponseTarget20",
+    "target": "GBF-TARGET-020",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-20",
+    "question_key": "20_1",
+    "section": "GBF-TARGET-020",
+    "number": "20.1",
+    "question_type": "option",
+    "question_text_key": "target20_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 13000
+  },
+  {
+    "group_key": "binaryResponseTarget20",
+    "target": "GBF-TARGET-020",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-20",
+    "question_key": "20_2",
+    "section": "GBF-TARGET-020",
+    "number": "20.2",
+    "question_type": "checkbox",
+    "question_text_key": "target20_question_2",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 13001
+  },
+  {
+    "group_key": "binaryResponseTarget20",
+    "target": "GBF-TARGET-020",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-20",
+    "question_key": "20_3",
+    "section": "GBF-TARGET-020",
+    "number": "20.3",
+    "question_type": "option",
+    "question_text_key": "target20_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 13002
+  },
+  {
+    "group_key": "binaryResponseTarget20",
+    "target": "GBF-TARGET-020",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-20",
+    "question_key": "20_4",
+    "section": "GBF-TARGET-020",
+    "number": "20.4",
+    "question_type": "checkbox",
+    "question_text_key": "target20_question_4",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 13003
+  },
+  {
+    "group_key": "binaryResponseTarget20",
+    "target": "GBF-TARGET-020",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-20",
+    "question_key": "20_5",
+    "section": "GBF-TARGET-020",
+    "number": "20.5",
+    "question_type": "option",
+    "question_text_key": "target20_question_5",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 13004
+  },
+  {
+    "group_key": "binaryResponseTarget20",
+    "target": "GBF-TARGET-020",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-20",
+    "question_key": "20_5_1",
+    "section": "GBF-TARGET-020",
+    "number": "20.5.1",
+    "question_type": "string",
+    "question_text_key": "Specify for each type of partnership (optional)",
+    "multiple": false,
+    "mandatory": false,
+    "options": [],
+    "sort_order": 13005
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_1_a",
+    "section": "binaryResponseTarget22",
+    "number": "(a)",
+    "question_type": "checkbox",
+    "question_text_key": "target22_question_1_a",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      },
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 14000
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_1_b",
+    "section": "binaryResponseTarget22",
+    "number": "(b)",
+    "question_type": "checkbox",
+    "question_text_key": "target22_question_1_b",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "cultureAndPractices",
+        "label_key": "cultureAndPractices"
+      },
+      {
+        "value": "rightsOverLandsAndTerritories",
+        "label_key": "rightsOverLandsAndTerritories"
+      },
+      {
+        "value": "rightsOverResources",
+        "label_key": "rightsOverResources"
+      },
+      {
+        "value": "rightsOverTraditionalKnowledge",
+        "label_key": "rightsOverTraditionalKnowledge"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 14001
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_1_c",
+    "section": "binaryResponseTarget22",
+    "number": "(c)",
+    "question_type": "option",
+    "question_text_key": "target22_question_1_c",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "yes",
+        "label_key": "yes"
+      }
+    ],
+    "sort_order": 14002
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_1_d",
+    "section": "binaryResponseTarget22",
+    "number": "(d)",
+    "question_type": "checkbox",
+    "question_text_key": "target22_question_1_d",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      },
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 14003
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_1_e",
+    "section": "binaryResponseTarget22",
+    "number": "(e)",
+    "question_type": "checkbox",
+    "question_text_key": "target22_question_1_e",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      },
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 14004
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_2",
+    "section": "binaryResponseTarget22",
+    "number": "22.2",
+    "question_type": "option",
+    "question_text_key": "target22_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 14005
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_3_a",
+    "section": "binaryResponseTarget22",
+    "number": "(a)",
+    "question_type": "checkbox",
+    "question_text_key": "target22_question_3_a",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "indigenousPeoplesLocalCommunities",
+        "label_key": "indigenousPeoplesLocalCommunities"
+      },
+      {
+        "value": "womenGirls",
+        "label_key": "womenGirls"
+      },
+      {
+        "value": "childrenYouth",
+        "label_key": "childrenYouth"
+      },
+      {
+        "value": "personWithDisabilities",
+        "label_key": "personWithDisabilities"
+      },
+      {
+        "value": "other",
+        "label_key": "other"
+      }
+    ],
+    "sort_order": 14006
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_3_b",
+    "section": "binaryResponseTarget22",
+    "number": "(b)",
+    "question_type": "checkbox",
+    "question_text_key": "target22_question_3_b",
+    "multiple": true,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "cultureAndPractices",
+        "label_key": "cultureAndPractices"
+      },
+      {
+        "value": "rightsOverLandsAndTerritories",
+        "label_key": "rightsOverLandsAndTerritories"
+      },
+      {
+        "value": "rightsOverResources",
+        "label_key": "rightsOverResources"
+      },
+      {
+        "value": "rightsOverTraditionalKnowledge",
+        "label_key": "rightsOverTraditionalKnowledge"
+      },
+      {
+        "value": "notApplicable",
+        "label_key": "notApplicable"
+      }
+    ],
+    "sort_order": 14007
+  },
+  {
+    "group_key": "binaryResponseTarget22",
+    "target": "GBF-TARGET-22",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-22",
+    "question_key": "22_3_c",
+    "section": "binaryResponseTarget22",
+    "number": "(c)",
+    "question_type": "option",
+    "question_text_key": "target22_question_3_c",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "yes",
+        "label_key": "yes"
+      }
+    ],
+    "sort_order": 14008
+  },
+  {
+    "group_key": "binaryResponseTarget23",
+    "target": "GBF-TARGET-023",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-23",
+    "question_key": "23_1",
+    "section": "binaryResponseTarget23",
+    "number": "23.1",
+    "question_type": "option",
+    "question_text_key": "target23_question_1",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 15000
+  },
+  {
+    "group_key": "binaryResponseTarget23",
+    "target": "GBF-TARGET-023",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-23",
+    "question_key": "23_2",
+    "section": "binaryResponseTarget23",
+    "number": "23.2",
+    "question_type": "option",
+    "question_text_key": "target23_question_2",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 15001
+  },
+  {
+    "group_key": "binaryResponseTarget23",
+    "target": "GBF-TARGET-023",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-23",
+    "question_key": "23_3",
+    "section": "binaryResponseTarget23",
+    "number": "23.3",
+    "question_type": "option",
+    "question_text_key": "target23_question_3",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 15002
+  },
+  {
+    "group_key": "binaryResponseTarget23",
+    "target": "GBF-TARGET-023",
+    "binary_indicator": "KMGBF-INDICATOR-BIN-23",
+    "question_key": "23_4",
+    "section": "binaryResponseTarget23",
+    "number": "23.4",
+    "question_type": "option",
+    "question_text_key": "target23_question_4",
+    "multiple": false,
+    "mandatory": true,
+    "options": [
+      {
+        "value": "no",
+        "label_key": "no"
+      },
+      {
+        "value": "underDevelopment",
+        "label_key": "underDevelopment"
+      },
+      {
+        "value": "partially",
+        "label_key": "partially"
+      },
+      {
+        "value": "fully",
+        "label_key": "fully"
+      }
+    ],
+    "sort_order": 15003
+  }
+]

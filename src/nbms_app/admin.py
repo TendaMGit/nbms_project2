@@ -3,6 +3,8 @@ from django.contrib.auth.admin import UserAdmin
 
 from nbms_app.models import (
     AuditEvent,
+    BinaryIndicatorQuestion,
+    BinaryIndicatorResponse,
     Dataset,
     DatasetRelease,
     Evidence,
@@ -10,6 +12,8 @@ from nbms_app.models import (
     Framework,
     FrameworkIndicator,
     FrameworkTarget,
+    IndicatorDataPoint,
+    IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
     Indicator,
     IndicatorDatasetLink,
@@ -123,9 +127,18 @@ class FrameworkTargetAdmin(admin.ModelAdmin):
 
 @admin.register(FrameworkIndicator)
 class FrameworkIndicatorAdmin(admin.ModelAdmin):
-    list_display = ("code", "title", "framework", "status", "sensitivity", "organisation", "created_at")
+    list_display = (
+        "code",
+        "title",
+        "framework",
+        "indicator_type",
+        "status",
+        "sensitivity",
+        "organisation",
+        "created_at",
+    )
     search_fields = ("code", "title")
-    list_filter = ("framework", "status", "sensitivity", "organisation")
+    list_filter = ("framework", "indicator_type", "status", "sensitivity", "organisation")
 
 
 @admin.register(NationalTargetFrameworkTargetLink)
@@ -244,6 +257,54 @@ class IndicatorEvidenceLinkAdmin(admin.ModelAdmin):
 class IndicatorDatasetLinkAdmin(admin.ModelAdmin):
     list_display = ("indicator", "dataset", "created_at")
     search_fields = ("indicator__code", "dataset__title")
+
+
+@admin.register(IndicatorDataSeries)
+class IndicatorDataSeriesAdmin(admin.ModelAdmin):
+    list_display = (
+        "title",
+        "indicator",
+        "framework_indicator",
+        "value_type",
+        "unit",
+        "status",
+        "sensitivity",
+        "organisation",
+        "created_at",
+    )
+    search_fields = ("title", "indicator__code", "framework_indicator__code")
+    list_filter = ("value_type", "status", "sensitivity", "organisation")
+
+
+@admin.register(IndicatorDataPoint)
+class IndicatorDataPointAdmin(admin.ModelAdmin):
+    list_display = ("series", "year", "value_numeric", "value_text", "dataset_release", "created_at")
+    search_fields = ("series__indicator__code", "series__framework_indicator__code")
+    list_filter = ("year", "dataset_release")
+
+
+@admin.register(BinaryIndicatorQuestion)
+class BinaryIndicatorQuestionAdmin(admin.ModelAdmin):
+    list_display = (
+        "framework_indicator",
+        "group_key",
+        "question_key",
+        "section",
+        "number",
+        "question_type",
+        "multiple",
+        "mandatory",
+        "sort_order",
+    )
+    search_fields = ("framework_indicator__code", "group_key", "question_key", "question_text")
+    list_filter = ("framework_indicator", "question_type", "multiple", "mandatory")
+
+
+@admin.register(BinaryIndicatorResponse)
+class BinaryIndicatorResponseAdmin(admin.ModelAdmin):
+    list_display = ("reporting_instance", "question", "created_at")
+    search_fields = ("reporting_instance__uuid", "question__framework_indicator__code", "question__question_key")
+    list_filter = ("reporting_instance",)
 
 
 @admin.register(ReportingCycle)

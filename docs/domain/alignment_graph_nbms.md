@@ -25,6 +25,11 @@ Primary objects:
 - Dataset
 - DatasetRelease (FK to Dataset)
 - Evidence
+Indicator data layer:
+- IndicatorDataSeries (FK to Indicator or FrameworkIndicator)
+- IndicatorDataPoint (FK to IndicatorDataSeries)
+- BinaryIndicatorQuestion (FK to FrameworkIndicator)
+- BinaryIndicatorResponse (FK to ReportingInstance + BinaryIndicatorQuestion)
 Framework alignment objects:
 - Framework
 - FrameworkTarget
@@ -43,6 +48,10 @@ Supported segments:
 - National Indicator -> National Target (Indicator.national_target FK)
 - National Dataset Release -> National Dataset (DatasetRelease.dataset FK)
 - National Dataset -> National Indicator (IndicatorDatasetLink)
+Indicator data storage:
+- IndicatorDataSeries -> Indicator or FrameworkIndicator
+- IndicatorDataPoint -> IndicatorDataSeries
+- BinaryIndicatorQuestion -> FrameworkIndicator (binary type)
 
 Partial chain currently possible (with inference):
 - DatasetRelease -> Dataset -> Indicator -> NationalTarget

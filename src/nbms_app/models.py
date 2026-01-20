@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
@@ -51,6 +52,21 @@ class SensitivityLevel(models.TextChoices):
     INTERNAL = "internal", "Internal"
     RESTRICTED = "restricted", "Restricted"
     IPLC_SENSITIVE = "iplc_sensitive", "IPLC-sensitive"
+
+
+class FrameworkIndicatorType(models.TextChoices):
+    HEADLINE = "headline", "Headline"
+    BINARY = "binary", "Binary"
+    COMPONENT = "component", "Component"
+    COMPLEMENTARY = "complementary", "Complementary"
+    OTHER = "other", "Other"
+
+
+class IndicatorValueType(models.TextChoices):
+    NUMERIC = "numeric", "Numeric"
+    PERCENT = "percent", "Percent"
+    INDEX = "index", "Index"
+    TEXT = "text", "Text"
 
 
 class ExportStatus(models.TextChoices):
@@ -407,6 +423,11 @@ class FrameworkIndicator(TimeStampedModel):
     code = models.CharField(max_length=100)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    indicator_type = models.CharField(
+        max_length=20,
+        choices=FrameworkIndicatorType.choices,
+        default=FrameworkIndicatorType.OTHER,
+    )
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -655,6 +676,196 @@ class IndicatorDatasetLink(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["indicator", "dataset"], name="uq_indicator_dataset"),
+        ]
+
+
+class IndicatorDataSeries(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    framework_indicator = models.ForeignKey(
+        FrameworkIndicator,
+        on_delete=models.CASCADE,
+        related_name="data_series",
+        blank=True,
+        null=True,
+    )
+    indicator = models.ForeignKey(
+        Indicator,
+        on_delete=models.CASCADE,
+        related_name="data_series",
+        blank=True,
+        null=True,
+    )
+    title = models.CharField(max_length=255, blank=True)
+    unit = models.CharField(max_length=100, blank=True)
+    value_type = models.CharField(
+        max_length=20,
+        choices=IndicatorValueType.choices,
+        default=IndicatorValueType.NUMERIC,
+    )
+    methodology = models.TextField(blank=True)
+    disaggregation_schema = models.JSONField(default=dict, blank=True)
+    source_notes = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_series",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_indicator_data_series",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    export_approved = models.BooleanField(default=False)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        indicator = self.framework_indicator or self.indicator
+        return f"Indicator data series {indicator.code if indicator else self.uuid}"
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    models.Q(framework_indicator__isnull=False, indicator__isnull=True)
+                    | models.Q(framework_indicator__isnull=True, indicator__isnull=False)
+                ),
+                name="ck_indicator_data_series_single_identity",
+            ),
+            models.UniqueConstraint(
+                fields=["framework_indicator"],
+                condition=models.Q(framework_indicator__isnull=False),
+                name="uq_indicator_data_series_framework_indicator",
+            ),
+            models.UniqueConstraint(
+                fields=["indicator"],
+                condition=models.Q(indicator__isnull=False),
+                name="uq_indicator_data_series_indicator",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class IndicatorDataPoint(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    series = models.ForeignKey(IndicatorDataSeries, on_delete=models.CASCADE, related_name="data_points")
+    year = models.PositiveIntegerField()
+    value_numeric = models.DecimalField(max_digits=20, decimal_places=6, blank=True, null=True)
+    value_text = models.TextField(blank=True, null=True)
+    uncertainty = models.TextField(blank=True)
+    disaggregation = models.JSONField(default=dict, blank=True)
+    dataset_release = models.ForeignKey(
+        DatasetRelease,
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_points",
+        blank=True,
+        null=True,
+    )
+    source_url = models.URLField(blank=True)
+    footnote = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.series_id} {self.year}"
+
+    def clean(self):
+        super().clean()
+        if not self.series_id:
+            return
+        if self.series.value_type == IndicatorValueType.TEXT:
+            if not self.value_text:
+                raise ValidationError("value_text is required for text indicators.")
+        else:
+            if self.value_numeric is None:
+                raise ValidationError("value_numeric is required for numeric indicators.")
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(value_numeric__isnull=False) | models.Q(value_text__isnull=False),
+                name="ck_indicator_data_point_value_present",
+            )
+        ]
+
+
+class BinaryQuestionType(models.TextChoices):
+    OPTION = "option", "Option"
+    CHECKBOX = "checkbox", "Checkbox"
+    HEADER = "header", "Header"
+
+
+class BinaryIndicatorQuestion(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    framework_indicator = models.ForeignKey(
+        FrameworkIndicator,
+        on_delete=models.CASCADE,
+        related_name="binary_questions",
+    )
+    group_key = models.CharField(max_length=100)
+    question_key = models.CharField(max_length=100)
+    section = models.CharField(max_length=100, blank=True)
+    number = models.CharField(max_length=50, blank=True)
+    question_type = models.CharField(
+        max_length=20,
+        choices=BinaryQuestionType.choices,
+        default=BinaryQuestionType.OPTION,
+    )
+    question_text = models.TextField(blank=True)
+    help_text = models.TextField(blank=True)
+    multiple = models.BooleanField(default=False)
+    mandatory = models.BooleanField(default=False)
+    options = models.JSONField(default=list, blank=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"{self.framework_indicator.code} {self.question_key}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["framework_indicator", "group_key", "question_key"],
+                name="uq_binary_indicator_question",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["framework_indicator"]),
+            models.Index(fields=["group_key"]),
+        ]
+
+
+class BinaryIndicatorResponse(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="binary_indicator_responses",
+    )
+    question = models.ForeignKey(
+        BinaryIndicatorQuestion,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    response = models.JSONField(default=list, blank=True)
+    comments = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.reporting_instance_id} {self.question_id}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "question"],
+                name="uq_binary_indicator_response",
+            ),
         ]
 
 
