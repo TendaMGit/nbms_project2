@@ -8,12 +8,11 @@ Reference: `docs/reporting/cbd_ort_nr7_template_inventory.md`
 
 ## Summary (current)
 
-- NBMS has templates for `section-i`..`section-v` only.
-- No explicit Annex/Other Information template exists yet.
+- NBMS has templates for `section-i`..`section-v` plus `section-other-information` (Annex).
 - NBMS section schemas are high-level summaries, while ORT expects more granular
   structures and per-target/per-goal arrays in Sections III and IV.
 - ORT indicator data and binary indicator data are separate document types;
-  NBMS currently has no equivalent data model and captures only narrative text.
+  NBMS now provides IndicatorDataSeries/IndicatorDataPoint and BinaryIndicatorQuestion/Response.
 
 ## Section I (National context + contacts)
 
@@ -38,7 +37,7 @@ Notes:
 
 | ORT key | ORT required blocks | NBMS template code | NBMS fields | Gap | Proposed fix |
 | --- | --- | --- | --- | --- | --- |
-| sectionIII | array of per-target assessments: target, targetType, mainActionsSummary, levelOfProgress, progressSummary, keyChallengesSummary, actionEffectivenessSummary, sdgRelationSummary; indicatorData blocks (headline/binary/component/complementary/national) | section-iii | progress_overview, indicator_highlights | Missing per-target structure and indicator data links | Seed template update can add fields, but per-target arrays require a dedicated data model or structured response schema |
+| sectionIII | array of per-target assessments: target, targetType, mainActionsSummary, levelOfProgress, progressSummary, keyChallengesSummary, actionEffectivenessSummary, sdgRelationSummary; indicatorData blocks (headline/binary/component/complementary/national) | section-iii | progress_overview, indicator_highlights | Structured progress entries now implemented; indicator/binary data available | SectionIIINationalTargetProgress stores per-target narratives and links to IndicatorDataSeries/BinaryIndicatorResponse |
 
 Notes:
 - ORT links indicator data documents by identifier from within Section III.
@@ -48,7 +47,7 @@ Notes:
 
 | ORT key | ORT required blocks | NBMS template code | NBMS fields | Gap | Proposed fix |
 | --- | --- | --- | --- | --- | --- |
-| sectionIV | array of per-goal assessments: gbfGoal, summaryOfProgress; indicatorData blocks (headline/binary/component/complementary/national) | section-iv | support_needs, support_received | Missing per-goal structure and indicator data links | Seed template update can add fields, but per-goal arrays require a dedicated data model or structured response schema |
+| sectionIV | array of per-goal assessments: gbfGoal, summaryOfProgress; indicatorData blocks (headline/binary/component/complementary/national) | section-iv | support_needs, support_received | Structured progress entries now implemented; indicator/binary data available | SectionIVFrameworkTargetProgress stores per-target narratives and links to IndicatorDataSeries/BinaryIndicatorResponse |
 
 Notes:
 - ORT expects multiple goal-level entries, not a single narrative field.
@@ -63,7 +62,7 @@ Notes:
 
 | ORT key | ORT required blocks | NBMS template code | NBMS fields | Gap | Proposed fix |
 | --- | --- | --- | --- | --- | --- |
-| sectionOtherInfo | additionalInformation, additionalDocuments (links/files) | none | n/a | Missing template and response | Add new template, recommended code `section-other-information`, with fields `additional_information`, `additional_documents` |
+| sectionOtherInfo | additionalInformation, additionalDocuments (links/files) | section-other-information | additional_information, additional_documents | Template exists; ORT mapping still needed | Map fields during export; keep fields aligned to ORT expectations |
 
 Notes:
 - ORT treats Annex as a separate section with its own key and editor route.
@@ -72,8 +71,8 @@ Notes:
 
 | ORT schema | ORT purpose | NBMS current capture | Gap | Proposed fix |
 | --- | --- | --- | --- | --- |
-| nationalReport7IndicatorData | time-series / dataset data per indicator | Not modeled; only narrative content + dataset/evidence modules | Missing data model and link to section III/IV | Defer in this phase; requires dedicated indicator-data model or dataset release structure alignment |
-| nationalReport7BinaryIndicatorData | binary question responses per indicator | Not modeled | Missing data model and link to section III/IV | Defer in this phase; needs binary question response model keyed by ORT question sets |
+| nationalReport7IndicatorData | time-series / dataset data per indicator | IndicatorDataSeries + IndicatorDataPoint | Core data model implemented; export mapping pending | Link Section III/IV progress entries to IndicatorDataSeries |
+| nationalReport7BinaryIndicatorData | binary question responses per indicator | BinaryIndicatorQuestion + BinaryIndicatorResponse | Core data model implemented; export mapping pending | Link Section III/IV progress entries to BinaryIndicatorResponse |
 
 ## Conformance notes for stable codes
 
