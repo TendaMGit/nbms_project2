@@ -6,18 +6,28 @@ from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
 
 from nbms_app.models import (
+    BinaryIndicatorResponse,
     Dataset,
+    DatasetRelease,
     Evidence,
     ExportPackage,
     Indicator,
+    IndicatorDataSeries,
     NationalTarget,
     Organisation,
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
+    SectionIIINationalTargetProgress,
+    SectionIVFrameworkTargetProgress,
     User,
 )
 from nbms_app.roles import get_canonical_groups_queryset
+from nbms_app.services.authorization import filter_queryset_for_user
+from nbms_app.services.indicator_data import (
+    binary_indicator_responses_for_user,
+    indicator_data_series_for_user,
+)
 
 
 class OrganisationForm(forms.ModelForm):
@@ -237,3 +247,95 @@ class ReportSectionResponseForm(forms.Form):
         for key in self.fields:
             data[key] = self.cleaned_data.get(key, "")
         return data
+
+
+class SectionIIINationalTargetProgressForm(forms.ModelForm):
+    indicator_data_series = forms.ModelMultipleChoiceField(
+        queryset=IndicatorDataSeries.objects.none(),
+        required=False,
+    )
+    binary_indicator_responses = forms.ModelMultipleChoiceField(
+        queryset=BinaryIndicatorResponse.objects.none(),
+        required=False,
+    )
+    evidence_items = forms.ModelMultipleChoiceField(
+        queryset=Evidence.objects.none(),
+        required=False,
+    )
+    dataset_releases = forms.ModelMultipleChoiceField(
+        queryset=DatasetRelease.objects.none(),
+        required=False,
+    )
+
+    class Meta:
+        model = SectionIIINationalTargetProgress
+        fields = [
+            "progress_status",
+            "summary",
+            "actions_taken",
+            "outcomes",
+            "challenges",
+            "support_needed",
+            "period_start",
+            "period_end",
+            "indicator_data_series",
+            "binary_indicator_responses",
+            "evidence_items",
+            "dataset_releases",
+        ]
+
+    def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            return
+        instance = reporting_instance
+        self.fields["indicator_data_series"].queryset = indicator_data_series_for_user(user, instance)
+        self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
+        self.fields["evidence_items"].queryset = filter_queryset_for_user(Evidence.objects.all(), user)
+        self.fields["dataset_releases"].queryset = filter_queryset_for_user(DatasetRelease.objects.all(), user)
+
+
+class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
+    indicator_data_series = forms.ModelMultipleChoiceField(
+        queryset=IndicatorDataSeries.objects.none(),
+        required=False,
+    )
+    binary_indicator_responses = forms.ModelMultipleChoiceField(
+        queryset=BinaryIndicatorResponse.objects.none(),
+        required=False,
+    )
+    evidence_items = forms.ModelMultipleChoiceField(
+        queryset=Evidence.objects.none(),
+        required=False,
+    )
+    dataset_releases = forms.ModelMultipleChoiceField(
+        queryset=DatasetRelease.objects.none(),
+        required=False,
+    )
+
+    class Meta:
+        model = SectionIVFrameworkTargetProgress
+        fields = [
+            "progress_status",
+            "summary",
+            "actions_taken",
+            "outcomes",
+            "challenges",
+            "support_needed",
+            "period_start",
+            "period_end",
+            "indicator_data_series",
+            "binary_indicator_responses",
+            "evidence_items",
+            "dataset_releases",
+        ]
+
+    def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            return
+        instance = reporting_instance
+        self.fields["indicator_data_series"].queryset = indicator_data_series_for_user(user, instance)
+        self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
+        self.fields["evidence_items"].queryset = filter_queryset_for_user(Evidence.objects.all(), user)
+        self.fields["dataset_releases"].queryset = filter_queryset_for_user(DatasetRelease.objects.all(), user)

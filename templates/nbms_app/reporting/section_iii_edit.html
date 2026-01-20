@@ -1,0 +1,19 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Section III Progress{% endblock %}
+{% block content %}
+  <h1>Section III: {{ target.code }} - {{ target.title }}</h1>
+  <p><strong>Instance:</strong> {{ instance }}</p>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. Fields are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    {% if not read_only %}
+      <button type="submit">Save</button>
+    {% endif %}
+  </form>
+  <p><a href="{% url 'nbms_app:reporting_instance_section_iii' instance.uuid %}">Back to Section III</a></p>
+{% endblock %}

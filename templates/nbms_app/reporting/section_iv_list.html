@@ -1,0 +1,46 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Section IV Progress{% endblock %}
+{% block content %}
+  <h1>Section IV: Framework target progress</h1>
+  <p><strong>Instance:</strong> {{ instance }}</p>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. Entries are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>Target</th>
+        <th>Status</th>
+        <th>Updated</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.target.framework.code }} {{ item.target.code }} - {{ item.target.title }}</td>
+          <td>
+            {% if item.entry %}
+              {{ item.entry.get_progress_status_display }}
+            {% else %}
+              Not started
+            {% endif %}
+          </td>
+          <td>{{ item.entry.updated_at|default:"-" }}</td>
+          <td>
+            <a href="{% url 'nbms_app:reporting_instance_section_iv_edit' instance.uuid item.target.uuid %}">
+              {% if read_only %}View{% else %}Edit{% endif %}
+            </a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4">No scoped framework targets for this instance.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
+{% endblock %}

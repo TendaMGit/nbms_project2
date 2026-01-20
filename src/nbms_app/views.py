@@ -24,6 +24,8 @@ from nbms_app.forms import (
     NationalTargetForm,
     OrganisationForm,
     ReportSectionResponseForm,
+    SectionIIINationalTargetProgressForm,
+    SectionIVFrameworkTargetProgressForm,
     ReportingCycleForm,
     ReportingInstanceForm,
     UserCreateForm,
@@ -43,6 +45,8 @@ from nbms_app.models import (
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
+    SectionIIINationalTargetProgress,
+    SectionIVFrameworkTargetProgress,
     User,
     Notification,
     InstanceExportApproval,
@@ -86,6 +90,7 @@ from nbms_app.services.readiness import (
     get_target_readiness,
 )
 from nbms_app.services.notifications import create_notification
+from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
@@ -1767,6 +1772,144 @@ def reporting_instance_section_preview(request, instance_uuid, section_code):
             "response": response,
             "fields": fields,
             "response_json": response_json,
+        },
+    )
+
+
+@staff_member_required
+def reporting_instance_section_iii(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    targets = scoped_national_targets(instance, request.user)
+    entries = (
+        SectionIIINationalTargetProgress.objects.filter(
+            reporting_instance=instance,
+            national_target__in=targets,
+        )
+        .select_related("national_target")
+        .order_by("national_target__code")
+    )
+    entry_map = {entry.national_target_id: entry for entry in entries}
+    items = [{"target": target, "entry": entry_map.get(target.id)} for target in targets]
+
+    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    return render(
+        request,
+        "nbms_app/reporting/section_iii_list.html",
+        {"instance": instance, "items": items, "read_only": read_only},
+    )
+
+
+@staff_member_required
+def reporting_instance_section_iii_edit(request, instance_uuid, target_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    targets = scoped_national_targets(instance, request.user)
+    target = get_object_or_404(targets, uuid=target_uuid)
+    entry = SectionIIINationalTargetProgress.objects.filter(
+        reporting_instance=instance, national_target=target
+    ).first()
+    form = SectionIIINationalTargetProgressForm(
+        request.POST or None,
+        instance=entry,
+        user=request.user,
+        reporting_instance=instance,
+    )
+
+    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            progress = form.save(commit=False)
+            progress.reporting_instance = instance
+            progress.national_target = target
+            progress.save()
+            form.save_m2m()
+            messages.success(request, f"Updated Section III progress for {target.code}.")
+            return redirect("nbms_app:reporting_instance_section_iii", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_iii_edit.html",
+        {
+            "instance": instance,
+            "target": target,
+            "form": form,
+            "read_only": read_only,
+        },
+    )
+
+
+@staff_member_required
+def reporting_instance_section_iv(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    targets = scoped_framework_targets(instance, request.user)
+    entries = (
+        SectionIVFrameworkTargetProgress.objects.filter(
+            reporting_instance=instance,
+            framework_target__in=targets,
+        )
+        .select_related("framework_target", "framework_target__framework")
+        .order_by("framework_target__framework__code", "framework_target__code")
+    )
+    entry_map = {entry.framework_target_id: entry for entry in entries}
+    items = [{"target": target, "entry": entry_map.get(target.id)} for target in targets]
+
+    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    return render(
+        request,
+        "nbms_app/reporting/section_iv_list.html",
+        {"instance": instance, "items": items, "read_only": read_only},
+    )
+
+
+@staff_member_required
+def reporting_instance_section_iv_edit(request, instance_uuid, framework_target_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    targets = scoped_framework_targets(instance, request.user)
+    target = get_object_or_404(targets, uuid=framework_target_uuid)
+    entry = SectionIVFrameworkTargetProgress.objects.filter(
+        reporting_instance=instance, framework_target=target
+    ).first()
+    form = SectionIVFrameworkTargetProgressForm(
+        request.POST or None,
+        instance=entry,
+        user=request.user,
+        reporting_instance=instance,
+    )
+
+    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            progress = form.save(commit=False)
+            progress.reporting_instance = instance
+            progress.framework_target = target
+            progress.save()
+            form.save_m2m()
+            messages.success(request, f"Updated Section IV progress for {target.code}.")
+            return redirect("nbms_app:reporting_instance_section_iv", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_iv_edit.html",
+        {
+            "instance": instance,
+            "target": target,
+            "form": form,
+            "read_only": read_only,
         },
     )
 

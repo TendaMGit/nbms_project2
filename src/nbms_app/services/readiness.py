@@ -8,6 +8,7 @@ from nbms_app.models import (
     DatasetRelease,
     Evidence,
     ExportStatus,
+    FrameworkTarget,
     Indicator,
     InstanceExportApproval,
     LifecycleStatus,
@@ -15,11 +16,14 @@ from nbms_app.models import (
     ReportSectionResponse,
     ReportSectionTemplate,
     SensitivityLevel,
+    SectionIIINationalTargetProgress,
+    SectionIVFrameworkTargetProgress,
     ValidationRuleSet,
     ValidationScope,
 )
 from nbms_app.services.authorization import filter_queryset_for_user
 from nbms_app.services.consent import consent_is_granted, consent_status_for_instance, requires_consent
+from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 
 
 def _readiness_result(blockers, warnings, details, checks=None, counts=None):
@@ -202,6 +206,68 @@ def _section_state(instance, rules):
         "required_section_codes": sorted(required_codes),
         "total": templates.count(),
     }
+
+
+def _progress_state(instance, user, section_state):
+    required_codes = set(section_state.get("required_section_codes", []))
+    require_section_iii = "section-iii" in required_codes
+    require_section_iv = "section-iv" in required_codes
+
+    scoped_targets = scoped_national_targets(instance, user) if require_section_iii else NationalTarget.objects.none()
+    scoped_fw_targets = scoped_framework_targets(instance, user) if require_section_iv else FrameworkTarget.objects.none()
+
+    section_iii_total = scoped_targets.count()
+    section_iv_total = scoped_fw_targets.count()
+
+    section_iii_completed = 0
+    if section_iii_total:
+        section_iii_completed = (
+            SectionIIINationalTargetProgress.objects.filter(
+                reporting_instance=instance,
+                national_target__in=scoped_targets,
+            )
+            .values_list("national_target_id", flat=True)
+            .distinct()
+            .count()
+        )
+
+    section_iv_completed = 0
+    if section_iv_total:
+        section_iv_completed = (
+            SectionIVFrameworkTargetProgress.objects.filter(
+                reporting_instance=instance,
+                framework_target__in=scoped_fw_targets,
+            )
+            .values_list("framework_target_id", flat=True)
+            .distinct()
+            .count()
+        )
+
+    return {
+        "require_section_iii": require_section_iii,
+        "require_section_iv": require_section_iv,
+        "section_iii_total": section_iii_total,
+        "section_iii_completed": section_iii_completed,
+        "section_iii_missing": max(0, section_iii_total - section_iii_completed),
+        "section_iv_total": section_iv_total,
+        "section_iv_completed": section_iv_completed,
+        "section_iv_missing": max(0, section_iv_total - section_iv_completed),
+    }
+
+
+def _score_progress(progress_state):
+    scores = []
+    if progress_state["section_iii_total"]:
+        scores.append(
+            round(100 * progress_state["section_iii_completed"] / progress_state["section_iii_total"])
+        )
+    if progress_state["section_iv_total"]:
+        scores.append(
+            round(100 * progress_state["section_iv_completed"] / progress_state["section_iv_total"])
+        )
+    if not scores:
+        return 100
+    return round(sum(scores) / len(scores))
 
 
 def _approval_status(instance, obj):
@@ -462,6 +528,7 @@ def get_instance_readiness(instance, user):
     warnings = []
     rules = _load_validation_rules(instance)
     section_state = _section_state(instance, rules)
+    progress_state = _progress_state(instance, user, section_state)
     missing_required = section_state["missing_required_sections"]
     incomplete_required = section_state["incomplete_required_sections"]
     if missing_required:
@@ -480,6 +547,50 @@ def get_instance_readiness(instance, user):
         )
     if section_state["total"] == 0:
         warnings.append(_warning("sections_none", "No active section templates configured."))
+
+    if progress_state["require_section_iii"] and progress_state["section_iii_missing"]:
+        message = (
+            f"Missing Section III progress entries for {progress_state['section_iii_missing']} "
+            f"of {progress_state['section_iii_total']} scoped national targets."
+        )
+        if settings.EXPORT_REQUIRE_SECTIONS:
+            blockers.append(
+                _blocker(
+                    "section_iii_progress_missing",
+                    message,
+                    count=progress_state["section_iii_missing"],
+                )
+            )
+        else:
+            warnings.append(
+                _warning(
+                    "section_iii_progress_missing",
+                    message,
+                    count=progress_state["section_iii_missing"],
+                )
+            )
+
+    if progress_state["require_section_iv"] and progress_state["section_iv_missing"]:
+        message = (
+            f"Missing Section IV progress entries for {progress_state['section_iv_missing']} "
+            f"of {progress_state['section_iv_total']} scoped framework targets."
+        )
+        if settings.EXPORT_REQUIRE_SECTIONS:
+            blockers.append(
+                _blocker(
+                    "section_iv_progress_missing",
+                    message,
+                    count=progress_state["section_iv_missing"],
+                )
+            )
+        else:
+            warnings.append(
+                _warning(
+                    "section_iv_progress_missing",
+                    message,
+                    count=progress_state["section_iv_missing"],
+                )
+            )
 
     approvals = {
         "indicators": _approval_counts(instance, Indicator, user),
@@ -527,6 +638,18 @@ def get_instance_readiness(instance, user):
             reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
         ),
         _check(
+            "section_iii_progress",
+            "Section III progress entries",
+            "ok" if not progress_state["section_iii_missing"] else "missing",
+            reverse("nbms_app:reporting_instance_section_iii", kwargs={"instance_uuid": instance.uuid}),
+        ),
+        _check(
+            "section_iv_progress",
+            "Section IV progress entries",
+            "ok" if not progress_state["section_iv_missing"] else "missing",
+            reverse("nbms_app:reporting_instance_section_iv", kwargs={"instance_uuid": instance.uuid}),
+        ),
+        _check(
             "freeze",
             "Freeze state",
             "locked" if instance.frozen_at else "ok",
@@ -536,6 +659,7 @@ def get_instance_readiness(instance, user):
 
     details = {
         "sections": section_state,
+        "progress": progress_state,
         "approvals": approvals,
         "consent": consent,
         "export_require_sections": settings.EXPORT_REQUIRE_SECTIONS,
@@ -548,6 +672,9 @@ def get_instance_readiness(instance, user):
     }
     result = _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
     section_score = _score_sections(section_state)
+    progress_score = _score_progress(progress_state)
+    if progress_state["require_section_iii"] or progress_state["require_section_iv"]:
+        section_score = round((section_score + progress_score) / 2)
     approvals_score = _score_approvals(approvals)
     consent_score = _score_consent(consent)
     publication_score = _score_publication_quality(instance, user)

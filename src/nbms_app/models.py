@@ -69,6 +69,14 @@ class IndicatorValueType(models.TextChoices):
     TEXT = "text", "Text"
 
 
+class ProgressStatus(models.TextChoices):
+    NOT_STARTED = "not_started", "Not started"
+    IN_PROGRESS = "in_progress", "In progress"
+    PARTIALLY_ACHIEVED = "partially_achieved", "Partially achieved"
+    ACHIEVED = "achieved", "Achieved"
+    UNKNOWN = "unknown", "Unknown"
+
+
 class ExportStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     PENDING_REVIEW = "pending_review", "Pending review"
@@ -865,6 +873,120 @@ class BinaryIndicatorResponse(TimeStampedModel):
             models.UniqueConstraint(
                 fields=["reporting_instance", "question"],
                 name="uq_binary_indicator_response",
+            ),
+        ]
+
+
+class SectionIIINationalTargetProgress(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="section_iii_progress_entries",
+    )
+    national_target = models.ForeignKey(
+        NationalTarget,
+        on_delete=models.CASCADE,
+        related_name="section_iii_progress_entries",
+    )
+    progress_status = models.CharField(
+        max_length=30,
+        choices=ProgressStatus.choices,
+        default=ProgressStatus.NOT_STARTED,
+    )
+    summary = models.TextField(blank=True)
+    actions_taken = models.TextField(blank=True)
+    outcomes = models.TextField(blank=True)
+    challenges = models.TextField(blank=True)
+    support_needed = models.TextField(blank=True)
+    period_start = models.DateField(blank=True, null=True)
+    period_end = models.DateField(blank=True, null=True)
+    indicator_data_series = models.ManyToManyField(
+        "IndicatorDataSeries",
+        related_name="section_iii_progress_entries",
+        blank=True,
+    )
+    binary_indicator_responses = models.ManyToManyField(
+        "BinaryIndicatorResponse",
+        related_name="section_iii_progress_entries",
+        blank=True,
+    )
+    evidence_items = models.ManyToManyField(
+        "Evidence",
+        related_name="section_iii_progress_entries",
+        blank=True,
+    )
+    dataset_releases = models.ManyToManyField(
+        "DatasetRelease",
+        related_name="section_iii_progress_entries",
+        blank=True,
+    )
+
+    def __str__(self):
+        return f"Section III {self.national_target.code} ({self.reporting_instance_id})"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "national_target"],
+                name="uq_section_iii_progress",
+            ),
+        ]
+
+
+class SectionIVFrameworkTargetProgress(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="section_iv_progress_entries",
+    )
+    framework_target = models.ForeignKey(
+        FrameworkTarget,
+        on_delete=models.CASCADE,
+        related_name="section_iv_progress_entries",
+    )
+    progress_status = models.CharField(
+        max_length=30,
+        choices=ProgressStatus.choices,
+        default=ProgressStatus.NOT_STARTED,
+    )
+    summary = models.TextField(blank=True)
+    actions_taken = models.TextField(blank=True)
+    outcomes = models.TextField(blank=True)
+    challenges = models.TextField(blank=True)
+    support_needed = models.TextField(blank=True)
+    period_start = models.DateField(blank=True, null=True)
+    period_end = models.DateField(blank=True, null=True)
+    indicator_data_series = models.ManyToManyField(
+        "IndicatorDataSeries",
+        related_name="section_iv_progress_entries",
+        blank=True,
+    )
+    binary_indicator_responses = models.ManyToManyField(
+        "BinaryIndicatorResponse",
+        related_name="section_iv_progress_entries",
+        blank=True,
+    )
+    evidence_items = models.ManyToManyField(
+        "Evidence",
+        related_name="section_iv_progress_entries",
+        blank=True,
+    )
+    dataset_releases = models.ManyToManyField(
+        "DatasetRelease",
+        related_name="section_iv_progress_entries",
+        blank=True,
+    )
+
+    def __str__(self):
+        return f"Section IV {self.framework_target.code} ({self.reporting_instance_id})"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "framework_target"],
+                name="uq_section_iv_progress",
             ),
         ]
 
