@@ -4,6 +4,7 @@ from django import forms
 from django.conf import settings
 from django.contrib.auth.forms import UsernameField
 from django.core.exceptions import ValidationError
+from django.db import models
 
 from nbms_app.models import (
     BinaryIndicatorResponse,
@@ -24,6 +25,7 @@ from nbms_app.models import (
 )
 from nbms_app.roles import get_canonical_groups_queryset
 from nbms_app.services.authorization import filter_queryset_for_user
+from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.indicator_data import (
     binary_indicator_responses_for_user,
     indicator_data_series_for_user,
@@ -289,10 +291,20 @@ class SectionIIINationalTargetProgressForm(forms.ModelForm):
         if user is None:
             return
         instance = reporting_instance
-        self.fields["indicator_data_series"].queryset = indicator_data_series_for_user(user, instance)
+        series_qs = indicator_data_series_for_user(user, instance)
+        if instance:
+            approved_indicators = approved_queryset(instance, Indicator).values_list("id", flat=True)
+            series_qs = series_qs.filter(models.Q(indicator_id__in=approved_indicators) | models.Q(indicator__isnull=True))
+        self.fields["indicator_data_series"].queryset = series_qs
         self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
-        self.fields["evidence_items"].queryset = filter_queryset_for_user(Evidence.objects.all(), user)
-        self.fields["dataset_releases"].queryset = filter_queryset_for_user(DatasetRelease.objects.all(), user)
+        evidence_qs = Evidence.objects.all()
+        dataset_qs = Dataset.objects.all()
+        if instance:
+            evidence_qs = approved_queryset(instance, Evidence)
+            dataset_qs = approved_queryset(instance, Dataset)
+        self.fields["evidence_items"].queryset = filter_queryset_for_user(evidence_qs, user)
+        dataset_qs = filter_queryset_for_user(dataset_qs, user)
+        self.fields["dataset_releases"].queryset = DatasetRelease.objects.filter(dataset__in=dataset_qs)
 
 
 class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
@@ -335,7 +347,17 @@ class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
         if user is None:
             return
         instance = reporting_instance
-        self.fields["indicator_data_series"].queryset = indicator_data_series_for_user(user, instance)
+        series_qs = indicator_data_series_for_user(user, instance)
+        if instance:
+            approved_indicators = approved_queryset(instance, Indicator).values_list("id", flat=True)
+            series_qs = series_qs.filter(models.Q(indicator_id__in=approved_indicators) | models.Q(indicator__isnull=True))
+        self.fields["indicator_data_series"].queryset = series_qs
         self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
-        self.fields["evidence_items"].queryset = filter_queryset_for_user(Evidence.objects.all(), user)
-        self.fields["dataset_releases"].queryset = filter_queryset_for_user(DatasetRelease.objects.all(), user)
+        evidence_qs = Evidence.objects.all()
+        dataset_qs = Dataset.objects.all()
+        if instance:
+            evidence_qs = approved_queryset(instance, Evidence)
+            dataset_qs = approved_queryset(instance, Dataset)
+        self.fields["evidence_items"].queryset = filter_queryset_for_user(evidence_qs, user)
+        dataset_qs = filter_queryset_for_user(dataset_qs, user)
+        self.fields["dataset_releases"].queryset = DatasetRelease.objects.filter(dataset__in=dataset_qs)

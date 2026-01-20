@@ -99,7 +99,7 @@ def test_section_iv_progress_unique_per_instance_target():
             )
 
 
-def test_progress_entries_respect_freeze_read_only(client):
+def test_freeze_blocks_post_edit(client):
     org = Organisation.objects.create(name="Org A")
     user = _create_staff_user(org, "staff-a")
     instance = _create_instance()
@@ -125,6 +125,65 @@ def test_progress_entries_respect_freeze_read_only(client):
         reporting_instance=instance,
         national_target=target,
     ).count() == 0
+
+
+def test_out_of_scope_target_rejected_on_create_and_edit(client):
+    org = Organisation.objects.create(name="Org A")
+    user = _create_staff_user(org, "staff-a")
+    instance = _create_instance()
+    target_in_scope = NationalTarget.objects.create(
+        code="NT-IN",
+        title="In scope",
+        organisation=org,
+        created_by=user,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.INTERNAL,
+    )
+    target_out = NationalTarget.objects.create(
+        code="NT-OUT",
+        title="Out of scope",
+        organisation=org,
+        created_by=user,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.INTERNAL,
+    )
+    approve_for_instance(instance, target_in_scope, user)
+
+    client.force_login(user)
+    resp = client.get(
+        reverse("nbms_app:reporting_instance_section_iii_edit", args=[instance.uuid, target_out.uuid])
+    )
+    assert resp.status_code == 404
+    resp = client.post(
+        reverse("nbms_app:reporting_instance_section_iii_edit", args=[instance.uuid, target_out.uuid]),
+        data={"summary": "Should not save"},
+    )
+    assert resp.status_code == 404
+
+
+def test_cross_org_no_leak_on_list_and_detail(client):
+    org_a = Organisation.objects.create(name="Org A")
+    org_b = Organisation.objects.create(name="Org B")
+    staff_a = _create_staff_user(org_a, "staff-a")
+    staff_b = _create_staff_user(org_b, "staff-b")
+    instance = _create_instance()
+    target = NationalTarget.objects.create(
+        code="NT-A",
+        title="Target A",
+        organisation=org_a,
+        created_by=staff_a,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.INTERNAL,
+    )
+    approve_for_instance(instance, target, staff_a)
+
+    client.force_login(staff_b)
+    resp = client.get(reverse("nbms_app:reporting_instance_section_iii", args=[instance.uuid]))
+    assert resp.status_code == 403
+    resp = client.get(
+        reverse("nbms_app:reporting_instance_section_iii_edit", args=[instance.uuid, target.uuid])
+    )
+    assert resp.status_code == 403
 
 
 def test_progress_reference_abac_no_leak():

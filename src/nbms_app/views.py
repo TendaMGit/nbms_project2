@@ -310,6 +310,20 @@ def _is_admin_user(user):
     return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
 
 
+def _require_section_progress_access(instance, user):
+    if getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN):
+        return
+    approvals_exist = InstanceExportApproval.objects.filter(
+        reporting_instance=instance,
+        approval_scope="export",
+    ).exists()
+    if not approvals_exist:
+        return
+    if scoped_national_targets(instance, user).exists():
+        return
+    raise PermissionDenied("Not allowed to access section progress for this reporting instance.")
+
+
 def _band_for_checks(checks):
     for check in checks:
         if check.get("state") in {"blocked"}:
@@ -1779,6 +1793,7 @@ def reporting_instance_section_preview(request, instance_uuid, section_code):
 @staff_member_required
 def reporting_instance_section_iii(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
     targets = scoped_national_targets(instance, request.user)
     entries = (
         SectionIIINationalTargetProgress.objects.filter(
@@ -1803,6 +1818,7 @@ def reporting_instance_section_iii(request, instance_uuid):
 @staff_member_required
 def reporting_instance_section_iii_edit(request, instance_uuid, target_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
     targets = scoped_national_targets(instance, request.user)
     target = get_object_or_404(targets, uuid=target_uuid)
     entry = SectionIIINationalTargetProgress.objects.filter(
@@ -1848,6 +1864,7 @@ def reporting_instance_section_iii_edit(request, instance_uuid, target_uuid):
 @staff_member_required
 def reporting_instance_section_iv(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
     targets = scoped_framework_targets(instance, request.user)
     entries = (
         SectionIVFrameworkTargetProgress.objects.filter(
@@ -1872,6 +1889,7 @@ def reporting_instance_section_iv(request, instance_uuid):
 @staff_member_required
 def reporting_instance_section_iv_edit(request, instance_uuid, framework_target_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
     targets = scoped_framework_targets(instance, request.user)
     target = get_object_or_404(targets, uuid=framework_target_uuid)
     entry = SectionIVFrameworkTargetProgress.objects.filter(
