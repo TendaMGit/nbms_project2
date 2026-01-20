@@ -7,11 +7,16 @@ from nbms_app.models import (
     DatasetRelease,
     Evidence,
     ExportPackage,
+    Framework,
+    FrameworkIndicator,
+    FrameworkTarget,
+    IndicatorFrameworkIndicatorLink,
     Indicator,
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
     LifecycleStatus,
     NationalTarget,
+    NationalTargetFrameworkTargetLink,
     Organisation,
     ReportSectionResponse,
     ReportSectionTemplate,
@@ -100,6 +105,41 @@ class IndicatorAdmin(admin.ModelAdmin):
         if not obj.organisation and getattr(request.user, "organisation", None):
             obj.organisation = request.user.organisation
         super().save_model(request, obj, form, change)
+
+
+@admin.register(Framework)
+class FrameworkAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "status", "sensitivity", "organisation", "created_at")
+    search_fields = ("code", "title")
+    list_filter = ("status", "sensitivity", "organisation")
+
+
+@admin.register(FrameworkTarget)
+class FrameworkTargetAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "framework", "status", "sensitivity", "organisation", "created_at")
+    search_fields = ("code", "title")
+    list_filter = ("framework", "status", "sensitivity", "organisation")
+
+
+@admin.register(FrameworkIndicator)
+class FrameworkIndicatorAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "framework", "status", "sensitivity", "organisation", "created_at")
+    search_fields = ("code", "title")
+    list_filter = ("framework", "status", "sensitivity", "organisation")
+
+
+@admin.register(NationalTargetFrameworkTargetLink)
+class NationalTargetFrameworkTargetLinkAdmin(admin.ModelAdmin):
+    list_display = ("national_target", "framework_target", "relation_type", "confidence", "created_at")
+    search_fields = ("national_target__code", "framework_target__code")
+    list_filter = ("relation_type", "framework_target__framework")
+
+
+@admin.register(IndicatorFrameworkIndicatorLink)
+class IndicatorFrameworkIndicatorLinkAdmin(admin.ModelAdmin):
+    list_display = ("indicator", "framework_indicator", "relation_type", "confidence", "created_at")
+    search_fields = ("indicator__code", "framework_indicator__code")
+    list_filter = ("relation_type", "framework_indicator__framework")
 
 
 @admin.register(Evidence)

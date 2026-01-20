@@ -3,6 +3,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.models import ContentType
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -187,6 +188,13 @@ class ConsentStatus(models.TextChoices):
     REVOKED = "revoked", "Revoked"
 
 
+class AlignmentRelationType(models.TextChoices):
+    EQUIVALENT = "equivalent", "Equivalent"
+    CONTRIBUTES_TO = "contributes_to", "Contributes to"
+    PARTIAL = "partial", "Partial"
+    SUPPORTS = "supports", "Supports"
+
+
 class ConsentRecord(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
@@ -316,6 +324,185 @@ class Indicator(TimeStampedModel):
             models.Index(fields=["sensitivity"]),
             models.Index(fields=["organisation"]),
             models.Index(fields=["created_by"]),
+        ]
+
+
+class Framework(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="frameworks",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_frameworks",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.code} - {self.title}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class FrameworkTarget(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    framework = models.ForeignKey(Framework, on_delete=models.CASCADE, related_name="targets")
+    code = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="framework_targets",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_framework_targets",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.framework.code} {self.code}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["framework", "code"], name="uq_framework_target"),
+        ]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class FrameworkIndicator(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    framework = models.ForeignKey(Framework, on_delete=models.CASCADE, related_name="indicators")
+    code = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="framework_indicators",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_framework_indicators",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    review_note = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.framework.code} {self.code}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["framework", "code"], name="uq_framework_indicator"),
+        ]
+        indexes = [
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["created_by"]),
+        ]
+
+
+class NationalTargetFrameworkTargetLink(TimeStampedModel):
+    national_target = models.ForeignKey(
+        NationalTarget,
+        on_delete=models.CASCADE,
+        related_name="framework_target_links",
+    )
+    framework_target = models.ForeignKey(
+        FrameworkTarget,
+        on_delete=models.CASCADE,
+        related_name="national_target_links",
+    )
+    relation_type = models.CharField(
+        max_length=50,
+        choices=AlignmentRelationType.choices,
+        default=AlignmentRelationType.CONTRIBUTES_TO,
+    )
+    confidence = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    notes = models.TextField(blank=True)
+    source = models.URLField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["national_target", "framework_target"],
+                name="uq_national_target_framework_target",
+            ),
+        ]
+
+
+class IndicatorFrameworkIndicatorLink(TimeStampedModel):
+    indicator = models.ForeignKey(
+        Indicator,
+        on_delete=models.CASCADE,
+        related_name="framework_indicator_links",
+    )
+    framework_indicator = models.ForeignKey(
+        FrameworkIndicator,
+        on_delete=models.CASCADE,
+        related_name="national_indicator_links",
+    )
+    relation_type = models.CharField(
+        max_length=50,
+        choices=AlignmentRelationType.choices,
+        default=AlignmentRelationType.CONTRIBUTES_TO,
+    )
+    confidence = models.PositiveSmallIntegerField(
+        blank=True,
+        null=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
+    notes = models.TextField(blank=True)
+    source = models.URLField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["indicator", "framework_indicator"],
+                name="uq_indicator_framework_indicator",
+            ),
         ]
 
 
