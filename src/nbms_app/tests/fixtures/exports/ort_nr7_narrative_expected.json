@@ -1,0 +1,76 @@
+{
+  "schema": "nbms.ort.nr7.narrative.v1",
+  "exporter_version": "0.1.0",
+  "generated_at": "2026-01-20T10:00:00+00:00",
+  "reporting_instance": {
+    "uuid": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "title": "CYCLE-1 v1",
+    "status": "draft",
+    "version_label": "v1",
+    "cycle": {
+      "uuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "code": "CYCLE-1",
+      "title": "Cycle 1",
+      "start_date": "2025-01-01",
+      "end_date": "2025-12-31",
+      "due_date": "2026-01-31"
+    }
+  },
+  "sections": [
+    {
+      "code": "section-i",
+      "title": "Section I: Status of biodiversity",
+      "content": {
+        "summary": "Section I narrative"
+      }
+    },
+    {
+      "code": "section-ii",
+      "title": "Section II: Implementation measures",
+      "content": {
+        "policy_measures": "Section II narrative"
+      }
+    },
+    {
+      "code": "section-iii",
+      "title": "Section III: National targets progress",
+      "content": {
+        "progress_overview": "Section III narrative"
+      }
+    },
+    {
+      "code": "section-iv",
+      "title": "Section IV: Support needed",
+      "content": {
+        "support_needs": "Section IV narrative"
+      }
+    },
+    {
+      "code": "section-v",
+      "title": "Section V: Additional information",
+      "content": {
+        "annex_notes": "Section V notes",
+        "references": "Section V references"
+      }
+    },
+    {
+      "code": "section-other-information",
+      "title": "Section Other Information (Annex)",
+      "content": {
+        "additional_information": "Annex info",
+        "additional_documents": [
+          {
+            "url": "https://example.com/doc",
+            "name": "Annex doc"
+          }
+        ]
+      }
+    }
+  ],
+  "nbms_meta": {
+    "reporting_instance_status": "draft",
+    "ruleset_code": "7NR_DEFAULT",
+    "export_require_sections": true,
+    "missing_required_sections": []
+  }
+}
