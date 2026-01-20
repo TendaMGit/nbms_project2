@@ -43,6 +43,11 @@ urlpatterns = [
         name="export_package_download",
     ),
     path(
+        "exports/instances/<uuid:instance_uuid>/ort-nr7-narrative.json",
+        views.export_ort_nr7_narrative_instance,
+        name="export_ort_nr7_narrative_instance",
+    ),
+    path(
         "exports/<uuid:package_uuid>/<str:action>/",
         views.export_package_action,
         name="export_package_action",

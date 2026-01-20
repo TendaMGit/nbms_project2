@@ -21,10 +21,31 @@ from nbms_app.services.consent import consent_is_granted
 from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
+from nbms_app.services.readiness import get_instance_readiness
 
 
 def _is_admin(user):
     return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)))
+
+
+def assert_instance_exportable(instance, user):
+    if not instance:
+        raise ValidationError("Reporting instance is required for exports.")
+    if not user or not getattr(user, "is_authenticated", False):
+        raise PermissionDenied("Authentication required.")
+
+    readiness = get_instance_readiness(instance, user)
+    blockers = readiness.get("blockers", [])
+    if blockers:
+        messages = "; ".join(blocker.get("message", "") for blocker in blockers if blocker)
+        raise ValidationError(messages or "Export blocked by readiness checks.")
+
+    approvals = readiness.get("details", {}).get("approvals", {})
+    pending = sum(item.get("pending", 0) for item in approvals.values())
+    if pending:
+        raise ValidationError("Missing instance approvals for one or more published items.")
+
+    return readiness
 
 
 def _require_status(obj, *allowed_statuses):

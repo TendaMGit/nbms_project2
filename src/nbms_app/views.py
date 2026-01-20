@@ -6,7 +6,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections
 from django.db.models import Prefetch
@@ -50,6 +50,7 @@ from nbms_app.models import (
     ConsentStatus,
     SensitivityLevel,
 )
+from nbms_app.exports.ort_nr7_narrative import build_ort_nr7_narrative_payload
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_CONTRIBUTOR,
@@ -1251,6 +1252,18 @@ def export_package_download(request, package_uuid):
     response = JsonResponse(package.payload, json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="export-{package.uuid}.json"'
     return response
+
+
+@staff_member_required
+def export_ort_nr7_narrative_instance(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    try:
+        payload = build_ort_nr7_narrative_payload(instance=instance, user=request.user)
+    except PermissionDenied as exc:
+        return JsonResponse({"error": str(exc)}, status=403)
+    except ValidationError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    return JsonResponse(payload, json_dumps_params={"indent": 2})
 
 
 @staff_member_required
