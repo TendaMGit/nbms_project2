@@ -1,0 +1,166 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Instance Review Dashboard{% endblock %}
+{% block content %}
+  <h1>Instance Review Dashboard</h1>
+
+  <section class="card">
+    <h2>Instance metadata</h2>
+    <p><strong>Cycle:</strong> {{ instance.cycle.title }} ({{ instance.cycle.code }})</p>
+    <p><strong>Instance:</strong> {{ instance.version_label }} - {{ instance.get_status_display }}</p>
+  </section>
+
+  <div class="card-grid">
+    <section class="card readiness-card {% if summary.readiness.band == 'green' %}readiness-green{% elif summary.readiness.band == 'amber' %}readiness-amber{% else %}readiness-red{% endif %}">
+      <header class="card-header">
+        <div class="card-title">
+          <span aria-hidden="true">[Readiness]</span>
+          <h3>Readiness</h3>
+        </div>
+        <span class="badge badge-{{ summary.readiness.band }}">{{ summary.readiness.band|capfirst }}</span>
+      </header>
+      <div class="card-body">
+        <p><strong>Score:</strong> {{ summary.readiness.score }}</p>
+        {% if summary.readiness.blockers %}
+          <p><strong>Blockers</strong></p>
+          <ul>
+            {% for blocker in summary.readiness.blockers %}
+              <li>{{ blocker.message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% if summary.readiness.warnings %}
+          <p><strong>Warnings</strong></p>
+          <ul>
+            {% for warning in summary.readiness.warnings %}
+              <li>{{ warning.message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Coverage</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Section</th>
+          <th>Total</th>
+          <th>Completed</th>
+          <th>Missing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Section III (National targets)</td>
+          <td>{{ summary.coverage.section_iii.total }}</td>
+          <td>{{ summary.coverage.section_iii.completed }}</td>
+          <td>{{ summary.coverage.section_iii.missing }}</td>
+        </tr>
+        <tr>
+          <td>Section IV (Framework targets)</td>
+          <td>{{ summary.coverage.section_iv.total }}</td>
+          <td>{{ summary.coverage.section_iv.completed }}</td>
+          <td>{{ summary.coverage.section_iv.missing }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Indicator & Binary Coverage</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Referenced indicator series</td>
+          <td>{{ summary.indicator_coverage.referenced_series }}</td>
+        </tr>
+        <tr>
+          <td>Series with datapoints</td>
+          <td>{{ summary.indicator_coverage.series_with_points }}</td>
+        </tr>
+        <tr>
+          <td>Referenced binary responses</td>
+          <td>{{ summary.indicator_coverage.referenced_binary_responses }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Mapping Coverage</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Mapping</th>
+          <th>Mapped</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>National targets ↔ Framework targets</td>
+          <td>{{ summary.mapping_coverage.targets_mapped }}</td>
+          <td>{{ summary.mapping_coverage.targets_total }}</td>
+        </tr>
+        <tr>
+          <td>Indicators ↔ Framework indicators</td>
+          <td>{{ summary.mapping_coverage.indicators_mapped }}</td>
+          <td>{{ summary.mapping_coverage.indicators_total }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Missing Section III entries</h2>
+    {% if summary.missing_targets %}
+      <ul>
+        {% for target in summary.missing_targets %}
+          <li>
+            {{ target.code }} - {{ target.title }}
+            (<a href="{% url 'nbms_app:reporting_instance_section_iii_edit' instance.uuid target.uuid %}">Edit</a>)
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No missing Section III entries.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Missing Section IV entries</h2>
+    {% if summary.missing_framework_targets %}
+      <ul>
+        {% for target in summary.missing_framework_targets %}
+          <li>
+            {{ target.framework.code }} {{ target.code }} - {{ target.title }}
+            (<a href="{% url 'nbms_app:reporting_instance_section_iv_edit' instance.uuid target.uuid %}">Edit</a>)
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p>No missing Section IV entries.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Review Pack & Export</h2>
+    <p>
+      <a href="{% url 'nbms_app:reporting_instance_review_pack_v2' instance.uuid %}">Open Review Pack v2</a>
+    </p>
+    <p>
+      <a href="{{ export_url }}">View v2 JSON</a> |
+      <a href="{{ export_download_url }}">Download v2 JSON</a>
+    </p>
+  </section>
+
+  <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
+{% endblock %}
