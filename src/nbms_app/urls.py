@@ -146,6 +146,16 @@ urlpatterns = [
         views.reporting_instance_report_pack,
         name="reporting_instance_report_pack",
     ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/review/",
+        views.reporting_instance_review,
+        name="reporting_instance_review",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/review-pack-v2/",
+        views.reporting_instance_review_pack_v2,
+        name="reporting_instance_review_pack_v2",
+    ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
     path(

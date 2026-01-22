@@ -1,0 +1,235 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Review Pack v2{% endblock %}
+{% block content %}
+  <style>
+    @media print {
+      nav,
+      .nav,
+      .top-nav,
+      .card-footer,
+      .actions {
+        display: none !important;
+      }
+      .card {
+        box-shadow: none;
+        border: 1px solid #e2e8f0;
+      }
+      a[href]:after {
+        content: "";
+      }
+    }
+  </style>
+
+  <h1>Review Pack v2</h1>
+
+  <section class="card">
+    <h2>Instance metadata</h2>
+    <p><strong>Cycle:</strong> {{ instance.cycle.title }} ({{ instance.cycle.code }})</p>
+    <p><strong>Instance:</strong> {{ instance.version_label }} - {{ instance.get_status_display }}</p>
+  </section>
+
+  <section class="card">
+    <h2>Narrative Sections (I–V + Annex)</h2>
+    {% for section in sections %}
+      <section class="card">
+        <h3>{{ section.title }} ({{ section.code|upper }})</h3>
+        {% if section.content %}
+          <pre>{{ section.content|safe }}</pre>
+        {% else %}
+          <p class="muted">No response captured.</p>
+        {% endif %}
+      </section>
+    {% endfor %}
+  </section>
+
+  <section class="card">
+    <h2>Section III: National Target Progress</h2>
+    {% if section_iii_items %}
+      {% for item in section_iii_items %}
+        <section class="card">
+          <h3>{{ item.entry.national_target.code }} - {{ item.entry.national_target.title }}</h3>
+          <p><strong>Status:</strong> {{ item.entry.get_progress_status_display }}</p>
+          <p><strong>Summary:</strong> {{ item.entry.summary }}</p>
+          {% if item.entry.actions_taken %}<p><strong>Actions:</strong> {{ item.entry.actions_taken }}</p>{% endif %}
+          {% if item.entry.outcomes %}<p><strong>Outcomes:</strong> {{ item.entry.outcomes }}</p>{% endif %}
+          {% if item.entry.challenges %}<p><strong>Challenges:</strong> {{ item.entry.challenges }}</p>{% endif %}
+          {% if item.entry.support_needed %}<p><strong>Support needed:</strong> {{ item.entry.support_needed }}</p>{% endif %}
+
+          <h4>Indicator series</h4>
+          {% if item.series_items %}
+            {% for series_item in item.series_items %}
+              <h5>{{ series_item.series.title }} ({{ series_item.series.unit }})</h5>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Year</th>
+                    <th>Value</th>
+                    <th>Disaggregation</th>
+                    <th>Dataset release</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for point in series_item.points %}
+                    <tr>
+                      <td>{{ point.year }}</td>
+                      <td>{{ point.value_numeric|default:point.value_text }}</td>
+                      <td>{{ point.disaggregation }}</td>
+                      <td>
+                        {% if point.dataset_release %}
+                          {{ point.dataset_release.dataset.title }} {{ point.dataset_release.version }}
+                        {% else %}
+                          -
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% endfor %}
+          {% else %}
+            <p class="muted">No indicator series linked.</p>
+          {% endif %}
+
+          <h4>Binary indicator responses</h4>
+          {% if item.binary_items %}
+            <ul>
+              {% for response in item.binary_items %}
+                <li>
+                  <strong>{{ response.question.question_text }}</strong>:
+                  {{ response.response }}{% if response.comments %} ({{ response.comments }}){% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No binary responses linked.</p>
+          {% endif %}
+
+          <h4>Evidence</h4>
+          {% if item.evidence_items %}
+            <ul>
+              {% for evidence in item.evidence_items %}
+                <li>{{ evidence.title }}{% if evidence.source_url %} ({{ evidence.source_url }}){% endif %}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No evidence linked.</p>
+          {% endif %}
+
+          <h4>Dataset releases</h4>
+          {% if item.dataset_releases %}
+            <ul>
+              {% for release in item.dataset_releases %}
+                <li>{{ release.dataset.title }} {{ release.version }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No dataset releases linked.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    {% else %}
+      <p>No Section III entries captured.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Section IV: Framework Target Progress</h2>
+    {% if section_iv_items %}
+      {% for item in section_iv_items %}
+        <section class="card">
+          <h3>{{ item.entry.framework_target.framework.code }} {{ item.entry.framework_target.code }} - {{ item.entry.framework_target.title }}</h3>
+          <p><strong>Status:</strong> {{ item.entry.get_progress_status_display }}</p>
+          <p><strong>Summary:</strong> {{ item.entry.summary }}</p>
+          {% if item.entry.actions_taken %}<p><strong>Actions:</strong> {{ item.entry.actions_taken }}</p>{% endif %}
+          {% if item.entry.outcomes %}<p><strong>Outcomes:</strong> {{ item.entry.outcomes }}</p>{% endif %}
+          {% if item.entry.challenges %}<p><strong>Challenges:</strong> {{ item.entry.challenges }}</p>{% endif %}
+          {% if item.entry.support_needed %}<p><strong>Support needed:</strong> {{ item.entry.support_needed }}</p>{% endif %}
+
+          <h4>Indicator series</h4>
+          {% if item.series_items %}
+            {% for series_item in item.series_items %}
+              <h5>{{ series_item.series.title }} ({{ series_item.series.unit }})</h5>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Year</th>
+                    <th>Value</th>
+                    <th>Disaggregation</th>
+                    <th>Dataset release</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for point in series_item.points %}
+                    <tr>
+                      <td>{{ point.year }}</td>
+                      <td>{{ point.value_numeric|default:point.value_text }}</td>
+                      <td>{{ point.disaggregation }}</td>
+                      <td>
+                        {% if point.dataset_release %}
+                          {{ point.dataset_release.dataset.title }} {{ point.dataset_release.version }}
+                        {% else %}
+                          -
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            {% endfor %}
+          {% else %}
+            <p class="muted">No indicator series linked.</p>
+          {% endif %}
+
+          <h4>Binary indicator responses</h4>
+          {% if item.binary_items %}
+            <ul>
+              {% for response in item.binary_items %}
+                <li>
+                  <strong>{{ response.question.question_text }}</strong>:
+                  {{ response.response }}{% if response.comments %} ({{ response.comments }}){% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No binary responses linked.</p>
+          {% endif %}
+
+          <h4>Evidence</h4>
+          {% if item.evidence_items %}
+            <ul>
+              {% for evidence in item.evidence_items %}
+                <li>{{ evidence.title }}{% if evidence.source_url %} ({{ evidence.source_url }}){% endif %}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No evidence linked.</p>
+          {% endif %}
+
+          <h4>Dataset releases</h4>
+          {% if item.dataset_releases %}
+            <ul>
+              {% for release in item.dataset_releases %}
+                <li>{{ release.dataset.title }} {{ release.version }}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="muted">No dataset releases linked.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    {% else %}
+      <p>No Section IV entries captured.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Export preview</h2>
+    <p>
+      <a href="{{ export_url }}">View v2 JSON</a> |
+      <a href="{{ export_download_url }}">Download v2 JSON</a>
+    </p>
+    <p class="muted">Use browser print to save a PDF of this review pack.</p>
+  </section>
+
+  <p><a href="{% url 'nbms_app:reporting_instance_review' instance.uuid %}">Back to review dashboard</a></p>
+{% endblock %}

@@ -54,7 +54,7 @@ from nbms_app.models import (
     ConsentStatus,
     SensitivityLevel,
 )
-from nbms_app.exports.ort_nr7_narrative import build_ort_nr7_narrative_payload
+from nbms_app.exports.ort_nr7_narrative import _required_templates, build_ort_nr7_narrative_payload
 from nbms_app.exports.ort_nr7_v2 import build_ort_nr7_v2_payload
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
@@ -91,6 +91,7 @@ from nbms_app.services.readiness import (
     get_target_readiness,
 )
 from nbms_app.services.notifications import create_notification
+from nbms_app.services.review import build_instance_review_summary, build_review_pack_context
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 from nbms_app.services.workflows import approve, reject
 
@@ -1700,6 +1701,56 @@ def reporting_instance_report_pack(request, instance_uuid):
     )
     context = build_report_pack_context(instance, request.user)
     return render(request, "nbms_app/reporting/report_pack.html", context)
+
+
+@staff_member_required
+def reporting_instance_review(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    summary = build_instance_review_summary(instance, request.user)
+    export_url = reverse("nbms_app:export_ort_nr7_v2_instance", kwargs={"instance_uuid": instance.uuid})
+    export_download_url = f"{export_url}?download=1"
+    context = {
+        "instance": instance,
+        "summary": summary,
+        "export_url": export_url,
+        "export_download_url": export_download_url,
+    }
+    return render(request, "nbms_app/reporting/review_dashboard.html", context)
+
+
+@staff_member_required
+def reporting_instance_review_pack_v2(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    templates = _required_templates()
+    responses = ReportSectionResponse.objects.filter(
+        reporting_instance=instance,
+        template__in=templates,
+    ).select_related("template", "updated_by")
+    response_map = {response.template_id: response for response in responses}
+    sections = []
+    for template in templates:
+        response = response_map.get(template.id)
+        sections.append(
+            {
+                "code": template.code,
+                "title": template.title,
+                "content": response.response_json if response else {},
+            }
+        )
+
+    pack_context = build_review_pack_context(instance, request.user)
+    export_url = reverse("nbms_app:export_ort_nr7_v2_instance", kwargs={"instance_uuid": instance.uuid})
+    export_download_url = f"{export_url}?download=1"
+    context = {
+        "instance": instance,
+        "sections": sections,
+        "export_url": export_url,
+        "export_download_url": export_download_url,
+        **pack_context,
+    }
+    return render(request, "nbms_app/reporting/review_pack_v2.html", context)
 
 
 @staff_member_required
