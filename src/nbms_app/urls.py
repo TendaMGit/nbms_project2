@@ -156,6 +156,31 @@ urlpatterns = [
         views.reporting_instance_review_pack_v2,
         name="reporting_instance_review_pack_v2",
     ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/snapshots/",
+        views.reporting_instance_snapshots,
+        name="reporting_instance_snapshots",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/snapshots/create/",
+        views.reporting_instance_snapshot_create,
+        name="reporting_instance_snapshot_create",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/snapshots/diff/",
+        views.reporting_instance_snapshot_diff,
+        name="reporting_instance_snapshot_diff",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/snapshots/<uuid:snapshot_uuid>/",
+        views.reporting_instance_snapshot_detail,
+        name="reporting_instance_snapshot_detail",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/snapshots/<uuid:snapshot_uuid>/download.json",
+        views.reporting_instance_snapshot_download,
+        name="reporting_instance_snapshot_download",
+    ),
     path("manage/review-queue/", views.review_queue, name="review_queue"),
     path("manage/review-queue/<str:obj_type>/<uuid:obj_uuid>/", views.review_detail, name="review_detail"),
     path(

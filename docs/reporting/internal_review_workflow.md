@@ -26,6 +26,8 @@ before any ORT submission transforms are applied.
    - Validate narrative text, progress entries, and embedded indicator tables.
    - Confirm binary responses and evidence links.
 7) Export v2 JSON (review artifact) and freeze the instance if ready.
+8) Create a reporting snapshot (immutable v2 export record).
+9) Use snapshot diff vs the last snapshot to confirm changes before sign-off.
 
 ## Why this comes before ORT ingestion
 

@@ -1,0 +1,61 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Reporting Snapshots{% endblock %}
+{% block content %}
+  <h1>Reporting Snapshots</h1>
+
+  <section class="card">
+    <h2>Instance metadata</h2>
+    <p><strong>Cycle:</strong> {{ instance.cycle.title }} ({{ instance.cycle.code }})</p>
+    <p><strong>Instance:</strong> {{ instance.version_label }} - {{ instance.get_status_display }}</p>
+  </section>
+
+  <section class="card">
+    <h2>Create snapshot</h2>
+    <form method="post" action="{% url 'nbms_app:reporting_instance_snapshot_create' instance.uuid %}">
+      {% csrf_token %}
+      <label for="note">Note (optional)</label>
+      <input type="text" id="note" name="note" maxlength="255">
+      <button type="submit">Create snapshot</button>
+    </form>
+    <p class="muted">Snapshots are immutable and capture the v2 export payload.</p>
+  </section>
+
+  <section class="card">
+    <h2>Snapshots</h2>
+    {% if snapshots %}
+      <p>
+        <a href="{% url 'nbms_app:reporting_instance_snapshot_diff' instance.uuid %}">View latest diff</a>
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Created at</th>
+            <th>Created by</th>
+            <th>Exporter</th>
+            <th>Hash</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for snapshot in snapshots %}
+            <tr>
+              <td>{{ snapshot.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ snapshot.created_by.get_username|default:"-" }}</td>
+              <td>{{ snapshot.exporter_version }}</td>
+              <td>{{ snapshot.payload_hash|slice:":10" }}</td>
+              <td>
+                <a href="{% url 'nbms_app:reporting_instance_snapshot_detail' instance.uuid snapshot.uuid %}">View</a>
+                |
+                <a href="{% url 'nbms_app:reporting_instance_snapshot_download' instance.uuid snapshot.uuid %}">Download</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No snapshots captured yet.</p>
+    {% endif %}
+  </section>
+
+  <p><a href="{% url 'nbms_app:reporting_instance_review' instance.uuid %}">Back to review dashboard</a></p>
+{% endblock %}
