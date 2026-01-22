@@ -157,6 +157,9 @@
       <a href="{% url 'nbms_app:reporting_instance_review_pack_v2' instance.uuid %}">Open Review Pack v2</a>
     </p>
     <p>
+      <a href="{% url 'nbms_app:reporting_instance_snapshots' instance.uuid %}">View snapshots</a>
+    </p>
+    <p>
       <a href="{{ export_url }}">View v2 JSON</a> |
       <a href="{{ export_download_url }}">Download v2 JSON</a>
     </p>

@@ -45,6 +45,7 @@ from nbms_app.models import (
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
+    ReportingSnapshot,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
     User,
@@ -93,6 +94,7 @@ from nbms_app.services.readiness import (
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.review import build_instance_review_summary, build_review_pack_context
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
+from nbms_app.services.snapshots import create_reporting_snapshot, diff_snapshots
 from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
@@ -1751,6 +1753,119 @@ def reporting_instance_review_pack_v2(request, instance_uuid):
         **pack_context,
     }
     return render(request, "nbms_app/reporting/review_pack_v2.html", context)
+
+
+def _snapshot_counts(payload):
+    return {
+        "sections": len(payload.get("sections") or []),
+        "section_iii": len(payload.get("section_iii_progress") or []),
+        "section_iv": len(payload.get("section_iv_progress") or []),
+        "indicator_series": len(payload.get("indicator_data_series") or []),
+        "binary_responses": len(payload.get("binary_indicator_data") or []),
+    }
+
+
+@staff_member_required
+def reporting_instance_snapshots(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    snapshots = (
+        ReportingSnapshot.objects.filter(reporting_instance=instance)
+        .select_related("created_by")
+        .order_by("-created_at")
+    )
+    context = {
+        "instance": instance,
+        "snapshots": snapshots,
+    }
+    return render(request, "nbms_app/reporting/snapshots_list.html", context)
+
+
+@staff_member_required
+def reporting_instance_snapshot_create(request, instance_uuid):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_snapshots", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    note = request.POST.get("note", "").strip()
+    try:
+        snapshot = create_reporting_snapshot(instance=instance, user=request.user, note=note)
+        record_audit_event(
+            request.user,
+            "reporting_snapshot_create",
+            snapshot,
+            metadata={"instance_uuid": str(instance.uuid), "snapshot_type": snapshot.snapshot_type},
+        )
+        messages.success(request, "Snapshot created.")
+    except (PermissionDenied, ValidationError) as exc:
+        messages.error(request, str(exc))
+    return redirect("nbms_app:reporting_instance_snapshots", instance_uuid=instance.uuid)
+
+
+@staff_member_required
+def reporting_instance_snapshot_detail(request, instance_uuid, snapshot_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    snapshot = get_object_or_404(
+        ReportingSnapshot.objects.select_related("created_by"),
+        reporting_instance=instance,
+        uuid=snapshot_uuid,
+    )
+    context = {
+        "instance": instance,
+        "snapshot": snapshot,
+        "counts": _snapshot_counts(snapshot.payload_json or {}),
+    }
+    return render(request, "nbms_app/reporting/snapshot_detail.html", context)
+
+
+@staff_member_required
+def reporting_instance_snapshot_download(request, instance_uuid, snapshot_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    snapshot = get_object_or_404(
+        ReportingSnapshot.objects.select_related("created_by"),
+        reporting_instance=instance,
+        uuid=snapshot_uuid,
+    )
+    response = JsonResponse(snapshot.payload_json, json_dumps_params={"indent": 2})
+    response["Content-Disposition"] = f'attachment; filename="snapshot-{snapshot.uuid}.json"'
+    return response
+
+
+@staff_member_required
+def reporting_instance_snapshot_diff(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    snapshots_qs = ReportingSnapshot.objects.filter(reporting_instance=instance).order_by("-created_at")
+
+    snapshot_a = None
+    snapshot_b = None
+    a_uuid = request.GET.get("a")
+    b_uuid = request.GET.get("b")
+    if a_uuid and b_uuid:
+        snapshot_a = get_object_or_404(snapshots_qs, uuid=a_uuid)
+        snapshot_b = get_object_or_404(snapshots_qs, uuid=b_uuid)
+    else:
+        snapshots = list(snapshots_qs[:2])
+        if snapshots:
+            snapshot_b = snapshots[0]
+        if len(snapshots) > 1:
+            snapshot_a = snapshots[1]
+
+    diff = None
+    if snapshot_a and snapshot_b:
+        diff = diff_snapshots(snapshot_a.payload_json, snapshot_b.payload_json)
+
+    context = {
+        "instance": instance,
+        "snapshots": snapshots_qs,
+        "snapshot_a": snapshot_a,
+        "snapshot_b": snapshot_b,
+        "diff": diff,
+    }
+    return render(request, "nbms_app/reporting/snapshot_diff.html", context)
 
 
 @staff_member_required

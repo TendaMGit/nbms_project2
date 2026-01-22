@@ -124,6 +124,48 @@ class ReportingInstance(TimeStampedModel):
         return f"{self.cycle.code} {self.version_label}"
 
 
+class ReportingSnapshot(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="snapshots",
+    )
+    snapshot_type = models.CharField(max_length=50, default="NR7_V2_EXPORT")
+    payload_json = models.JSONField()
+    payload_hash = models.CharField(max_length=64)
+    exporter_schema = models.CharField(max_length=100)
+    exporter_version = models.CharField(max_length=50)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_reporting_snapshots",
+        blank=True,
+        null=True,
+    )
+    notes = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValidationError("Reporting snapshots are immutable.")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.reporting_instance_id} {self.snapshot_type} {self.created_at:%Y-%m-%d}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["reporting_instance", "created_at"]),
+            models.Index(fields=["payload_hash"]),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "payload_hash"],
+                name="uq_reporting_snapshot_instance_hash",
+            ),
+        ]
+
+
 class ReportSectionTemplate(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
