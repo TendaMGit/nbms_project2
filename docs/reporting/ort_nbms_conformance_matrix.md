@@ -11,8 +11,8 @@ Reference: `docs/reporting/cbd_ort_nr7_template_inventory.md`
 - NBMS has templates for `section-i`..`section-v` plus `section-other-information` (Annex).
 - NBMS section schemas are high-level summaries, while ORT expects more granular
   structures and per-target/per-goal arrays in Sections III and IV.
-- ORT indicator data and binary indicator data are separate document types;
-  NBMS now provides IndicatorDataSeries/IndicatorDataPoint and BinaryIndicatorQuestion/Response.
+- ORT export v2 now includes structured Section III/IV progress entries and embeds
+  indicator/binary datasets used by the instance (NBMS-shaped, not yet ORT-keyed).
 
 ## Section I (National context + contacts)
 
@@ -37,7 +37,7 @@ Notes:
 
 | ORT key | ORT required blocks | NBMS template code | NBMS fields | Gap | Proposed fix |
 | --- | --- | --- | --- | --- | --- |
-| sectionIII | array of per-target assessments: target, targetType, mainActionsSummary, levelOfProgress, progressSummary, keyChallengesSummary, actionEffectivenessSummary, sdgRelationSummary; indicatorData blocks (headline/binary/component/complementary/national) | section-iii | progress_overview, indicator_highlights | Structured progress entries now implemented; indicator/binary data available | SectionIIINationalTargetProgress stores per-target narratives and links to IndicatorDataSeries/BinaryIndicatorResponse |
+| sectionIII | array of per-target assessments: target, targetType, mainActionsSummary, levelOfProgress, progressSummary, keyChallengesSummary, actionEffectivenessSummary, sdgRelationSummary; indicatorData blocks (headline/binary/component/complementary/national) | section-iii | progress_overview, indicator_highlights | Structured progress entries + indicator/binary data exported in v2 (NBMS-shaped) | SectionIIINationalTargetProgress stores per-target narratives and links to IndicatorDataSeries/BinaryIndicatorResponse |
 
 Notes:
 - ORT links indicator data documents by identifier from within Section III.
@@ -47,7 +47,7 @@ Notes:
 
 | ORT key | ORT required blocks | NBMS template code | NBMS fields | Gap | Proposed fix |
 | --- | --- | --- | --- | --- | --- |
-| sectionIV | array of per-goal assessments: gbfGoal, summaryOfProgress; indicatorData blocks (headline/binary/component/complementary/national) | section-iv | support_needs, support_received | Structured progress entries now implemented; indicator/binary data available | SectionIVFrameworkTargetProgress stores per-target narratives and links to IndicatorDataSeries/BinaryIndicatorResponse |
+| sectionIV | array of per-goal assessments: gbfGoal, summaryOfProgress; indicatorData blocks (headline/binary/component/complementary/national) | section-iv | support_needs, support_received | Structured progress entries + indicator/binary data exported in v2 (NBMS-shaped) | SectionIVFrameworkTargetProgress stores per-target narratives and links to IndicatorDataSeries/BinaryIndicatorResponse |
 
 Notes:
 - ORT expects multiple goal-level entries, not a single narrative field.
@@ -71,8 +71,8 @@ Notes:
 
 | ORT schema | ORT purpose | NBMS current capture | Gap | Proposed fix |
 | --- | --- | --- | --- | --- |
-| nationalReport7IndicatorData | time-series / dataset data per indicator | IndicatorDataSeries + IndicatorDataPoint | Core data model implemented; export mapping pending | Link Section III/IV progress entries to IndicatorDataSeries |
-| nationalReport7BinaryIndicatorData | binary question responses per indicator | BinaryIndicatorQuestion + BinaryIndicatorResponse | Core data model implemented; export mapping pending | Link Section III/IV progress entries to BinaryIndicatorResponse |
+| nationalReport7IndicatorData | time-series / dataset data per indicator | IndicatorDataSeries + IndicatorDataPoint | Exported in v2 (NBMS-shaped), ORT key mapping pending | Link Section III/IV progress entries to IndicatorDataSeries |
+| nationalReport7BinaryIndicatorData | binary question responses per indicator | BinaryIndicatorQuestion + BinaryIndicatorResponse | Exported in v2 (NBMS-shaped), ORT key mapping pending | Link Section III/IV progress entries to BinaryIndicatorResponse |
 
 ## Conformance notes for stable codes
 
