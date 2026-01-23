@@ -1,0 +1,2 @@
+framework_code,target_code,goal_code,target_title,official_text,description,is_active,source_system,source_ref
+DEMO-GBF,DEMO-T1,DEMO-G1,Demo Target 1,,Demo target for fixtures,true,demo_seed,demo_v1

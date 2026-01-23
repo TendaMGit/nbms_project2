@@ -1,0 +1,2 @@
+methodology_uuid,methodology_code,title,description,owner_org_code,scope,references_url,is_active,source_system,source_ref
+,DEMO-METH,Demo Methodology,Demo methodology,DEMO-ORG,National,https://example.org/demo/method,true,demo_seed,demo_v1

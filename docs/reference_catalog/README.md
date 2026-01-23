@@ -90,4 +90,11 @@ Interpretation:
   `SENSITIVITY_BLOCKED` blockers where applicable.
 
 Import ordering reminder:
-Org → Sensitivity → Agreements → Programmes/Datasets → Methods → Versions → Links
+Org -> Sensitivity -> Agreements -> Programmes/Datasets -> Methods -> Versions -> Links
+
+## End-to-end demo walkthrough
+
+Use the demo walkthrough to seed a small, idempotent dataset that exercises the
+reference catalog registry layer and readiness diagnostics:
+
+- `docs/reference_catalog/demo_walkthrough.md`

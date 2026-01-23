@@ -1,0 +1,3 @@
+methodology_code,methodology_uuid,indicator_code,indicator_uuid,relationship_type,role,notes,is_active,source_system,source_ref
+DEMO-METH,,DEMO-IND-1,,supporting,analysis,Demo link,true,demo_seed,demo_v1
+DEMO-METH,,DEMO-IND-2,,supporting,analysis,Demo link,true,demo_seed,demo_v1
