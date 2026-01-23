@@ -254,3 +254,36 @@ class ExportWorkflowTests(TestCase):
         approve_export(package, self.creator, note="ok")
         with self.assertRaises(ValidationError):
             release_export(package, self.secretariat)
+
+    @override_settings(EXPORT_REQUIRE_READINESS=True)
+    def test_export_release_blocked_when_readiness_missing(self):
+        target = NationalTarget.objects.create(
+            code="NT-READY",
+            title="Target Ready",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        indicator = Indicator.objects.create(
+            code="IND-READY",
+            title="Indicator Ready",
+            national_target=target,
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        approve_for_instance(self.instance, target, self.creator)
+        approve_for_instance(self.instance, indicator, self.creator)
+        package = ExportPackage.objects.create(
+            title="Export Missing Readiness",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+
+        with self.assertRaises(ValidationError):
+            release_export(package, self.secretariat)

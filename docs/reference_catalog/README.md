@@ -82,6 +82,13 @@ python manage.py reporting_readiness --instance <instance_uuid> --format json --
 python manage.py reporting_readiness --instance <instance_uuid> --format csv --output .\\exports\\readiness.csv
 ```
 
+Optional user-context checks:
+
+```powershell
+python manage.py reporting_readiness --instance <instance_uuid> --format json --scope selected --user <user_id_or_email>
+python manage.py reporting_readiness --instance <instance_uuid> --format json --scope selected --org <org_code>
+```
+
 Interpretation:
 - `overall_ready` is true only when **no blocking gaps** exist.
 - Missing methodology versions, dataset catalog links, or programme links are

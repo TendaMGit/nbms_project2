@@ -11,6 +11,8 @@
     <p><strong>Created by:</strong> {{ snapshot.created_by.get_username|default:"-" }}</p>
     <p><strong>Exporter schema:</strong> {{ snapshot.exporter_schema }}</p>
     <p><strong>Exporter version:</strong> {{ snapshot.exporter_version }}</p>
+    <p><strong>Readiness overall:</strong> {{ snapshot.readiness_overall_ready }}</p>
+    <p><strong>Readiness blocking gaps:</strong> {{ snapshot.readiness_blocking_gap_count }}</p>
     <p><strong>Hash:</strong> {{ snapshot.payload_hash }}</p>
     {% if snapshot.notes %}
       <p><strong>Notes:</strong> {{ snapshot.notes }}</p>

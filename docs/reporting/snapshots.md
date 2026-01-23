@@ -17,6 +17,8 @@ consent checks, and ABAC filters are honored.
 - Full v2 export payload JSON
 - SHA256 hash of the canonicalized JSON
 - Exporter schema and version
+- Readiness report JSON (catalog completeness + blockers)
+- Readiness summary fields (overall_ready, blocking_gap_count)
 - Created by and timestamp
 
 Snapshots are immutable and never updated in place.
@@ -34,6 +36,7 @@ The diff view highlights changes in:
 - Section IV progress entries
 - Indicator series and datapoints
 - Binary indicator responses
+- Readiness status (overall ready + blocker counts)
 
 ## Governance
 

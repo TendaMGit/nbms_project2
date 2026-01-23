@@ -212,6 +212,9 @@ class ReportingSnapshot(TimeStampedModel):
     payload_hash = models.CharField(max_length=64)
     exporter_schema = models.CharField(max_length=100)
     exporter_version = models.CharField(max_length=50)
+    readiness_report_json = models.JSONField(default=dict, blank=True)
+    readiness_overall_ready = models.BooleanField(default=False)
+    readiness_blocking_gap_count = models.PositiveIntegerField(default=0)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

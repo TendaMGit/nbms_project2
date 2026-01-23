@@ -37,6 +37,24 @@
       <p><strong>Other changes detected:</strong> {{ diff.other_changes_detected }}</p>
     </section>
 
+    {% if readiness_diff %}
+      <section class="card">
+        <h2>Readiness changes</h2>
+        <p><strong>Overall ready:</strong> {{ readiness_diff.overall_ready.from }} → {{ readiness_diff.overall_ready.to }}</p>
+        <p><strong>Blocking gaps:</strong> {{ readiness_diff.blocking_gap_count.from }} → {{ readiness_diff.blocking_gap_count.to }}</p>
+        {% if readiness_diff.top_blockers_added %}
+          <p><strong>Top blockers added:</strong> {{ readiness_diff.top_blockers_added|join:", " }}</p>
+        {% else %}
+          <p class="muted">Top blockers added: none.</p>
+        {% endif %}
+        {% if readiness_diff.top_blockers_removed %}
+          <p><strong>Top blockers removed:</strong> {{ readiness_diff.top_blockers_removed|join:", " }}</p>
+        {% else %}
+          <p class="muted">Top blockers removed: none.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
     <section class="card">
       <h2>Narrative sections</h2>
       {% if diff.sections.added %}
