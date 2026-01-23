@@ -1,0 +1,14 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Sensitivity Class{% endblock %}
+{% block content %}
+  <h1>{{ sensitivity_class.sensitivity_code }} - {{ sensitivity_class.sensitivity_name }}</h1>
+  <div class="card">
+    <p><strong>Access level default:</strong> {{ sensitivity_class.access_level_default|default:"-" }}</p>
+    <p><strong>Consent required default:</strong> {{ sensitivity_class.consent_required_default }}</p>
+    <p><strong>Description:</strong> {{ sensitivity_class.description|default:"-" }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:sensitivity_class_edit' sensitivity_class.uuid %}">Edit sensitivity class</a></p>
+    {% endif %}
+  </div>
+  <p><a href="{% url 'nbms_app:sensitivity_class_list' %}">Back to list</a></p>
+{% endblock %}

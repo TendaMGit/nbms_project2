@@ -111,3 +111,16 @@ Use the demo walkthrough to seed a small, idempotent dataset that exercises the
 reference catalog registry layer and readiness diagnostics:
 
 - `docs/reference_catalog/demo_walkthrough.md`
+
+## Reference catalog UI (non-admin)
+
+The reference catalog can be managed via the non-admin UI:
+
+- `/datasets/` (catalog datasets)
+- `/catalog/monitoring-programmes/`
+- `/catalog/methodologies/`
+- `/catalog/methodology-versions/`
+- `/catalog/data-agreements/`
+- `/catalog/sensitivity-classes/`
+
+These pages enforce ABAC/org scoping and are intended for contributor/staff workflows.

@@ -1,0 +1,21 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Data Agreements{% endblock %}
+{% block content %}
+  <h1>Data Agreements</h1>
+  {% if can_create_agreement %}
+    <p><a href="{% url 'nbms_app:data_agreement_create' %}">Create data agreement</a></p>
+  {% endif %}
+  <div class="card">
+    <ul>
+      {% for agreement in agreements %}
+        <li>
+          <a href="{% url 'nbms_app:data_agreement_detail' agreement.uuid %}">
+            {{ agreement.agreement_code }} - {{ agreement.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No data agreements available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

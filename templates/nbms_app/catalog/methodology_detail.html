@@ -1,0 +1,42 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Methodology{% endblock %}
+{% block content %}
+  <h1>{{ methodology.methodology_code }} - {{ methodology.title }}</h1>
+  <div class="card">
+    <p><strong>Owner org:</strong> {{ methodology.owner_org|default:"-" }}</p>
+    <p><strong>Scope:</strong> {{ methodology.scope|default:"-" }}</p>
+    <p><strong>Description:</strong> {{ methodology.description|default:"-" }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:methodology_edit' methodology.uuid %}">Edit methodology</a></p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Versions</h2>
+    <ul>
+      {% for version in versions %}
+        <li>{{ version.version }} ({{ version.status }})</li>
+      {% empty %}
+        <li>No versions yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Linked datasets</h2>
+    <ul>
+      {% for link in dataset_links %}
+        <li>{{ link.dataset.dataset_code }} - {{ link.dataset.title }}</li>
+      {% empty %}
+        <li>No linked datasets.</li>
+      {% endfor %}
+    </ul>
+    <h2>Linked indicators</h2>
+    <ul>
+      {% for link in indicator_links %}
+        <li>{{ link.indicator.code }} - {{ link.indicator.title }}</li>
+      {% empty %}
+        <li>No linked indicators.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{% url 'nbms_app:methodology_list' %}">Back to list</a></p>
+{% endblock %}

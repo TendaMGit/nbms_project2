@@ -10,7 +10,7 @@
         <li>Indicators: {{ counts.indicators }}</li>
         <li>National Targets: {{ counts.targets }}</li>
         <li>Evidence: {{ counts.evidence }}</li>
-        <li>Datasets: {{ counts.datasets }}</li>
+        <li>Catalog Datasets: {{ counts.datasets }}</li>
         <li>Export Packages: {{ counts.exports }}</li>
       </ul>
     </section>
@@ -22,7 +22,7 @@
           <a href="{% url 'nbms_app:evidence_create' %}">Create Evidence</a>
         {% endif %}
         {% if can_create_dataset %}
-          <a href="{% url 'nbms_app:dataset_create' %}">Create Dataset</a>
+          <a href="{% url 'nbms_app:dataset_create' %}">Create Catalog Dataset</a>
         {% endif %}
         {% if can_create_export %}
           <a href="{% url 'nbms_app:export_package_create' %}">Create Export Package</a>

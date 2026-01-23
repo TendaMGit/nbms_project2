@@ -1,0 +1,22 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Methodologies{% endblock %}
+{% block content %}
+  <h1>Methodologies</h1>
+  {% if can_create_methodology %}
+    <p><a href="{% url 'nbms_app:methodology_create' %}">Create methodology</a></p>
+  {% endif %}
+  <div class="card">
+    <ul>
+      {% for methodology in methodologies %}
+        <li>
+          <a href="{% url 'nbms_app:methodology_detail' methodology.uuid %}">
+            {{ methodology.methodology_code }} - {{ methodology.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No methodologies available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{% url 'nbms_app:methodology_version_list' %}">View methodology versions</a></p>
+{% endblock %}

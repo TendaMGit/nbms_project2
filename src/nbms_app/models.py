@@ -557,6 +557,23 @@ class MethodologyIndicatorLink(TimeStampedModel):
         ]
 
 
+class DatasetCatalogIndicatorLink(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    dataset = models.ForeignKey(DatasetCatalog, on_delete=models.CASCADE, related_name="indicator_links")
+    indicator = models.ForeignKey("Indicator", on_delete=models.CASCADE, related_name="dataset_catalog_links")
+    relationship_type = models.CharField(max_length=20, choices=RelationshipType.choices, blank=True)
+    role = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["dataset", "indicator"], name="uq_dataset_catalog_indicator"),
+        ]
+
+
 class ReportSectionTemplate(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)

@@ -1,0 +1,13 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Sensitivity Class{% endblock %}
+{% block content %}
+  <h1>{% if mode == "edit" %}Edit{% else %}Create{% endif %} sensitivity class</h1>
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+  </div>
+  <p><a href="{% url 'nbms_app:sensitivity_class_list' %}">Back to list</a></p>
+{% endblock %}

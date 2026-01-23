@@ -1,0 +1,23 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Framework Indicators{% endblock %}
+{% block content %}
+  <h1>Framework Indicators</h1>
+  <form method="get" class="card">
+    <label for="indicator-search">Search</label>
+    <input id="indicator-search" type="text" name="q" value="{{ query|default:'' }}" placeholder="Code or title">
+    <button type="submit">Filter</button>
+  </form>
+  <div class="card">
+    <ul>
+      {% for indicator in indicators %}
+        <li>
+          <a href="{% url 'nbms_app:framework_indicator_detail' indicator.uuid %}">
+            {{ indicator.framework.code }} {{ indicator.code }} - {{ indicator.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No framework indicators available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

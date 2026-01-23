@@ -2,6 +2,7 @@ import csv
 
 import pytest
 from django.core.management import call_command
+from django.core.exceptions import ValidationError
 from django.db import connection
 from django.test.utils import CaptureQueriesContext
 
@@ -30,7 +31,8 @@ from nbms_app.models import (
     SensitivityLevel,
     User,
 )
-from nbms_app.services.readiness import compute_reporting_readiness
+from nbms_app.services.readiness import compute_reporting_readiness, validate_release_readiness
+from nbms_app.services.instance_approvals import approve_for_instance
 
 
 pytestmark = pytest.mark.django_db
@@ -183,7 +185,37 @@ def test_release_mode_blocks_non_public_without_policy():
 
     result = compute_reporting_readiness(instance.uuid, scope="all", mode="release")
     entry = result["per_indicator"][0]
+    assert "POLICY_RESTRICTED_NO_CLEARANCE" in entry["blockers"]
+
+
+def test_release_mode_flags_missing_programme_policy_definition():
+    org, user, instance, target, indicator = _base_instance()
+    methodology, dataset = _attach_full_chain(indicator, org)
+    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    dataset.access_level = "public"
+    dataset.save(update_fields=["access_level"])
+    programme = MonitoringProgramme.objects.first()
+    programme.sensitivity_class = None
+    programme.save(update_fields=["sensitivity_class"])
+
+    result = compute_reporting_readiness(instance.uuid, scope="all", mode="release")
+    entry = result["per_indicator"][0]
     assert "POLICY_MISSING_DEFINITION" in entry["blockers"]
+
+
+def test_validate_release_readiness_raises_with_blocker_codes():
+    org, user, instance, target, indicator = _base_instance()
+    methodology, dataset = _attach_full_chain(indicator, org)
+    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    dataset.access_level = "internal"
+    dataset.save(update_fields=["access_level"])
+    user.is_staff = True
+    user.save(update_fields=["is_staff"])
+    approve_for_instance(instance, indicator, user)
+
+    with pytest.raises(ValidationError) as excinfo:
+        validate_release_readiness(instance)
+    assert "POLICY_RESTRICTED_NO_CLEARANCE" in str(excinfo.value)
 
 
 def test_readiness_query_count_under_threshold():
