@@ -148,6 +148,19 @@ def test_snapshot_hash_deterministic_and_idempotent():
 
 
 @override_settings(EXPORT_REQUIRE_SECTIONS=True)
+def test_snapshot_captures_readiness_report():
+    instance, user, _ = _setup_exportable_instance()
+    snapshot = create_reporting_snapshot(instance=instance, user=user)
+
+    assert "summary" in snapshot.readiness_report_json
+    assert snapshot.readiness_overall_ready == snapshot.readiness_report_json["summary"].get("overall_ready")
+    assert (
+        snapshot.readiness_blocking_gap_count
+        == snapshot.readiness_report_json["summary"].get("blocking_gap_count")
+    )
+
+
+@override_settings(EXPORT_REQUIRE_SECTIONS=True)
 def test_snapshot_immutable():
     instance, user, _ = _setup_exportable_instance()
     fixed_time = datetime(2026, 1, 22, 12, 0, 0, tzinfo=py_timezone.utc)

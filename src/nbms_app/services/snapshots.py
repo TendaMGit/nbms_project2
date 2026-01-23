@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 
 from nbms_app.exports.ort_nr7_v2 import build_ort_nr7_v2_payload
 from nbms_app.models import ReportingSnapshot
+from nbms_app.services.readiness import compute_reporting_readiness
 
 
 SNAPSHOT_TYPE_NR7_V2 = "NR7_V2_EXPORT"
@@ -39,6 +40,7 @@ def _hash_payload(payload):
 def create_reporting_snapshot(*, instance, user, note=None):
     export_user = _strict_user(user)
     payload = build_ort_nr7_v2_payload(instance=instance, user=export_user)
+    readiness_report = compute_reporting_readiness(instance.uuid, scope="selected", user=export_user)
     payload_hash = _hash_payload(payload)
 
     existing = ReportingSnapshot.objects.filter(
@@ -55,6 +57,9 @@ def create_reporting_snapshot(*, instance, user, note=None):
         payload_hash=payload_hash,
         exporter_schema=payload.get("schema", ""),
         exporter_version=payload.get("exporter_version", ""),
+        readiness_report_json=readiness_report,
+        readiness_overall_ready=bool(readiness_report.get("summary", {}).get("overall_ready")),
+        readiness_blocking_gap_count=int(readiness_report.get("summary", {}).get("blocking_gap_count") or 0),
         created_by=user if getattr(user, "is_authenticated", False) else None,
         notes=note or "",
     )
@@ -264,4 +269,34 @@ def diff_snapshots(a_payload, b_payload):
         "binary_indicator_data": binary_responses,
         "other_changes_detected": other_changes_detected,
         "changed_paths": sorted(changed_paths)[:50],
+    }
+
+
+def diff_snapshot_readiness(snapshot_a, snapshot_b):
+    report_a = snapshot_a.readiness_report_json or {}
+    report_b = snapshot_b.readiness_report_json or {}
+    summary_a = report_a.get("summary", {}) or {}
+    summary_b = report_b.get("summary", {}) or {}
+
+    def blocker_codes(report):
+        return {
+            item.get("code")
+            for item in (report.get("diagnostics", {}) or {}).get("top_blockers", [])
+            if item.get("code")
+        }
+
+    codes_a = blocker_codes(report_a)
+    codes_b = blocker_codes(report_b)
+
+    return {
+        "overall_ready": {
+            "from": summary_a.get("overall_ready"),
+            "to": summary_b.get("overall_ready"),
+        },
+        "blocking_gap_count": {
+            "from": summary_a.get("blocking_gap_count"),
+            "to": summary_b.get("blocking_gap_count"),
+        },
+        "top_blockers_added": sorted(codes_b - codes_a),
+        "top_blockers_removed": sorted(codes_a - codes_b),
     }

@@ -36,6 +36,19 @@
             {% endfor %}
           </ul>
         {% endif %}
+        {% if summary.readiness.catalog_readiness %}
+          <p><strong>Catalog readiness</strong></p>
+          <p>Overall ready: {{ summary.readiness.catalog_readiness.overall_ready }}</p>
+          <p>Blocking gaps: {{ summary.readiness.catalog_readiness.blocking_gap_count }}</p>
+          {% if summary.readiness.catalog_readiness.top_blockers %}
+            <p><strong>Top blockers</strong></p>
+            <ul>
+              {% for item in summary.readiness.catalog_readiness.top_blockers %}
+                <li>{{ item.code }} ({{ item.count }})</li>
+              {% endfor %}
+            </ul>
+          {% endif %}
+        {% endif %}
       </div>
     </section>
   </div>

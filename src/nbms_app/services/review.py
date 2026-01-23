@@ -24,7 +24,7 @@ from nbms_app.services.indicator_data import (
     indicator_data_series_for_user,
 )
 from nbms_app.services.instance_approvals import approved_queryset
-from nbms_app.services.readiness import get_instance_readiness
+from nbms_app.services.readiness import compute_reporting_readiness, get_instance_readiness
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 
 
@@ -88,6 +88,7 @@ def _allowed_dataset_releases(instance, user):
 def build_instance_review_summary(instance, user):
     strict_user = _strict_user(user)
     readiness = get_instance_readiness(instance, strict_user)
+    catalog_readiness = compute_reporting_readiness(instance.uuid, scope="selected", user=strict_user)
 
     scoped_targets = scoped_national_targets(instance, strict_user)
     section_iii_entries = SectionIIINationalTargetProgress.objects.filter(
@@ -150,6 +151,11 @@ def build_instance_review_summary(instance, user):
         "band": readiness.get("readiness_band", "red"),
         "blockers": readiness.get("blockers", []),
         "warnings": readiness.get("warnings", []),
+        "catalog_readiness": {
+            "overall_ready": catalog_readiness.get("summary", {}).get("overall_ready"),
+            "blocking_gap_count": catalog_readiness.get("summary", {}).get("blocking_gap_count"),
+            "top_blockers": catalog_readiness.get("diagnostics", {}).get("top_blockers", []),
+        },
     }
 
     coverage = {

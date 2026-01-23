@@ -154,6 +154,7 @@ EVIDENCE_ALLOWED_EXTENSIONS = [
 ]
 
 EXPORT_REQUIRE_SECTIONS = os.environ.get("EXPORT_REQUIRE_SECTIONS", "false").lower() == "true"
+EXPORT_REQUIRE_READINESS = os.environ.get("EXPORT_REQUIRE_READINESS", "false").lower() == "true"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

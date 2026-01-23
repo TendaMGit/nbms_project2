@@ -100,7 +100,11 @@ from nbms_app.services.review_decisions import (
     review_decisions_for_user,
 )
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
-from nbms_app.services.snapshots import create_reporting_snapshot, diff_snapshots
+from nbms_app.services.snapshots import (
+    create_reporting_snapshot,
+    diff_snapshot_readiness,
+    diff_snapshots,
+)
 from nbms_app.services.workflows import approve, reject
 
 logger = logging.getLogger(__name__)
@@ -1877,8 +1881,10 @@ def reporting_instance_snapshot_diff(request, instance_uuid):
             snapshot_a = snapshots[1]
 
     diff = None
+    readiness_diff = None
     if snapshot_a and snapshot_b:
         diff = diff_snapshots(snapshot_a.payload_json, snapshot_b.payload_json)
+        readiness_diff = diff_snapshot_readiness(snapshot_a, snapshot_b)
 
     context = {
         "instance": instance,
@@ -1886,6 +1892,7 @@ def reporting_instance_snapshot_diff(request, instance_uuid):
         "snapshot_a": snapshot_a,
         "snapshot_b": snapshot_b,
         "diff": diff,
+        "readiness_diff": readiness_diff,
     }
     return render(request, "nbms_app/reporting/snapshot_diff.html", context)
 

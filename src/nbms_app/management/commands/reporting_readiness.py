@@ -4,6 +4,7 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
+from nbms_app.models import Organisation, User
 from nbms_app.services.readiness import compute_reporting_readiness
 
 
@@ -35,6 +36,8 @@ class Command(BaseCommand):
         )
         parser.add_argument("--output", help="Output path; stdout if omitted.")
         parser.add_argument("--scope", choices=["all", "selected"], default="all")
+        parser.add_argument("--user", help="User id, email, or username for ABAC context.")
+        parser.add_argument("--org", help="Organisation code for ABAC context (if no user provided).")
         parser.add_argument("--strict", action="store_true", help="Exit with non-zero status if not ready.")
 
     def handle(self, *args, **options):
@@ -43,8 +46,9 @@ class Command(BaseCommand):
         output_path = options.get("output")
         scope = options["scope"]
         strict = options["strict"]
+        user = self._resolve_user(options.get("user"), options.get("org"))
 
-        result = compute_reporting_readiness(instance_ref, scope=scope)
+        result = compute_reporting_readiness(instance_ref, scope=scope, user=user)
 
         if output_format == "json":
             payload = json.dumps(result, indent=2)
@@ -84,3 +88,42 @@ class Command(BaseCommand):
 
         if strict and not result.get("summary", {}).get("overall_ready", False):
             raise CommandError("Reporting instance has blocking readiness gaps.")
+
+    def _resolve_user(self, user_ref, org_code):
+        if user_ref:
+            user = self._lookup_user(user_ref)
+            if not user:
+                raise CommandError("User not found for provided --user.")
+            return user
+        if org_code:
+            org = Organisation.objects.filter(org_code=org_code).first()
+            if not org:
+                raise CommandError("Organisation not found for provided --org.")
+
+            class _OrgUserProxy:
+                is_staff = False
+                is_superuser = False
+                is_authenticated = True
+
+                def __init__(self, organisation_id):
+                    self.organisation_id = organisation_id
+                    self.id = None
+                    self.groups = self._EmptyGroups()
+
+                class _EmptyGroups:
+                    def filter(self, **kwargs):
+                        return self
+
+                    def exists(self):
+                        return False
+
+            return _OrgUserProxy(org.id)
+        return None
+
+    def _lookup_user(self, user_ref):
+        if user_ref.isdigit():
+            return User.objects.filter(pk=int(user_ref)).first()
+        return (
+            User.objects.filter(email__iexact=user_ref).first()
+            or User.objects.filter(username__iexact=user_ref).first()
+        )
