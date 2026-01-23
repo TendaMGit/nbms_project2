@@ -1,0 +1,39 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Framework{% endblock %}
+{% block content %}
+  <h1>{{ framework.code }} - {{ framework.title }}</h1>
+  <div class="card">
+    <p><strong>Description:</strong> {{ framework.description|default:"-" }}</p>
+  </div>
+  <div class="card">
+    <h2>Goals</h2>
+    <ul>
+      {% for goal in goals %}
+        <li><a href="{% url 'nbms_app:framework_goal_detail' goal.uuid %}">{{ goal.code }} - {{ goal.title }}</a></li>
+      {% empty %}
+        <li>No goals available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Targets</h2>
+    <ul>
+      {% for target in targets %}
+        <li><a href="{% url 'nbms_app:framework_target_detail' target.uuid %}">{{ target.code }} - {{ target.title }}</a></li>
+      {% empty %}
+        <li>No targets available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <div class="card">
+    <h2>Indicators</h2>
+    <ul>
+      {% for indicator in indicators %}
+        <li><a href="{% url 'nbms_app:framework_indicator_detail' indicator.uuid %}">{{ indicator.code }} - {{ indicator.title }}</a></li>
+      {% empty %}
+        <li>No indicators available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{% url 'nbms_app:framework_list' %}">Back to list</a></p>
+{% endblock %}

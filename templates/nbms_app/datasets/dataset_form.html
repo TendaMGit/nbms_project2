@@ -1,11 +1,61 @@
 {% extends "nbms_app/base.html" %}
-{% block title %}Dataset{% endblock %}
+{% block title %}Catalog Dataset{% endblock %}
 {% block content %}
-  <h1>{% if mode == "edit" %}Edit{% else %}Create{% endif %} dataset</h1>
+  <h1>{% if mode == "edit" %}Edit{% else %}Create{% endif %} catalog dataset</h1>
   <div class="card">
     <form method="post">
       {% csrf_token %}
-      {{ form.as_p }}
+      <fieldset class="card">
+        <legend><strong>Core metadata</strong></legend>
+        {{ form.dataset_code.label_tag }} {{ form.dataset_code }}
+        {{ form.title.label_tag }} {{ form.title }}
+        {{ form.description.label_tag }} {{ form.description }}
+        {{ form.dataset_type.label_tag }} {{ form.dataset_type }}
+      </fieldset>
+
+      <fieldset class="card">
+        <legend><strong>Governance &amp; access</strong></legend>
+        {{ form.custodian_org.label_tag }} {{ form.custodian_org }}
+        {{ form.producer_org.label_tag }} {{ form.producer_org }}
+        {{ form.access_level.label_tag }} {{ form.access_level }}
+        {{ form.sensitivity_class.label_tag }} {{ form.sensitivity_class }}
+        {{ form.consent_required.label_tag }} {{ form.consent_required }}
+        {{ form.agreement.label_tag }} {{ form.agreement }}
+        {{ form.licence.label_tag }} {{ form.licence }}
+        {{ form.qa_status.label_tag }} {{ form.qa_status }}
+        {{ form.is_active.label_tag }} {{ form.is_active }}
+      </fieldset>
+
+      <fieldset class="card">
+        <legend><strong>Coverage</strong></legend>
+        {{ form.temporal_start.label_tag }} {{ form.temporal_start }}
+        {{ form.temporal_end.label_tag }} {{ form.temporal_end }}
+        {{ form.update_frequency.label_tag }} {{ form.update_frequency }}
+        {{ form.spatial_coverage_description.label_tag }} {{ form.spatial_coverage_description }}
+        {{ form.spatial_resolution.label_tag }} {{ form.spatial_resolution }}
+        {{ form.taxonomy_standard.label_tag }} {{ form.taxonomy_standard }}
+        {{ form.ecosystem_classification.label_tag }} {{ form.ecosystem_classification }}
+      </fieldset>
+
+      <fieldset class="card">
+        <legend><strong>Linkages</strong></legend>
+        {{ form.programmes.label_tag }} {{ form.programmes }}
+        {{ form.indicators.label_tag }} {{ form.indicators }}
+        {{ form.methodologies.label_tag }} {{ form.methodologies }}
+      </fieldset>
+
+      <fieldset class="card">
+        <legend><strong>Provenance</strong></legend>
+        {{ form.doi_or_identifier.label_tag }} {{ form.doi_or_identifier }}
+        {{ form.landing_page_url.label_tag }} {{ form.landing_page_url }}
+        {{ form.api_endpoint_url.label_tag }} {{ form.api_endpoint_url }}
+        {{ form.file_formats.label_tag }} {{ form.file_formats }}
+        {{ form.citation.label_tag }} {{ form.citation }}
+        {{ form.keywords.label_tag }} {{ form.keywords }}
+        {{ form.last_updated_date.label_tag }} {{ form.last_updated_date }}
+        {{ form.source_system.label_tag }} {{ form.source_system }}
+        {{ form.source_ref.label_tag }} {{ form.source_ref }}
+      </fieldset>
       <button type="submit">Save</button>
     </form>
   </div>

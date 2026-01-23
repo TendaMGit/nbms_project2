@@ -1,0 +1,21 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Sensitivity Classes{% endblock %}
+{% block content %}
+  <h1>Sensitivity Classes</h1>
+  {% if can_create_class %}
+    <p><a href="{% url 'nbms_app:sensitivity_class_create' %}">Create sensitivity class</a></p>
+  {% endif %}
+  <div class="card">
+    <ul>
+      {% for item in classes %}
+        <li>
+          <a href="{% url 'nbms_app:sensitivity_class_detail' item.uuid %}">
+            {{ item.sensitivity_code }} - {{ item.sensitivity_name }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No sensitivity classes available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

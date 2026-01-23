@@ -16,13 +16,14 @@ including governance, consent checks, and instance-scoped approvals.
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
 - Manager report pack preview (HTML)
+- Reference catalog UI for programmes, datasets, methodologies, agreements, and sensitivity classes
 
 ## Demo flow
 
 1) Create a reporting cycle and reporting instance.
 2) Seed section templates and validation rules.
 3) Capture Section I to V narrative content.
-4) Create targets, indicators, evidence, and datasets.
+4) Create targets, indicators, evidence, and catalog datasets (with programme/method/indicator links).
 5) Approve items for the instance and resolve consent blockers.
 6) Review the manager report pack preview.
 7) Release an export package once blockers are cleared.
@@ -127,6 +128,15 @@ Key URLs to test:
 - /
 - /manage/users/
 - /manage/organisations/
+- /datasets/
+- /catalog/monitoring-programmes/
+- /catalog/methodologies/
+- /catalog/methodology-versions/
+- /catalog/data-agreements/
+- /catalog/sensitivity-classes/
+- /frameworks/
+- /framework-targets/
+- /framework-indicators/
 - /reporting/cycles/
 - /reporting/instances/<uuid>/
 - /reporting/instances/<uuid>/sections/
@@ -191,6 +201,15 @@ Security and monitoring:
 
 - Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
 - Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
+
+## Reference catalog UI
+
+Catalog-first workflows now live in the non-admin UI:
+
+- Create catalog datasets at `/datasets/` and link them to programmes, methodologies, and indicators.
+- Manage programmes, methodologies, agreements, and sensitivity classes under `/catalog/*`.
+- Use release-mode readiness checks with:
+  `python manage.py reporting_readiness --instance <uuid> --format json --scope selected --mode release`
 
 ## Rulesets
 

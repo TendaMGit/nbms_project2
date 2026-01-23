@@ -1,31 +1,52 @@
 {% extends "nbms_app/base.html" %}
-{% block title %}Dataset{% endblock %}
+{% block title %}Catalog Dataset{% endblock %}
 {% block content %}
-  <h1>{{ dataset.title }}</h1>
+  <h1>{{ dataset.dataset_code }} - {{ dataset.title }}</h1>
   <div class="card">
-    <p><strong>Status:</strong> {{ dataset.status }}</p>
-    <p><strong>Sensitivity:</strong> {{ dataset.sensitivity }}</p>
+    <p><strong>Access level:</strong> {{ dataset.access_level }}</p>
+    <p><strong>Custodian org:</strong> {{ dataset.custodian_org|default:"-" }}</p>
+    <p><strong>Producer org:</strong> {{ dataset.producer_org|default:"-" }}</p>
+    <p><strong>Sensitivity class:</strong> {{ dataset.sensitivity_class|default:"-" }}</p>
+    <p><strong>Agreement:</strong> {{ dataset.agreement|default:"-" }}</p>
     <p><strong>Description:</strong> {{ dataset.description|default:"-" }}</p>
-    <p><strong>Methodology:</strong> {{ dataset.methodology|default:"-" }}</p>
-    <p><strong>Source URL:</strong> {% if dataset.source_url %}<a href="{{ dataset.source_url }}">{{ dataset.source_url }}</a>{% else %}-{% endif %}</p>
-    {% if dataset.review_note %}
-      <p><strong>Review note:</strong> {{ dataset.review_note }}</p>
-    {% endif %}
+    <p><strong>Dataset type:</strong> {{ dataset.dataset_type|default:"-" }}</p>
+    <p><strong>Update frequency:</strong> {{ dataset.update_frequency|default:"-" }}</p>
+    <p><strong>Temporal coverage:</strong>
+      {% if dataset.temporal_start or dataset.temporal_end %}
+        {{ dataset.temporal_start|default:"?" }} — {{ dataset.temporal_end|default:"?" }}
+      {% else %}
+        -
+      {% endif %}
+    </p>
+    <p><strong>Spatial coverage:</strong> {{ dataset.spatial_coverage_description|default:"-" }}</p>
     {% if can_edit %}
-      <p><a href="{% url 'nbms_app:dataset_edit' dataset.uuid %}">Edit dataset</a></p>
+      <p><a href="{% url 'nbms_app:dataset_edit' dataset.uuid %}">Edit catalog dataset</a></p>
     {% endif %}
   </div>
-  <h2>Compliance Panel</h2>
-  {% for card in readiness_cards %}
-    {% include "nbms_app/includes/readiness_card.html" with card=card %}
-  {% endfor %}
   <div class="card">
-    <h2>Releases</h2>
+    <h2>Linkages</h2>
+    <p><strong>Monitoring programmes:</strong></p>
     <ul>
-      {% for release in releases %}
-        <li>{{ release.version }} ({{ release.status }})</li>
+      {% for link in programme_links %}
+        <li>{{ link.programme.programme_code }} - {{ link.programme.title }}</li>
       {% empty %}
-        <li>No releases yet.</li>
+        <li>No linked programmes.</li>
+      {% endfor %}
+    </ul>
+    <p><strong>Methodologies:</strong></p>
+    <ul>
+      {% for link in methodology_links %}
+        <li>{{ link.methodology.methodology_code }} - {{ link.methodology.title }}</li>
+      {% empty %}
+        <li>No linked methodologies.</li>
+      {% endfor %}
+    </ul>
+    <p><strong>Indicators:</strong></p>
+    <ul>
+      {% for link in indicator_links %}
+        <li>{{ link.indicator.code }} - {{ link.indicator.title }}</li>
+      {% empty %}
+        <li>No linked indicators.</li>
       {% endfor %}
     </ul>
   </div>

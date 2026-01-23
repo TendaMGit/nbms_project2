@@ -1,0 +1,23 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Framework Goals{% endblock %}
+{% block content %}
+  <h1>Framework Goals</h1>
+  <form method="get" class="card">
+    <label for="goal-search">Search</label>
+    <input id="goal-search" type="text" name="q" value="{{ query|default:'' }}" placeholder="Code or title">
+    <button type="submit">Filter</button>
+  </form>
+  <div class="card">
+    <ul>
+      {% for goal in goals %}
+        <li>
+          <a href="{% url 'nbms_app:framework_goal_detail' goal.uuid %}">
+            {{ goal.framework.code }} {{ goal.code }} - {{ goal.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No framework goals available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

@@ -8,6 +8,7 @@ from nbms_app.models import (
     Dataset,
     DatasetRelease,
     DatasetCatalog,
+    DatasetCatalogIndicatorLink,
     Evidence,
     ExportPackage,
     Framework,
@@ -321,6 +322,13 @@ class MethodologyDatasetLinkAdmin(admin.ModelAdmin):
 class MethodologyIndicatorLinkAdmin(admin.ModelAdmin):
     list_display = ("methodology", "indicator", "relationship_type", "role", "is_active")
     search_fields = ("methodology__methodology_code", "indicator__code")
+    list_filter = ("relationship_type", "is_active")
+
+
+@admin.register(DatasetCatalogIndicatorLink)
+class DatasetCatalogIndicatorLinkAdmin(admin.ModelAdmin):
+    list_display = ("dataset", "indicator", "relationship_type", "role", "is_active")
+    search_fields = ("dataset__dataset_code", "indicator__code")
     list_filter = ("relationship_type", "is_active")
 
 

@@ -1,0 +1,21 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Monitoring Programmes{% endblock %}
+{% block content %}
+  <h1>Monitoring Programmes</h1>
+  {% if can_create_programme %}
+    <p><a href="{% url 'nbms_app:monitoring_programme_create' %}">Create monitoring programme</a></p>
+  {% endif %}
+  <div class="card">
+    <ul>
+      {% for programme in programmes %}
+        <li>
+          <a href="{% url 'nbms_app:monitoring_programme_detail' programme.uuid %}">
+            {{ programme.programme_code }} - {{ programme.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No monitoring programmes available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

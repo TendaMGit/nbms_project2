@@ -2,7 +2,17 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
-from nbms_app.models import Dataset, Evidence, Indicator, LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
+from nbms_app.models import (
+    AccessLevel,
+    DatasetCatalog,
+    Evidence,
+    Indicator,
+    LifecycleStatus,
+    NationalTarget,
+    Organisation,
+    SensitivityLevel,
+    User,
+)
 from nbms_app.services.authorization import ROLE_SECURITY_OFFICER
 
 
@@ -86,19 +96,19 @@ class AbacViewTests(TestCase):
             sensitivity=SensitivityLevel.INTERNAL,
         )
 
-        self.dataset_public = Dataset.objects.create(
+        self.dataset_public = DatasetCatalog.objects.create(
+            dataset_code="DS-PUB",
             title="Public Dataset",
-            organisation=self.org_a,
-            created_by=self.creator,
-            status=LifecycleStatus.PUBLISHED,
-            sensitivity=SensitivityLevel.PUBLIC,
+            access_level=AccessLevel.PUBLIC,
+            custodian_org=self.org_a,
+            is_active=True,
         )
-        self.dataset_internal = Dataset.objects.create(
+        self.dataset_internal = DatasetCatalog.objects.create(
+            dataset_code="DS-INT",
             title="Internal Dataset",
-            organisation=self.org_b,
-            created_by=self.other_user,
-            status=LifecycleStatus.PUBLISHED,
-            sensitivity=SensitivityLevel.INTERNAL,
+            access_level=AccessLevel.INTERNAL,
+            custodian_org=self.org_b,
+            is_active=True,
         )
 
     def test_anonymous_sees_only_public_targets(self):

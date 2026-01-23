@@ -13,6 +13,7 @@ from nbms_app.models import (
     ConsentStatus,
     Dataset,
     DatasetCatalog,
+    DatasetCatalogIndicatorLink,
     DatasetRelease,
     Evidence,
     ExportStatus,
@@ -1296,6 +1297,7 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
 
     dataset_ids_by_programme = defaultdict(set)
     dataset_ids_by_methodology = defaultdict(set)
+    dataset_ids_by_indicator = defaultdict(set)
     dataset_map = {}
 
     if programme_ids:
@@ -1314,6 +1316,14 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
         ).select_related("dataset", "dataset__custodian_org", "dataset__producer_org")
         for link in methodology_dataset_links:
             dataset_ids_by_methodology[link.methodology_id].add(link.dataset_id)
+            dataset_map[link.dataset_id] = link.dataset
+
+    if indicator_ids:
+        dataset_indicator_links = DatasetCatalogIndicatorLink.objects.filter(
+            indicator_id__in=indicator_ids
+        ).select_related("dataset", "dataset__custodian_org", "dataset__producer_org")
+        for link in dataset_indicator_links:
+            dataset_ids_by_indicator[link.indicator_id].add(link.dataset_id)
             dataset_map[link.dataset_id] = link.dataset
 
     indicator_framework_map = set(
@@ -1377,6 +1387,7 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
         methodologies = methodologies_by_indicator.get(indicator.id, [])
 
         dataset_ids = set()
+        dataset_ids.update(dataset_ids_by_indicator.get(indicator.id, set()))
         for programme in programmes:
             dataset_ids.update(dataset_ids_by_programme.get(programme.id, set()))
         for methodology in methodologies:
@@ -1421,12 +1432,16 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
         elif mode == "release":
             for dataset in datasets:
                 access_level = dataset.access_level
+                if access_level is None:
+                    policy_blocked = True
+                    policy_blockers.append("POLICY_MISSING_DEFINITION")
+                    break
                 if access_level != AccessLevel.PUBLIC:
                     agreement_ok = bool(dataset.agreement and dataset.agreement.is_active)
                     consent_ok = dataset.uuid in consent_granted_datasets
                     if not (agreement_ok or consent_ok):
                         policy_blocked = True
-                        policy_blockers.append("POLICY_MISSING_DEFINITION")
+                        policy_blockers.append("POLICY_RESTRICTED_NO_CLEARANCE")
                         break
             if not policy_blocked:
                 for programme in programmes:
@@ -1442,7 +1457,7 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
                         consent_ok = programme.uuid in consent_granted_programmes
                         if not (agreement_ok or consent_ok):
                             policy_blocked = True
-                            policy_blockers.append("POLICY_MISSING_DEFINITION")
+                            policy_blockers.append("POLICY_RESTRICTED_NO_CLEARANCE")
                             break
             sensitivity_blocked = policy_blocked
 

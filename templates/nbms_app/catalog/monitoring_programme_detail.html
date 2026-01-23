@@ -1,0 +1,34 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Monitoring Programme{% endblock %}
+{% block content %}
+  <h1>{{ programme.programme_code }} - {{ programme.title }}</h1>
+  <div class="card">
+    <p><strong>Lead org:</strong> {{ programme.lead_org|default:"-" }}</p>
+    <p><strong>Programme type:</strong> {{ programme.programme_type|default:"-" }}</p>
+    <p><strong>Sensitivity class:</strong> {{ programme.sensitivity_class|default:"-" }}</p>
+    <p><strong>Agreement:</strong> {{ programme.agreement|default:"-" }}</p>
+    <p><strong>Description:</strong> {{ programme.description|default:"-" }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:monitoring_programme_edit' programme.uuid %}">Edit programme</a></p>
+    {% endif %}
+  </div>
+  <div class="card">
+    <h2>Linked datasets</h2>
+    <ul>
+      {% for link in dataset_links %}
+        <li>{{ link.dataset.dataset_code }} - {{ link.dataset.title }}</li>
+      {% empty %}
+        <li>No linked datasets.</li>
+      {% endfor %}
+    </ul>
+    <h2>Linked indicators</h2>
+    <ul>
+      {% for link in indicator_links %}
+        <li>{{ link.indicator.code }} - {{ link.indicator.title }}</li>
+      {% empty %}
+        <li>No linked indicators.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{% url 'nbms_app:monitoring_programme_list' %}">Back to list</a></p>
+{% endblock %}

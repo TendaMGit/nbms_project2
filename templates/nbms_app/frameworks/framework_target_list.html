@@ -1,0 +1,23 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Framework Targets{% endblock %}
+{% block content %}
+  <h1>Framework Targets</h1>
+  <form method="get" class="card">
+    <label for="target-search">Search</label>
+    <input id="target-search" type="text" name="q" value="{{ query|default:'' }}" placeholder="Code or title">
+    <button type="submit">Filter</button>
+  </form>
+  <div class="card">
+    <ul>
+      {% for target in targets %}
+        <li>
+          <a href="{% url 'nbms_app:framework_target_detail' target.uuid %}">
+            {{ target.framework.code }} {{ target.code }} - {{ target.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>No framework targets available.</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

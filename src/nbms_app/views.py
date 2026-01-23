@@ -9,7 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -17,30 +17,47 @@ from django.utils import timezone
 from urllib.parse import urlencode
 
 from nbms_app.forms import (
-    DatasetForm,
+    DataAgreementForm,
+    DatasetCatalogForm,
     EvidenceForm,
     ExportPackageForm,
     IndicatorForm,
+    MethodologyForm,
+    MethodologyVersionForm,
+    MonitoringProgrammeForm,
     NationalTargetForm,
     OrganisationForm,
     ReportSectionResponseForm,
     SectionIIINationalTargetProgressForm,
     SectionIVFrameworkTargetProgressForm,
+    SensitivityClassForm,
     ReportingCycleForm,
     ReportingInstanceForm,
     UserCreateForm,
     UserUpdateForm,
 )
 from nbms_app.models import (
+    DataAgreement,
     Dataset,
+    DatasetCatalog,
+    DatasetCatalogIndicatorLink,
     DatasetRelease,
     Evidence,
     ExportPackage,
     ExportStatus,
+    Framework,
+    FrameworkGoal,
+    FrameworkIndicator,
+    FrameworkTarget,
     Indicator,
     LifecycleStatus,
+    Methodology,
+    MethodologyDatasetLink,
+    MethodologyVersion,
+    MonitoringProgramme,
     NationalTarget,
     Organisation,
+    ProgrammeDatasetLink,
     ReportSectionResponse,
     ReportSectionTemplate,
     ReportingCycle,
@@ -49,6 +66,7 @@ from nbms_app.models import (
     ReviewDecisionStatus,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
+    SensitivityClass,
     User,
     Notification,
     InstanceExportApproval,
@@ -69,6 +87,19 @@ from nbms_app.services.authorization import (
     filter_queryset_for_user,
     user_has_role,
 )
+from nbms_app.services.catalog_access import (
+    can_edit_data_agreement,
+    can_edit_dataset_catalog,
+    can_edit_methodology,
+    can_edit_monitoring_programme,
+    can_edit_sensitivity_class,
+    filter_data_agreements_for_user,
+    filter_dataset_catalog_for_user,
+    filter_methodologies_for_user,
+    filter_monitoring_programmes_for_user,
+    filter_organisations_for_user,
+    filter_sensitivity_classes_for_user,
+)
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.consent import (
     consent_is_granted,
@@ -85,7 +116,6 @@ from nbms_app.services.instance_approvals import (
     revoke_for_instance,
 )
 from nbms_app.services.readiness import (
-    get_dataset_readiness,
     get_evidence_readiness,
     get_export_package_readiness,
     get_indicator_readiness,
@@ -126,10 +156,9 @@ def home(request):
         request.user,
         perm="nbms_app.view_evidence",
     )
-    datasets_qs = filter_queryset_for_user(
-        Dataset.objects.select_related("organisation", "created_by"),
+    datasets_qs = filter_dataset_catalog_for_user(
+        DatasetCatalog.objects.select_related("custodian_org", "producer_org"),
         request.user,
-        perm="nbms_app.view_dataset",
     )
     export_qs = _export_queryset_for_user(request.user)
 
@@ -165,14 +194,6 @@ def home(request):
                 "Evidence",
                 "nbms_app:evidence_detail",
                 url_param="evidence_uuid",
-            )
-        )
-        my_drafts.extend(
-            _build_items(
-                datasets_qs.filter(created_by=request.user, status=LifecycleStatus.DRAFT),
-                "Dataset",
-                "nbms_app:dataset_detail",
-                url_param="dataset_uuid",
             )
         )
         my_drafts.extend(
@@ -213,14 +234,6 @@ def home(request):
         )
         pending_review.extend(
             _build_items(
-                Dataset.objects.filter(status=LifecycleStatus.PENDING_REVIEW).select_related("created_by"),
-                "Dataset",
-                "nbms_app:dataset_detail",
-                url_param="dataset_uuid",
-            )
-        )
-        pending_review.extend(
-            _build_items(
                 ExportPackage.objects.filter(status=ExportStatus.PENDING_REVIEW).select_related("created_by"),
                 "Export Package",
                 "nbms_app:export_package_detail",
@@ -256,8 +269,8 @@ def home(request):
     )
     recently_published.extend(
         _build_items(
-            datasets_qs.filter(status=LifecycleStatus.PUBLISHED),
-            "Dataset",
+            datasets_qs.filter(is_active=True),
+            "Catalog Dataset",
             "nbms_app:dataset_detail",
             url_param="dataset_uuid",
         )
@@ -1008,106 +1021,93 @@ def evidence_edit(request, evidence_uuid):
     )
 
 
+def _sync_dataset_catalog_links(dataset, programmes, indicators, methodologies):
+    ProgrammeDatasetLink.objects.filter(dataset=dataset).exclude(programme__in=programmes).delete()
+    MethodologyDatasetLink.objects.filter(dataset=dataset).exclude(methodology__in=methodologies).delete()
+    DatasetCatalogIndicatorLink.objects.filter(dataset=dataset).exclude(indicator__in=indicators).delete()
+
+    existing_programmes = set(
+        ProgrammeDatasetLink.objects.filter(dataset=dataset, programme__in=programmes).values_list(
+            "programme_id", flat=True
+        )
+    )
+    for programme in programmes:
+        if programme.id not in existing_programmes:
+            ProgrammeDatasetLink.objects.create(dataset=dataset, programme=programme)
+
+    existing_methodologies = set(
+        MethodologyDatasetLink.objects.filter(dataset=dataset, methodology__in=methodologies).values_list(
+            "methodology_id", flat=True
+        )
+    )
+    for methodology in methodologies:
+        if methodology.id not in existing_methodologies:
+            MethodologyDatasetLink.objects.create(dataset=dataset, methodology=methodology)
+
+    existing_indicators = set(
+        DatasetCatalogIndicatorLink.objects.filter(dataset=dataset, indicator__in=indicators).values_list(
+            "indicator_id", flat=True
+        )
+    )
+    for indicator in indicators:
+        if indicator.id not in existing_indicators:
+            DatasetCatalogIndicatorLink.objects.create(dataset=dataset, indicator=indicator)
+
+
 def dataset_list(request):
-    datasets = filter_queryset_for_user(
-        Dataset.objects.select_related("organisation", "created_by").order_by("title"),
+    datasets = filter_dataset_catalog_for_user(
+        DatasetCatalog.objects.select_related(
+            "custodian_org",
+            "producer_org",
+            "agreement",
+            "sensitivity_class",
+        ).order_by("dataset_code"),
         request.user,
-        perm="nbms_app.view_dataset",
     )
     return render(request, "nbms_app/datasets/dataset_list.html", {"datasets": datasets})
 
 
 def dataset_detail(request, dataset_uuid):
-    datasets = filter_queryset_for_user(
-        Dataset.objects.select_related("organisation", "created_by"),
+    datasets = filter_dataset_catalog_for_user(
+        DatasetCatalog.objects.select_related(
+            "custodian_org",
+            "producer_org",
+            "agreement",
+            "sensitivity_class",
+        ),
         request.user,
-        perm="nbms_app.view_dataset",
     )
     dataset = get_object_or_404(datasets, uuid=dataset_uuid)
-    releases = dataset.releases.order_by("-created_at")
-    can_edit = can_edit_object(request.user, dataset) if request.user.is_authenticated else False
-    current_instance = _current_reporting_instance(request)
-    readiness = get_dataset_readiness(dataset, request.user, instance=current_instance)
-    approvals_url = None
-    consent_url = None
-    if current_instance:
-        base_approvals = reverse(
-            "nbms_app:reporting_instance_approvals",
-            kwargs={"instance_uuid": current_instance.uuid},
-        )
-        approvals_url = f"{base_approvals}?{urlencode({'obj_type': 'datasets', 'obj_uuid': dataset.uuid})}"
-        consent_url = reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": current_instance.uuid})
-    core_checks = [
-        {"label": check["label"], "state": check["state"]}
-        for check in readiness["checks"]
-        if check["key"] not in {"approval", "consent"}
-    ]
-    core_checks.append(
-        {
-            "label": "Used by indicators",
-            "state": "ok" if readiness["details"]["linked_indicator_count"] else "missing",
-            "count": readiness["details"]["linked_indicator_count"],
-        }
+    can_edit = can_edit_dataset_catalog(request.user, dataset) if request.user.is_authenticated else False
+    allowed_programmes = filter_monitoring_programmes_for_user(MonitoringProgramme.objects.all(), request.user)
+    allowed_methodologies = filter_methodologies_for_user(Methodology.objects.all(), request.user)
+    allowed_indicators = filter_queryset_for_user(
+        Indicator.objects.all(), request.user, perm="nbms_app.view_indicator"
     )
-    core_card = {
-        "title": "Core completeness",
-        "icon": "sections",
-        "band": _band_for_checks(core_checks),
-        "band_label": _band_for_checks(core_checks),
-        "checks": core_checks,
-    }
-    if current_instance:
-        instance_checks = [
-            {
-                "label": "Approval",
-                "state": "ok" if readiness["details"]["approval_status"] == "approved" else "missing",
-                "action_url": approvals_url,
-            },
-            {
-                "label": "Consent",
-                "state": "ok"
-                if not readiness["details"]["consent_required"] or readiness["details"]["consent_status"] == "granted"
-                else "missing",
-                "action_url": consent_url,
-            },
-            {
-                "label": "Eligible for export",
-                "state": "ok" if readiness["details"]["eligible_for_export"] else "missing",
-            },
-            {
-                "label": "Approved indicators (current instance)",
-                "state": "ok" if readiness["details"]["approved_linked_indicator_count"] else "missing",
-                "count": readiness["details"]["approved_linked_indicator_count"],
-            },
-        ]
-        instance_card = {
-            "title": "Instance readiness",
-            "icon": "export",
-            "band": _band_for_checks(instance_checks),
-            "band_label": _band_for_checks(instance_checks),
-            "checks": instance_checks,
-            "subtitle": f"Current instance: {current_instance}",
-        }
-    else:
-        instance_card = {
-            "title": "Instance readiness",
-            "icon": "export",
-            "band": "grey",
-            "band_label": "Not set",
-            "message": "Set a current reporting instance to see export readiness.",
-        }
+    programme_links = (
+        dataset.programme_links.filter(programme__in=allowed_programmes)
+        .select_related("programme")
+        .order_by("programme__programme_code")
+    )
+    methodology_links = (
+        dataset.methodology_links.filter(methodology__in=allowed_methodologies)
+        .select_related("methodology")
+        .order_by("methodology__methodology_code")
+    )
+    indicator_links = (
+        dataset.indicator_links.filter(indicator__in=allowed_indicators)
+        .select_related("indicator")
+        .order_by("indicator__code")
+    )
     return render(
         request,
         "nbms_app/datasets/dataset_detail.html",
         {
             "dataset": dataset,
-            "releases": releases,
             "can_edit": can_edit,
-            "readiness": readiness,
-            "current_instance": current_instance,
-            "approvals_url": approvals_url,
-            "consent_url": consent_url,
-            "readiness_cards": [core_card, instance_card],
+            "programme_links": programme_links,
+            "methodology_links": methodology_links,
+            "indicator_links": indicator_links,
         },
     )
 
@@ -1115,42 +1115,512 @@ def dataset_detail(request, dataset_uuid):
 @login_required
 def dataset_create(request):
     _require_contributor(request.user)
-    form = DatasetForm(request.POST or None)
-    if not request.user.is_staff:
-        form.fields["organisation"].disabled = True
+    form = DatasetCatalogForm(request.POST or None, user=request.user)
     if request.method == "POST" and form.is_valid():
         dataset = form.save(commit=False)
-        if not dataset.created_by:
-            dataset.created_by = request.user
-        if not dataset.organisation and getattr(request.user, "organisation", None):
-            dataset.organisation = request.user.organisation
+        if not dataset.custodian_org and getattr(request.user, "organisation", None):
+            dataset.custodian_org = request.user.organisation
         dataset.save()
-        messages.success(request, "Dataset created.")
+        _sync_dataset_catalog_links(
+            dataset,
+            form.cleaned_data.get("programmes", []),
+            form.cleaned_data.get("indicators", []),
+            form.cleaned_data.get("methodologies", []),
+        )
+        messages.success(request, "Dataset catalog entry created.")
         return redirect("nbms_app:dataset_detail", dataset_uuid=dataset.uuid)
     return render(request, "nbms_app/datasets/dataset_form.html", {"form": form, "mode": "create"})
 
 
 @login_required
 def dataset_edit(request, dataset_uuid):
-    datasets = filter_queryset_for_user(
-        Dataset.objects.select_related("organisation", "created_by"),
+    datasets = filter_dataset_catalog_for_user(
+        DatasetCatalog.objects.select_related(
+            "custodian_org",
+            "producer_org",
+            "agreement",
+            "sensitivity_class",
+        ),
         request.user,
-        perm="nbms_app.view_dataset",
     )
     dataset = get_object_or_404(datasets, uuid=dataset_uuid)
-    if not can_edit_object(request.user, dataset):
+    if not can_edit_dataset_catalog(request.user, dataset):
         raise PermissionDenied("Not allowed to edit this dataset.")
-    form = DatasetForm(request.POST or None, instance=dataset)
-    if not request.user.is_staff:
-        form.fields["organisation"].disabled = True
+    form = DatasetCatalogForm(request.POST or None, instance=dataset, user=request.user)
     if request.method == "POST" and form.is_valid():
-        form.save()
-        messages.success(request, "Dataset updated.")
+        dataset = form.save()
+        _sync_dataset_catalog_links(
+            dataset,
+            form.cleaned_data.get("programmes", []),
+            form.cleaned_data.get("indicators", []),
+            form.cleaned_data.get("methodologies", []),
+        )
+        messages.success(request, "Dataset catalog entry updated.")
         return redirect("nbms_app:dataset_detail", dataset_uuid=dataset.uuid)
     return render(
         request,
         "nbms_app/datasets/dataset_form.html",
         {"form": form, "mode": "edit", "dataset": dataset},
+    )
+
+
+def monitoring_programme_list(request):
+    programmes = filter_monitoring_programmes_for_user(
+        MonitoringProgramme.objects.select_related("lead_org", "sensitivity_class").order_by("programme_code"),
+        request.user,
+    )
+    return render(
+        request,
+        "nbms_app/catalog/monitoring_programme_list.html",
+        {"programmes": programmes, "can_create_programme": _can_create_data(request.user)},
+    )
+
+
+def monitoring_programme_detail(request, programme_uuid):
+    programmes = filter_monitoring_programmes_for_user(
+        MonitoringProgramme.objects.select_related("lead_org", "sensitivity_class"),
+        request.user,
+    )
+    programme = get_object_or_404(programmes, uuid=programme_uuid)
+    can_edit = can_edit_monitoring_programme(request.user, programme) if request.user.is_authenticated else False
+    allowed_datasets = filter_dataset_catalog_for_user(DatasetCatalog.objects.all(), request.user)
+    allowed_indicators = filter_queryset_for_user(
+        Indicator.objects.all(), request.user, perm="nbms_app.view_indicator"
+    )
+    dataset_links = (
+        programme.dataset_links.filter(dataset__in=allowed_datasets)
+        .select_related("dataset")
+        .order_by("dataset__dataset_code")
+    )
+    indicator_links = (
+        programme.indicator_links.filter(indicator__in=allowed_indicators)
+        .select_related("indicator")
+        .order_by("indicator__code")
+    )
+    return render(
+        request,
+        "nbms_app/catalog/monitoring_programme_detail.html",
+        {
+            "programme": programme,
+            "can_edit": can_edit,
+            "dataset_links": dataset_links,
+            "indicator_links": indicator_links,
+        },
+    )
+
+
+@login_required
+def monitoring_programme_create(request):
+    _require_contributor(request.user)
+    form = MonitoringProgrammeForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        programme = form.save(commit=False)
+        if not programme.lead_org and getattr(request.user, "organisation", None):
+            programme.lead_org = request.user.organisation
+        programme.save()
+        form.save_m2m()
+        messages.success(request, "Monitoring programme created.")
+        return redirect("nbms_app:monitoring_programme_detail", programme_uuid=programme.uuid)
+    return render(request, "nbms_app/catalog/monitoring_programme_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def monitoring_programme_edit(request, programme_uuid):
+    programmes = filter_monitoring_programmes_for_user(
+        MonitoringProgramme.objects.select_related("lead_org", "sensitivity_class"),
+        request.user,
+    )
+    programme = get_object_or_404(programmes, uuid=programme_uuid)
+    if not can_edit_monitoring_programme(request.user, programme):
+        raise PermissionDenied("Not allowed to edit this monitoring programme.")
+    form = MonitoringProgrammeForm(request.POST or None, instance=programme, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Monitoring programme updated.")
+        return redirect("nbms_app:monitoring_programme_detail", programme_uuid=programme.uuid)
+    return render(
+        request,
+        "nbms_app/catalog/monitoring_programme_form.html",
+        {"form": form, "mode": "edit", "programme": programme},
+    )
+
+
+def methodology_list(request):
+    methodologies = filter_methodologies_for_user(
+        Methodology.objects.select_related("owner_org").order_by("methodology_code"),
+        request.user,
+    )
+    return render(
+        request,
+        "nbms_app/catalog/methodology_list.html",
+        {"methodologies": methodologies, "can_create_methodology": _can_create_data(request.user)},
+    )
+
+
+def methodology_detail(request, methodology_uuid):
+    methodologies = filter_methodologies_for_user(
+        Methodology.objects.select_related("owner_org"),
+        request.user,
+    )
+    methodology = get_object_or_404(methodologies, uuid=methodology_uuid)
+    can_edit = can_edit_methodology(request.user, methodology) if request.user.is_authenticated else False
+    versions = methodology.versions.order_by("-effective_date", "-created_at")
+    allowed_datasets = filter_dataset_catalog_for_user(DatasetCatalog.objects.all(), request.user)
+    allowed_indicators = filter_queryset_for_user(
+        Indicator.objects.all(), request.user, perm="nbms_app.view_indicator"
+    )
+    dataset_links = (
+        methodology.dataset_links.filter(dataset__in=allowed_datasets)
+        .select_related("dataset")
+        .order_by("dataset__dataset_code")
+    )
+    indicator_links = (
+        methodology.indicator_links.filter(indicator__in=allowed_indicators)
+        .select_related("indicator")
+        .order_by("indicator__code")
+    )
+    return render(
+        request,
+        "nbms_app/catalog/methodology_detail.html",
+        {
+            "methodology": methodology,
+            "can_edit": can_edit,
+            "versions": versions,
+            "dataset_links": dataset_links,
+            "indicator_links": indicator_links,
+        },
+    )
+
+
+@login_required
+def methodology_create(request):
+    _require_contributor(request.user)
+    form = MethodologyForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        methodology = form.save(commit=False)
+        if not methodology.owner_org and getattr(request.user, "organisation", None):
+            methodology.owner_org = request.user.organisation
+        methodology.save()
+        messages.success(request, "Methodology created.")
+        return redirect("nbms_app:methodology_detail", methodology_uuid=methodology.uuid)
+    return render(request, "nbms_app/catalog/methodology_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def methodology_edit(request, methodology_uuid):
+    methodologies = filter_methodologies_for_user(
+        Methodology.objects.select_related("owner_org"),
+        request.user,
+    )
+    methodology = get_object_or_404(methodologies, uuid=methodology_uuid)
+    if not can_edit_methodology(request.user, methodology):
+        raise PermissionDenied("Not allowed to edit this methodology.")
+    form = MethodologyForm(request.POST or None, instance=methodology, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Methodology updated.")
+        return redirect("nbms_app:methodology_detail", methodology_uuid=methodology.uuid)
+    return render(
+        request,
+        "nbms_app/catalog/methodology_form.html",
+        {"form": form, "mode": "edit", "methodology": methodology},
+    )
+
+
+def methodology_version_list(request):
+    methodologies = filter_methodologies_for_user(Methodology.objects.all(), request.user)
+    methodology_ids = list(methodologies.values_list("id", flat=True))
+    versions = MethodologyVersion.objects.select_related("methodology").filter(
+        methodology_id__in=methodology_ids
+    ).order_by("methodology__methodology_code", "-effective_date", "-created_at")
+    return render(
+        request,
+        "nbms_app/catalog/methodology_version_list.html",
+        {"versions": versions, "can_create_version": _can_create_data(request.user)},
+    )
+
+
+@login_required
+def methodology_version_create(request):
+    _require_contributor(request.user)
+    form = MethodologyVersionForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        version = form.save()
+        messages.success(request, "Methodology version created.")
+        return redirect("nbms_app:methodology_detail", methodology_uuid=version.methodology.uuid)
+    return render(
+        request,
+        "nbms_app/catalog/methodology_version_form.html",
+        {"form": form, "mode": "create"},
+    )
+
+
+@login_required
+def methodology_version_edit(request, version_uuid):
+    methodologies = filter_methodologies_for_user(Methodology.objects.all(), request.user)
+    methodology_ids = list(methodologies.values_list("id", flat=True))
+    versions = MethodologyVersion.objects.select_related("methodology").filter(methodology_id__in=methodology_ids)
+    version = get_object_or_404(versions, uuid=version_uuid)
+    if not can_edit_methodology(request.user, version.methodology):
+        raise PermissionDenied("Not allowed to edit this methodology version.")
+    form = MethodologyVersionForm(request.POST or None, instance=version, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Methodology version updated.")
+        return redirect("nbms_app:methodology_detail", methodology_uuid=version.methodology.uuid)
+    return render(
+        request,
+        "nbms_app/catalog/methodology_version_form.html",
+        {"form": form, "mode": "edit", "version": version},
+    )
+
+
+def data_agreement_list(request):
+    agreements = filter_data_agreements_for_user(
+        DataAgreement.objects.prefetch_related("parties").order_by("agreement_code"),
+        request.user,
+    )
+    return render(
+        request,
+        "nbms_app/catalog/data_agreement_list.html",
+        {"agreements": agreements, "can_create_agreement": _can_create_data(request.user)},
+    )
+
+
+def data_agreement_detail(request, agreement_uuid):
+    agreements = filter_data_agreements_for_user(
+        DataAgreement.objects.prefetch_related("parties"),
+        request.user,
+    )
+    agreement = get_object_or_404(agreements, uuid=agreement_uuid)
+    can_edit = can_edit_data_agreement(request.user, agreement) if request.user.is_authenticated else False
+    return render(
+        request,
+        "nbms_app/catalog/data_agreement_detail.html",
+        {"agreement": agreement, "can_edit": can_edit},
+    )
+
+
+@login_required
+def data_agreement_create(request):
+    _require_contributor(request.user)
+    form = DataAgreementForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        agreement = form.save()
+        messages.success(request, "Data agreement created.")
+        return redirect("nbms_app:data_agreement_detail", agreement_uuid=agreement.uuid)
+    return render(request, "nbms_app/catalog/data_agreement_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def data_agreement_edit(request, agreement_uuid):
+    agreements = filter_data_agreements_for_user(
+        DataAgreement.objects.prefetch_related("parties"),
+        request.user,
+    )
+    agreement = get_object_or_404(agreements, uuid=agreement_uuid)
+    if not can_edit_data_agreement(request.user, agreement):
+        raise PermissionDenied("Not allowed to edit this data agreement.")
+    form = DataAgreementForm(request.POST or None, instance=agreement, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Data agreement updated.")
+        return redirect("nbms_app:data_agreement_detail", agreement_uuid=agreement.uuid)
+    return render(
+        request,
+        "nbms_app/catalog/data_agreement_form.html",
+        {"form": form, "mode": "edit", "agreement": agreement},
+    )
+
+
+def sensitivity_class_list(request):
+    classes = filter_sensitivity_classes_for_user(
+        SensitivityClass.objects.order_by("sensitivity_code"),
+        request.user,
+    )
+    return render(
+        request,
+        "nbms_app/catalog/sensitivity_class_list.html",
+        {"classes": classes, "can_create_class": _can_create_data(request.user)},
+    )
+
+
+def sensitivity_class_detail(request, class_uuid):
+    classes = filter_sensitivity_classes_for_user(
+        SensitivityClass.objects.order_by("sensitivity_code"),
+        request.user,
+    )
+    sensitivity_class = get_object_or_404(classes, uuid=class_uuid)
+    can_edit = can_edit_sensitivity_class(request.user, sensitivity_class) if request.user.is_authenticated else False
+    return render(
+        request,
+        "nbms_app/catalog/sensitivity_class_detail.html",
+        {"sensitivity_class": sensitivity_class, "can_edit": can_edit},
+    )
+
+
+@login_required
+def sensitivity_class_create(request):
+    _require_contributor(request.user)
+    if not can_edit_sensitivity_class(request.user, None):
+        raise PermissionDenied("Not allowed to manage sensitivity classes.")
+    form = SensitivityClassForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        sensitivity_class = form.save()
+        messages.success(request, "Sensitivity class created.")
+        return redirect("nbms_app:sensitivity_class_detail", class_uuid=sensitivity_class.uuid)
+    return render(request, "nbms_app/catalog/sensitivity_class_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def sensitivity_class_edit(request, class_uuid):
+    classes = filter_sensitivity_classes_for_user(
+        SensitivityClass.objects.order_by("sensitivity_code"),
+        request.user,
+    )
+    sensitivity_class = get_object_or_404(classes, uuid=class_uuid)
+    if not can_edit_sensitivity_class(request.user, sensitivity_class):
+        raise PermissionDenied("Not allowed to edit this sensitivity class.")
+    form = SensitivityClassForm(request.POST or None, instance=sensitivity_class)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Sensitivity class updated.")
+        return redirect("nbms_app:sensitivity_class_detail", class_uuid=sensitivity_class.uuid)
+    return render(
+        request,
+        "nbms_app/catalog/sensitivity_class_form.html",
+        {"form": form, "mode": "edit", "sensitivity_class": sensitivity_class},
+    )
+
+
+def framework_list(request):
+    frameworks = filter_queryset_for_user(
+        Framework.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_framework",
+    )
+    query = request.GET.get("q")
+    if query:
+        frameworks = frameworks.filter(Q(code__icontains=query) | Q(title__icontains=query))
+    return render(request, "nbms_app/frameworks/framework_list.html", {"frameworks": frameworks, "query": query})
+
+
+def framework_detail(request, framework_uuid):
+    frameworks = filter_queryset_for_user(
+        Framework.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_framework",
+    )
+    framework = get_object_or_404(frameworks, uuid=framework_uuid)
+    goals = FrameworkGoal.objects.filter(framework=framework).order_by("sort_order", "code")
+    targets = filter_queryset_for_user(
+        FrameworkTarget.objects.filter(framework=framework).order_by("code"),
+        request.user,
+        perm="nbms_app.view_frameworktarget",
+    )
+    indicators = filter_queryset_for_user(
+        FrameworkIndicator.objects.filter(framework=framework).order_by("code"),
+        request.user,
+        perm="nbms_app.view_frameworkindicator",
+    )
+    return render(
+        request,
+        "nbms_app/frameworks/framework_detail.html",
+        {"framework": framework, "goals": goals, "targets": targets, "indicators": indicators},
+    )
+
+
+def framework_goal_list(request):
+    framework_ids = list(
+        filter_queryset_for_user(Framework.objects.all(), request.user, perm="nbms_app.view_framework").values_list(
+            "id", flat=True
+        )
+    )
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids).order_by("framework__code", "sort_order")
+    query = request.GET.get("q")
+    if query:
+        goals = goals.filter(Q(code__icontains=query) | Q(title__icontains=query))
+    return render(request, "nbms_app/frameworks/framework_goal_list.html", {"goals": goals, "query": query})
+
+
+def framework_goal_detail(request, goal_uuid):
+    framework_ids = list(
+        filter_queryset_for_user(Framework.objects.all(), request.user, perm="nbms_app.view_framework").values_list(
+            "id", flat=True
+        )
+    )
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids)
+    goal = get_object_or_404(goals, uuid=goal_uuid)
+    targets = filter_queryset_for_user(
+        FrameworkTarget.objects.filter(goal=goal).order_by("code"),
+        request.user,
+        perm="nbms_app.view_frameworktarget",
+    )
+    return render(
+        request,
+        "nbms_app/frameworks/framework_goal_detail.html",
+        {"goal": goal, "targets": targets},
+    )
+
+
+def framework_target_list(request):
+    targets = filter_queryset_for_user(
+        FrameworkTarget.objects.select_related("framework", "goal").order_by("framework__code", "code"),
+        request.user,
+        perm="nbms_app.view_frameworktarget",
+    )
+    query = request.GET.get("q")
+    if query:
+        targets = targets.filter(Q(code__icontains=query) | Q(title__icontains=query))
+    return render(request, "nbms_app/frameworks/framework_target_list.html", {"targets": targets, "query": query})
+
+
+def framework_target_detail(request, target_uuid):
+    targets = filter_queryset_for_user(
+        FrameworkTarget.objects.select_related("framework", "goal"),
+        request.user,
+        perm="nbms_app.view_frameworktarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    indicators = filter_queryset_for_user(
+        FrameworkIndicator.objects.filter(framework_target=target).order_by("code"),
+        request.user,
+        perm="nbms_app.view_frameworkindicator",
+    )
+    return render(
+        request,
+        "nbms_app/frameworks/framework_target_detail.html",
+        {"target": target, "indicators": indicators},
+    )
+
+
+def framework_indicator_list(request):
+    indicators = filter_queryset_for_user(
+        FrameworkIndicator.objects.select_related("framework", "framework_target").order_by("framework__code", "code"),
+        request.user,
+        perm="nbms_app.view_frameworkindicator",
+    )
+    query = request.GET.get("q")
+    if query:
+        indicators = indicators.filter(Q(code__icontains=query) | Q(title__icontains=query))
+    return render(
+        request,
+        "nbms_app/frameworks/framework_indicator_list.html",
+        {"indicators": indicators, "query": query},
+    )
+
+
+def framework_indicator_detail(request, indicator_uuid):
+    indicators = filter_queryset_for_user(
+        FrameworkIndicator.objects.select_related("framework", "framework_target"),
+        request.user,
+        perm="nbms_app.view_frameworkindicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    return render(
+        request,
+        "nbms_app/frameworks/framework_indicator_detail.html",
+        {"indicator": indicator},
     )
 
 
