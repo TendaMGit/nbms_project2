@@ -165,5 +165,52 @@
     </p>
   </section>
 
+  <section class="card">
+    <h2>Review decisions</h2>
+    {% if not can_manage_decisions %}
+      <p class="muted">You do not have access to manage review decisions for this instance.</p>
+    {% else %}
+      {% if current_decision %}
+        <p>
+          <strong>Current decision:</strong>
+          {{ current_decision.get_decision_display }}
+          ({{ current_decision.created_at|date:"Y-m-d H:i" }})
+        </p>
+      {% else %}
+        <p class="muted">No decisions recorded yet.</p>
+      {% endif %}
+
+      <p>
+        <a href="{% url 'nbms_app:reporting_instance_review_decisions' instance.uuid %}">View decision history</a>
+      </p>
+
+      {% if snapshots %}
+        <form method="post" action="{% url 'nbms_app:reporting_instance_review_decision_create' instance.uuid %}">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{% url 'nbms_app:reporting_instance_review' instance.uuid %}">
+          <label for="decision">Decision</label>
+          <select name="decision" id="decision">
+            {% for value, label in decision_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <label for="snapshot_uuid">Snapshot</label>
+          <select name="snapshot_uuid" id="snapshot_uuid">
+            {% for snap in snapshots %}
+              <option value="{{ snap.uuid }}"{% if latest_snapshot and snap.uuid == latest_snapshot.uuid %} selected{% endif %}>
+                {{ snap.created_at|date:"Y-m-d H:i" }} - {{ snap.payload_hash|slice:":8" }}
+              </option>
+            {% endfor %}
+          </select>
+          <label for="notes">Notes</label>
+          <textarea id="notes" name="notes" rows="3"></textarea>
+          <button type="submit">Record decision</button>
+        </form>
+      {% else %}
+        <p class="muted">Create a snapshot before recording a decision.</p>
+      {% endif %}
+    {% endif %}
+  </section>
+
   <p><a href="{% url 'nbms_app:reporting_instance_detail' instance.uuid %}">Back to instance</a></p>
 {% endblock %}

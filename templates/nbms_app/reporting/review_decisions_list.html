@@ -1,0 +1,72 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Review Decisions{% endblock %}
+{% block content %}
+  <h1>Review Decisions</h1>
+
+  <section class="card">
+    <h2>Instance metadata</h2>
+    <p><strong>Cycle:</strong> {{ instance.cycle.title }} ({{ instance.cycle.code }})</p>
+    <p><strong>Instance:</strong> {{ instance.version_label }} - {{ instance.get_status_display }}</p>
+  </section>
+
+  <section class="card">
+    <h2>Create decision</h2>
+    {% if snapshots %}
+      <form method="post" action="{% url 'nbms_app:reporting_instance_review_decision_create' instance.uuid %}">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{% url 'nbms_app:reporting_instance_review_decisions' instance.uuid %}">
+        <label for="decision">Decision</label>
+        <select name="decision" id="decision">
+          {% for value, label in decision_choices %}
+            <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+        <label for="snapshot_uuid">Snapshot</label>
+        <select name="snapshot_uuid" id="snapshot_uuid">
+          {% for snap in snapshots %}
+            <option value="{{ snap.uuid }}"{% if latest_snapshot and snap.uuid == latest_snapshot.uuid %} selected{% endif %}>
+              {{ snap.created_at|date:"Y-m-d H:i" }} - {{ snap.payload_hash|slice:":8" }}
+            </option>
+          {% endfor %}
+        </select>
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes" rows="3"></textarea>
+        <button type="submit">Record decision</button>
+      </form>
+    {% else %}
+      <p>No snapshots available. Create a snapshot before recording a decision.</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Decision history</h2>
+    {% if decisions %}
+      <table>
+        <thead>
+          <tr>
+            <th>Created at</th>
+            <th>Decision</th>
+            <th>Snapshot</th>
+            <th>Reviewer</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for decision in decisions %}
+            <tr>
+              <td>{{ decision.created_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ decision.get_decision_display }}</td>
+              <td>{{ decision.snapshot.payload_hash|slice:":8" }}</td>
+              <td>{{ decision.created_by.get_username|default:"-" }}</td>
+              <td>{{ decision.notes|default:"-" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p>No decisions recorded yet.</p>
+    {% endif %}
+  </section>
+
+  <p><a href="{% url 'nbms_app:reporting_instance_review' instance.uuid %}">Back to review dashboard</a></p>
+{% endblock %}
