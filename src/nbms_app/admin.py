@@ -260,6 +260,11 @@ class MethodologyIndicatorLinkInline(admin.TabularInline):
     extra = 0
 
 
+class DatasetCatalogIndicatorLinkInline(admin.TabularInline):
+    model = DatasetCatalogIndicatorLink
+    extra = 0
+
+
 @admin.register(SensitivityClass)
 class SensitivityClassAdmin(admin.ModelAdmin):
     list_display = ("sensitivity_code", "sensitivity_name", "access_level_default", "consent_required_default", "is_active")
@@ -272,6 +277,7 @@ class DataAgreementAdmin(admin.ModelAdmin):
     list_display = ("agreement_code", "title", "agreement_type", "status", "is_active", "created_at")
     search_fields = ("agreement_code", "title")
     list_filter = ("agreement_type", "status", "is_active")
+    filter_horizontal = ("parties",)
 
 
 @admin.register(DatasetCatalog)
@@ -279,6 +285,11 @@ class DatasetCatalogAdmin(admin.ModelAdmin):
     list_display = ("dataset_code", "title", "dataset_type", "access_level", "is_active", "last_updated_date")
     search_fields = ("dataset_code", "title")
     list_filter = ("access_level", "is_active", "qa_status")
+    inlines = [
+        ProgrammeDatasetLinkInline,
+        MethodologyDatasetLinkInline,
+        DatasetCatalogIndicatorLinkInline,
+    ]
 
 
 @admin.register(MonitoringProgramme)
@@ -287,6 +298,7 @@ class MonitoringProgrammeAdmin(admin.ModelAdmin):
     search_fields = ("programme_code", "title")
     list_filter = ("programme_type", "is_active")
     inlines = [ProgrammeDatasetLinkInline, ProgrammeIndicatorLinkInline]
+    filter_horizontal = ("partners",)
 
 
 @admin.register(Methodology)
