@@ -17,7 +17,7 @@ consent checks, and ABAC filters are honored.
 - Full v2 export payload JSON
 - SHA256 hash of the canonicalized JSON
 - Exporter schema and version
-- Readiness report JSON (catalog completeness + blockers)
+- Readiness report JSON (release-mode catalog completeness + blockers)
 - Readiness summary fields (overall_ready, blocking_gap_count)
 - Created by and timestamp
 

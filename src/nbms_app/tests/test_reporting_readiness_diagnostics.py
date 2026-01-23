@@ -174,6 +174,18 @@ def test_csv_output_format(tmp_path):
     assert rows
 
 
+def test_release_mode_blocks_non_public_without_policy():
+    org, user, instance, target, indicator = _base_instance()
+    methodology, dataset = _attach_full_chain(indicator, org)
+    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    dataset.access_level = "internal"
+    dataset.save(update_fields=["access_level"])
+
+    result = compute_reporting_readiness(instance.uuid, scope="all", mode="release")
+    entry = result["per_indicator"][0]
+    assert "POLICY_MISSING_DEFINITION" in entry["blockers"]
+
+
 def test_readiness_query_count_under_threshold():
     org = Organisation.objects.create(name="Org Perf", org_code="ORG-PERF")
     user = User.objects.create_user(username="perf", password="pass1234", organisation=org)
@@ -254,6 +266,6 @@ def test_readiness_query_count_under_threshold():
         progress.indicator_data_series.add(series)
 
     with CaptureQueriesContext(connection) as ctx:
-        compute_reporting_readiness(instance.uuid, scope="all", user=user)
+        compute_reporting_readiness(instance.uuid, scope="all", user=user, mode="release")
 
     assert len(ctx) <= 70

@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError
 
 from nbms_app.exports.ort_nr7_v2 import build_ort_nr7_v2_payload
 from nbms_app.models import ReportingSnapshot
-from nbms_app.services.readiness import compute_reporting_readiness
+from nbms_app.services.readiness import compute_release_readiness_report
 
 
 SNAPSHOT_TYPE_NR7_V2 = "NR7_V2_EXPORT"
@@ -40,7 +40,7 @@ def _hash_payload(payload):
 def create_reporting_snapshot(*, instance, user, note=None):
     export_user = _strict_user(user)
     payload = build_ort_nr7_v2_payload(instance=instance, user=export_user)
-    readiness_report = compute_reporting_readiness(instance.uuid, scope="selected", user=export_user)
+    readiness_report, summary = compute_release_readiness_report(instance)
     payload_hash = _hash_payload(payload)
 
     existing = ReportingSnapshot.objects.filter(
@@ -58,8 +58,8 @@ def create_reporting_snapshot(*, instance, user, note=None):
         exporter_schema=payload.get("schema", ""),
         exporter_version=payload.get("exporter_version", ""),
         readiness_report_json=readiness_report,
-        readiness_overall_ready=bool(readiness_report.get("summary", {}).get("overall_ready")),
-        readiness_blocking_gap_count=int(readiness_report.get("summary", {}).get("blocking_gap_count") or 0),
+        readiness_overall_ready=bool(summary.get("overall_ready")),
+        readiness_blocking_gap_count=int(summary.get("blocking_gap_count") or 0),
         created_by=user if getattr(user, "is_authenticated", False) else None,
         notes=note or "",
     )

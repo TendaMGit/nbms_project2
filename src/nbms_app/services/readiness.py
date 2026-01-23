@@ -2,6 +2,7 @@ from collections import Counter, defaultdict
 
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.core.exceptions import ValidationError
 from django.db.models import Q
 from django.urls import reverse
 
@@ -1025,9 +1026,21 @@ def get_export_package_readiness(pkg, user):
         for blocker in instance_readiness["blockers"]:
             blockers.append(blocker)
 
-    readiness_report = compute_reporting_readiness(pkg.reporting_instance.uuid, scope="selected", user=user)
-    readiness_summary = readiness_report.get("summary", {})
-    if not readiness_summary.get("overall_ready", True):
+    readiness_report = None
+    readiness_summary = {}
+    readiness_error = None
+    try:
+        readiness_report, readiness_summary = compute_release_readiness_report(pkg.reporting_instance)
+    except ValidationError as exc:
+        readiness_error = str(exc)
+
+    if readiness_error:
+        message = readiness_error or "Readiness computation failed or incomplete."
+        if getattr(settings, "EXPORT_REQUIRE_READINESS", False):
+            blockers.append(_blocker("readiness_failed", message))
+        else:
+            warnings.append(_warning("readiness_failed", message))
+    elif not readiness_summary.get("overall_ready", False):
         if getattr(settings, "EXPORT_REQUIRE_READINESS", False):
             blockers.append(
                 _blocker(
@@ -1086,7 +1099,7 @@ def get_export_package_readiness(pkg, user):
         "status": pkg.status,
         "instance_uuid": str(pkg.reporting_instance.uuid),
         "instance_readiness": instance_readiness,
-        "readiness_report": readiness_report,
+        "readiness_report": readiness_report or {},
     }
     counts = {
         "approved_indicators": approvals["indicators"]["approved"],
@@ -1208,12 +1221,21 @@ def _programme_access_blocked(programme, user):
     return False
 
 
-def compute_reporting_readiness(instance_ref, scope="all", user=None):
+def compute_reporting_readiness(instance_ref, scope="all", user=None, mode="authoring"):
+    return _compute_reporting_readiness(instance_ref, scope=scope, user=user, mode=mode)
+
+
+def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="authoring"):
     instance = _resolve_reporting_instance(instance_ref)
     if not instance:
         raise ValueError("Reporting instance not found.")
 
-    indicators_qs = _scoped_indicators(instance, scope, user)
+    if mode not in {"authoring", "release"}:
+        raise ValueError("Invalid readiness mode.")
+
+    effective_user = user if mode == "authoring" else None
+
+    indicators_qs = _scoped_indicators(instance, scope, effective_user)
     indicators = list(indicators_qs)
     total = len(indicators)
     per_indicator = []
@@ -1384,16 +1406,45 @@ def compute_reporting_readiness(instance_ref, scope="all", user=None):
                     break
 
         sensitivity_blocked = False
-        if user:
+        policy_blocked = False
+        policy_blockers = []
+        if mode == "authoring" and effective_user:
             for dataset in datasets:
-                if _dataset_access_blocked(dataset, user):
+                if _dataset_access_blocked(dataset, effective_user):
                     sensitivity_blocked = True
                     break
             if not sensitivity_blocked:
                 for programme in programmes:
-                    if _programme_access_blocked(programme, user):
+                    if _programme_access_blocked(programme, effective_user):
                         sensitivity_blocked = True
                         break
+        elif mode == "release":
+            for dataset in datasets:
+                access_level = dataset.access_level
+                if access_level != AccessLevel.PUBLIC:
+                    agreement_ok = bool(dataset.agreement and dataset.agreement.is_active)
+                    consent_ok = dataset.uuid in consent_granted_datasets
+                    if not (agreement_ok or consent_ok):
+                        policy_blocked = True
+                        policy_blockers.append("POLICY_MISSING_DEFINITION")
+                        break
+            if not policy_blocked:
+                for programme in programmes:
+                    access_level = (
+                        programme.sensitivity_class.access_level_default if programme.sensitivity_class else None
+                    )
+                    if access_level is None:
+                        policy_blocked = True
+                        policy_blockers.append("POLICY_MISSING_DEFINITION")
+                        break
+                    if access_level != AccessLevel.PUBLIC:
+                        agreement_ok = bool(programme.agreement and programme.agreement.is_active)
+                        consent_ok = programme.uuid in consent_granted_programmes
+                        if not (agreement_ok or consent_ok):
+                            policy_blocked = True
+                            policy_blockers.append("POLICY_MISSING_DEFINITION")
+                            break
+            sensitivity_blocked = policy_blocked
 
         missing = []
         blockers = []
@@ -1407,6 +1458,8 @@ def compute_reporting_readiness(instance_ref, scope="all", user=None):
             blockers.append("CONSENT_REQUIRED")
         if sensitivity_blocked:
             blockers.append("SENSITIVITY_BLOCKED")
+        if policy_blockers:
+            blockers.extend(policy_blockers)
 
         indicator_ready = not blockers
         if indicator_ready:
@@ -1430,6 +1483,7 @@ def compute_reporting_readiness(instance_ref, scope="all", user=None):
                     **flags,
                     "consent_blocked": consent_blocked,
                     "sensitivity_blocked": sensitivity_blocked,
+                    "policy_blocked": policy_blocked,
                 },
                 "missing": missing,
                 "blockers": blockers,
@@ -1461,7 +1515,36 @@ def compute_reporting_readiness(instance_ref, scope="all", user=None):
     }
 
     return {
+        "report_version": "1.1",
+        "mode": mode,
         "summary": summary,
         "per_indicator": per_indicator,
         "diagnostics": diagnostics,
     }
+
+
+def compute_release_readiness_report(instance):
+    report = compute_reporting_readiness(instance.uuid, scope="selected", mode="release")
+    summary = report.get("summary")
+    if not summary or "overall_ready" not in summary:
+        raise ValidationError("Readiness computation failed or incomplete.")
+    return report, summary
+
+
+def validate_release_readiness(instance):
+    report, summary = compute_release_readiness_report(instance)
+    overall_ready = summary.get("overall_ready")
+    if overall_ready is None:
+        raise ValidationError("Readiness computation failed or incomplete.")
+    if not overall_ready:
+        top_blockers = report.get("diagnostics", {}).get("top_blockers", [])
+        codes = [item.get("code") for item in top_blockers if item.get("code")]
+        if codes:
+            raise ValidationError(f"Reporting readiness blockers: {', '.join(codes)}")
+        blocking_count = summary.get("blocking_gap_count")
+        raise ValidationError(
+            f"Reporting readiness blockers: blocking_gap_count={blocking_count}"
+            if blocking_count is not None
+            else "Reporting readiness blockers: unknown"
+        )
+    return report, summary

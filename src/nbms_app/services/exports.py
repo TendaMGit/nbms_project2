@@ -21,7 +21,11 @@ from nbms_app.services.consent import consent_is_granted
 from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
-from nbms_app.services.readiness import compute_reporting_readiness, get_instance_readiness
+from nbms_app.services.readiness import (
+    compute_release_readiness_report,
+    get_instance_readiness,
+    validate_release_readiness,
+)
 
 
 def _is_admin(user):
@@ -40,12 +44,13 @@ def assert_instance_exportable(instance, user):
         messages = "; ".join(blocker.get("message", "") for blocker in blockers if blocker)
         raise ValidationError(messages or "Export blocked by readiness checks.")
 
-    readiness_report = compute_reporting_readiness(instance.uuid, scope="selected", user=user)
-    summary = readiness_report.get("summary", {})
-    if getattr(settings, "EXPORT_REQUIRE_READINESS", False) and not summary.get("overall_ready", True):
-        top_blockers = readiness_report.get("diagnostics", {}).get("top_blockers", [])
-        codes = ", ".join(item.get("code", "") for item in top_blockers if item.get("code"))
-        raise ValidationError(f"Reporting readiness blockers: {codes or 'unknown blockers'}")
+    if getattr(settings, "EXPORT_REQUIRE_READINESS", False):
+        readiness_report, _summary = validate_release_readiness(instance)
+    else:
+        try:
+            readiness_report, _summary = compute_release_readiness_report(instance)
+        except ValidationError:
+            readiness_report = {}
     readiness.setdefault("details", {})["readiness_report"] = readiness_report
 
     approvals = readiness.get("details", {}).get("approvals", {})
@@ -268,16 +273,16 @@ def release_export(package, user):
     if not package.reporting_instance:
         raise ValidationError("Reporting instance is required to release exports.")
     _validate_consents(package.reporting_instance)
-    readiness_report = compute_reporting_readiness(
-        package.reporting_instance.uuid,
-        scope="selected",
-        user=user,
-    )
-    summary = readiness_report.get("summary", {})
-    if getattr(settings, "EXPORT_REQUIRE_READINESS", False) and not summary.get("overall_ready", True):
-        top_blockers = readiness_report.get("diagnostics", {}).get("top_blockers", [])
-        codes = ", ".join(item.get("code", "") for item in top_blockers if item.get("code"))
-        raise ValidationError(f"Reporting readiness blockers: {codes or 'unknown blockers'}")
+    readiness_report = {}
+    summary = {}
+    if getattr(settings, "EXPORT_REQUIRE_READINESS", False):
+        readiness_report, summary = validate_release_readiness(package.reporting_instance)
+    else:
+        try:
+            readiness_report, summary = compute_release_readiness_report(package.reporting_instance)
+        except ValidationError:
+            readiness_report = {}
+            summary = {}
     payload = build_export_payload(package.reporting_instance)
     if not getattr(settings, "EXPORT_REQUIRE_READINESS", False):
         payload["readiness_report"] = readiness_report

@@ -153,6 +153,7 @@ def test_snapshot_captures_readiness_report():
     snapshot = create_reporting_snapshot(instance=instance, user=user)
 
     assert "summary" in snapshot.readiness_report_json
+    assert snapshot.readiness_report_json.get("mode") == "release"
     assert snapshot.readiness_overall_ready == snapshot.readiness_report_json["summary"].get("overall_ready")
     assert (
         snapshot.readiness_blocking_gap_count
