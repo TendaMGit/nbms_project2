@@ -1,0 +1,2 @@
+agreement_uuid,agreement_code,title,agreement_type,parties_org_codes,start_date,end_date,status,licence,restrictions_summary,benefit_sharing_terms,citation_requirement,document_url,primary_contact_name,primary_contact_email,is_active,source_system,source_ref
+,DEMO-AGR,Demo Data Agreement,MOU,DEMO-ORG,2020-01-01,,active,CC-BY,Demo sharing for training,None,Cite DEMO-ORG,https://example.org/demo/agreement,Demo Contact,demo@example.org,true,demo_seed,demo_v1

@@ -1,0 +1,2 @@
+methodology_code,methodology_uuid,dataset_code,dataset_uuid,relationship_type,role,notes,is_active,source_system,source_ref
+DEMO-METH,,DEMO-DS,,supporting,analysis,Demo link,true,demo_seed,demo_v1

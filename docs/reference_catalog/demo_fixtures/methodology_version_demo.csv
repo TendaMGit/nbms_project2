@@ -1,0 +1,2 @@
+methodology_version_uuid,methodology_code,version,status,effective_date,deprecated_date,change_log,protocol_url,computational_script_url,parameters_json,qa_steps_summary,peer_reviewed,approval_body,approval_reference,is_active,source_system,source_ref
+,DEMO-METH,1.0,active,2020-01-01,,Initial,https://example.org/demo/protocol,,{},QA steps,true,Demo Board,DEMO-APPROVAL,true,demo_seed,demo_v1

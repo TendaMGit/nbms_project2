@@ -1,27 +1,39 @@
+from collections import Counter
+
 from django.conf import settings
 from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q
 from django.urls import reverse
 
 from nbms_app.models import (
     ApprovalDecision,
+    AccessLevel,
     Dataset,
+    DatasetCatalog,
     DatasetRelease,
     Evidence,
     ExportStatus,
     FrameworkTarget,
     Indicator,
+    IndicatorDataPoint,
+    IndicatorDataSeries,
+    IndicatorFrameworkIndicatorLink,
     InstanceExportApproval,
     LifecycleStatus,
+    Methodology,
+    MethodologyVersion,
+    MonitoringProgramme,
     NationalTarget,
     ReportSectionResponse,
     ReportSectionTemplate,
+    ReportingInstance,
     SensitivityLevel,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
     ValidationRuleSet,
     ValidationScope,
 )
-from nbms_app.services.authorization import filter_queryset_for_user
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_SECURITY_OFFICER, filter_queryset_for_user, user_has_role
 from nbms_app.services.consent import consent_is_granted, consent_status_for_instance, requires_consent
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 
@@ -1056,3 +1068,254 @@ def get_export_package_readiness(pkg, user):
         "approved_datasets": approvals["datasets"]["approved"],
     }
     return _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
+
+
+def _resolve_reporting_instance(instance_ref):
+    if hasattr(instance_ref, "uuid"):
+        return instance_ref
+    try:
+        return ReportingInstance.objects.filter(uuid=instance_ref).first() or ReportingInstance.objects.get(
+            pk=instance_ref
+        )
+    except (ReportingInstance.DoesNotExist, ValueError, TypeError):
+        return None
+
+
+def _scoped_indicators(instance, scope, user=None):
+    queryset = Indicator.objects.select_related("national_target", "organisation", "created_by")
+    if user:
+        queryset = filter_queryset_for_user(queryset, user)
+
+    queryset = queryset.filter(status=LifecycleStatus.PUBLISHED)
+    if scope == "selected":
+        approved_ids = _approved_ids(instance, Indicator)
+        approved = queryset.filter(uuid__in=approved_ids)
+        if approved.exists():
+            return approved
+        if instance:
+            indicator_ids = IndicatorDataSeries.objects.filter(
+                indicator__isnull=False
+            ).filter(
+                Q(section_iii_progress_entries__reporting_instance=instance)
+                | Q(section_iv_progress_entries__reporting_instance=instance)
+            ).values_list("indicator_id", flat=True)
+            if indicator_ids:
+                return queryset.filter(id__in=indicator_ids)
+        return queryset.none()
+    return queryset
+
+
+def _indicator_data_series_for_instance(indicator, instance):
+    series = IndicatorDataSeries.objects.filter(indicator=indicator)
+    if instance:
+        series = series.filter(
+            Q(section_iii_progress_entries__reporting_instance=instance)
+            | Q(section_iv_progress_entries__reporting_instance=instance)
+        )
+    return series.distinct()
+
+
+def _indicator_has_data_values(indicator, instance):
+    series = _indicator_data_series_for_instance(indicator, instance)
+    if not series.exists():
+        return False
+    return IndicatorDataPoint.objects.filter(series__in=series).exists()
+
+
+def _linked_programmes(indicator):
+    return MonitoringProgramme.objects.filter(indicator_links__indicator=indicator).distinct()
+
+
+def _linked_methodologies(indicator):
+    return Methodology.objects.filter(indicator_links__indicator=indicator).distinct()
+
+
+def _linked_datasets(programmes, methodologies):
+    datasets_from_programmes = DatasetCatalog.objects.filter(programme_links__programme__in=programmes)
+    datasets_from_methodologies = DatasetCatalog.objects.filter(methodology_links__methodology__in=methodologies)
+    return (datasets_from_programmes | datasets_from_methodologies).distinct()
+
+
+def _has_methodology_version(methodologies):
+    return MethodologyVersion.objects.filter(methodology__in=methodologies, is_active=True).exists()
+
+
+def _user_is_privileged(user):
+    if not user:
+        return False
+    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+        return True
+    return user_has_role(user, ROLE_ADMIN, ROLE_SECURITY_OFFICER)
+
+
+def _dataset_access_blocked(dataset, user):
+    if not user:
+        return False
+    if _user_is_privileged(user):
+        return False
+    if dataset.access_level == AccessLevel.RESTRICTED:
+        return True
+    if dataset.access_level == AccessLevel.INTERNAL:
+        org_id = getattr(user, "organisation_id", None)
+        return org_id not in {dataset.custodian_org_id, dataset.producer_org_id}
+    return False
+
+
+def _programme_access_blocked(programme, user):
+    if not user:
+        return False
+    if _user_is_privileged(user):
+        return False
+    access_level = programme.sensitivity_class.access_level_default if programme.sensitivity_class else None
+    if access_level == AccessLevel.RESTRICTED:
+        return True
+    if access_level == AccessLevel.INTERNAL:
+        org_id = getattr(user, "organisation_id", None)
+        partner_ids = set(programme.partners.values_list("id", flat=True))
+        allowed_ids = partner_ids | {programme.lead_org_id}
+        return org_id not in allowed_ids
+    return False
+
+
+def compute_reporting_readiness(instance_ref, scope="all", user=None):
+    instance = _resolve_reporting_instance(instance_ref)
+    if not instance:
+        raise ValueError("Reporting instance not found.")
+
+    indicators = _scoped_indicators(instance, scope, user)
+    total = indicators.count()
+    per_indicator = []
+    blocker_counts = Counter()
+
+    counts = Counter(
+        {
+            "has_national_target": 0,
+            "has_framework_mapping": 0,
+            "has_monitoring_programme_link": 0,
+            "has_dataset_catalog_link": 0,
+            "has_methodology_version_link": 0,
+            "has_data_values_for_instance": 0,
+            "consent_blocked": 0,
+            "sensitivity_blocked": 0,
+            "ready": 0,
+        }
+    )
+
+    missing_codes = {
+        "has_national_target": "NO_NATIONAL_TARGET",
+        "has_framework_mapping": "NO_FRAMEWORK_MAPPING",
+        "has_monitoring_programme_link": "NO_PROGRAMME",
+        "has_dataset_catalog_link": "NO_DATASET",
+        "has_methodology_version_link": "NO_METHOD_VERSION",
+        "has_data_values_for_instance": "NO_DATA_VALUES",
+    }
+    blocking_missing = {
+        "NO_NATIONAL_TARGET",
+        "NO_FRAMEWORK_MAPPING",
+        "NO_PROGRAMME",
+        "NO_DATASET",
+        "NO_METHOD_VERSION",
+    }
+
+    for indicator in indicators:
+        programmes = _linked_programmes(indicator)
+        methodologies = _linked_methodologies(indicator)
+        datasets = _linked_datasets(programmes, methodologies)
+
+        flags = {
+            "has_national_target": bool(indicator.national_target_id),
+            "has_framework_mapping": IndicatorFrameworkIndicatorLink.objects.filter(indicator=indicator).exists(),
+            "has_monitoring_programme_link": programmes.exists(),
+            "has_dataset_catalog_link": datasets.exists(),
+            "has_methodology_version_link": _has_methodology_version(methodologies),
+            "has_data_values_for_instance": _indicator_has_data_values(indicator, instance),
+        }
+
+        consent_blocked = False
+        for obj in list(programmes) + list(datasets):
+            if requires_consent(obj) and not consent_is_granted(instance, obj):
+                consent_blocked = True
+                break
+
+        sensitivity_blocked = False
+        if user:
+            for dataset in datasets:
+                if _dataset_access_blocked(dataset, user):
+                    sensitivity_blocked = True
+                    break
+            if not sensitivity_blocked:
+                for programme in programmes:
+                    if _programme_access_blocked(programme, user):
+                        sensitivity_blocked = True
+                        break
+
+        missing = []
+        blockers = []
+        for key, code in missing_codes.items():
+            if not flags[key]:
+                missing.append(code)
+                if code in blocking_missing:
+                    blockers.append(code)
+
+        if consent_blocked:
+            blockers.append("CONSENT_REQUIRED")
+        if sensitivity_blocked:
+            blockers.append("SENSITIVITY_BLOCKED")
+
+        indicator_ready = not blockers
+        if indicator_ready:
+            counts["ready"] += 1
+        for key, value in flags.items():
+            if value:
+                counts[key] += 1
+        if consent_blocked:
+            counts["consent_blocked"] += 1
+        if sensitivity_blocked:
+            counts["sensitivity_blocked"] += 1
+
+        blocker_counts.update(blockers)
+
+        per_indicator.append(
+            {
+                "indicator_uuid": str(indicator.uuid),
+                "indicator_code": indicator.code,
+                "indicator_title": indicator.title,
+                "flags": {
+                    **flags,
+                    "consent_blocked": consent_blocked,
+                    "sensitivity_blocked": sensitivity_blocked,
+                },
+                "missing": missing,
+                "blockers": blockers,
+            }
+        )
+
+    percentages = {}
+    for key, value in counts.items():
+        if key == "ready":
+            continue
+        percentages[key] = round(100 * value / total) if total else 0
+
+    overall_ready = all(entry["blockers"] == [] for entry in per_indicator)
+    summary = {
+        "total_indicators_in_scope": total,
+        "counts": dict(counts),
+        "percentages": percentages,
+        "ready_percent": round(100 * counts["ready"] / total) if total else 100,
+        "blocking_gap_count": sum(1 for entry in per_indicator if entry["blockers"]),
+        "overall_ready": overall_ready,
+    }
+
+    diagnostics = {
+        "top_blockers": [
+            {"code": code, "count": count}
+            for code, count in blocker_counts.most_common()
+        ],
+        "orphaned_links": [],
+    }
+
+    return {
+        "summary": summary,
+        "per_indicator": per_indicator,
+        "diagnostics": diagnostics,
+    }

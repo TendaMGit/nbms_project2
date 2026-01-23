@@ -52,6 +52,18 @@ These lists are intended for CSV templates and future registry models.
 - contextual
 - derived
 
+## methodology_status
+- draft
+- active
+- deprecated
+
+## framework_indicator_type
+- headline
+- binary
+- component
+- complementary
+- other
+
 ## sensitivity_code (example values)
 - public
 - internal

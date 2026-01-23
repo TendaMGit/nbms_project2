@@ -7,10 +7,12 @@ from nbms_app.models import (
     BinaryIndicatorResponse,
     Dataset,
     DatasetRelease,
+    DatasetCatalog,
     Evidence,
     ExportPackage,
     Framework,
     FrameworkIndicator,
+    FrameworkGoal,
     FrameworkTarget,
     IndicatorDataPoint,
     IndicatorDataSeries,
@@ -18,6 +20,15 @@ from nbms_app.models import (
     Indicator,
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
+    Methodology,
+    MethodologyDatasetLink,
+    MethodologyIndicatorLink,
+    MethodologyVersion,
+    MonitoringProgramme,
+    ProgrammeDatasetLink,
+    ProgrammeIndicatorLink,
+    DataAgreement,
+    SensitivityClass,
     LifecycleStatus,
     NationalTarget,
     NationalTargetFrameworkTargetLink,
@@ -30,12 +41,13 @@ from nbms_app.models import (
     ValidationRuleSet,
 )
 from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
+from nbms_app.services.readiness import compute_reporting_readiness
 
 
 @admin.register(Organisation)
 class OrganisationAdmin(admin.ModelAdmin):
-    list_display = ("name", "org_type", "contact_email", "is_active", "created_at")
-    search_fields = ("name", "contact_email")
+    list_display = ("name", "org_code", "org_type", "contact_email", "is_active", "created_at")
+    search_fields = ("name", "org_code", "contact_email")
 
 
 @admin.register(User)
@@ -118,11 +130,18 @@ class FrameworkAdmin(admin.ModelAdmin):
     list_filter = ("status", "sensitivity", "organisation")
 
 
+@admin.register(FrameworkGoal)
+class FrameworkGoalAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "framework", "is_active", "sort_order", "created_at")
+    search_fields = ("code", "title", "framework__code")
+    list_filter = ("framework", "is_active")
+
+
 @admin.register(FrameworkTarget)
 class FrameworkTargetAdmin(admin.ModelAdmin):
-    list_display = ("code", "title", "framework", "status", "sensitivity", "organisation", "created_at")
+    list_display = ("code", "title", "framework", "goal", "status", "sensitivity", "organisation", "created_at")
     search_fields = ("code", "title")
-    list_filter = ("framework", "status", "sensitivity", "organisation")
+    list_filter = ("framework", "goal", "status", "sensitivity", "organisation")
 
 
 @admin.register(FrameworkIndicator)
@@ -131,6 +150,7 @@ class FrameworkIndicatorAdmin(admin.ModelAdmin):
         "code",
         "title",
         "framework",
+        "framework_target",
         "indicator_type",
         "status",
         "sensitivity",
@@ -138,7 +158,7 @@ class FrameworkIndicatorAdmin(admin.ModelAdmin):
         "created_at",
     )
     search_fields = ("code", "title")
-    list_filter = ("framework", "indicator_type", "status", "sensitivity", "organisation")
+    list_filter = ("framework", "framework_target", "indicator_type", "status", "sensitivity", "organisation")
 
 
 @admin.register(NationalTargetFrameworkTargetLink)
@@ -212,6 +232,96 @@ class DatasetAdmin(admin.ModelAdmin):
         if not obj.organisation and getattr(request.user, "organisation", None):
             obj.organisation = request.user.organisation
         super().save_model(request, obj, form, change)
+
+
+class MethodologyVersionInline(admin.TabularInline):
+    model = MethodologyVersion
+    extra = 0
+
+
+class ProgrammeDatasetLinkInline(admin.TabularInline):
+    model = ProgrammeDatasetLink
+    extra = 0
+
+
+class ProgrammeIndicatorLinkInline(admin.TabularInline):
+    model = ProgrammeIndicatorLink
+    extra = 0
+
+
+class MethodologyDatasetLinkInline(admin.TabularInline):
+    model = MethodologyDatasetLink
+    extra = 0
+
+
+class MethodologyIndicatorLinkInline(admin.TabularInline):
+    model = MethodologyIndicatorLink
+    extra = 0
+
+
+@admin.register(SensitivityClass)
+class SensitivityClassAdmin(admin.ModelAdmin):
+    list_display = ("sensitivity_code", "sensitivity_name", "access_level_default", "consent_required_default", "is_active")
+    search_fields = ("sensitivity_code", "sensitivity_name")
+    list_filter = ("access_level_default", "consent_required_default", "is_active")
+
+
+@admin.register(DataAgreement)
+class DataAgreementAdmin(admin.ModelAdmin):
+    list_display = ("agreement_code", "title", "agreement_type", "status", "is_active", "created_at")
+    search_fields = ("agreement_code", "title")
+    list_filter = ("agreement_type", "status", "is_active")
+
+
+@admin.register(DatasetCatalog)
+class DatasetCatalogAdmin(admin.ModelAdmin):
+    list_display = ("dataset_code", "title", "dataset_type", "access_level", "is_active", "last_updated_date")
+    search_fields = ("dataset_code", "title")
+    list_filter = ("access_level", "is_active", "qa_status")
+
+
+@admin.register(MonitoringProgramme)
+class MonitoringProgrammeAdmin(admin.ModelAdmin):
+    list_display = ("programme_code", "title", "programme_type", "lead_org", "is_active")
+    search_fields = ("programme_code", "title")
+    list_filter = ("programme_type", "is_active")
+    inlines = [ProgrammeDatasetLinkInline, ProgrammeIndicatorLinkInline]
+
+
+@admin.register(Methodology)
+class MethodologyAdmin(admin.ModelAdmin):
+    list_display = ("methodology_code", "title", "owner_org", "is_active")
+    search_fields = ("methodology_code", "title")
+    list_filter = ("is_active",)
+    inlines = [MethodologyVersionInline, MethodologyDatasetLinkInline, MethodologyIndicatorLinkInline]
+
+
+@admin.register(ProgrammeDatasetLink)
+class ProgrammeDatasetLinkAdmin(admin.ModelAdmin):
+    list_display = ("programme", "dataset", "relationship_type", "role", "is_active")
+    search_fields = ("programme__programme_code", "dataset__dataset_code")
+    list_filter = ("relationship_type", "is_active")
+
+
+@admin.register(ProgrammeIndicatorLink)
+class ProgrammeIndicatorLinkAdmin(admin.ModelAdmin):
+    list_display = ("programme", "indicator", "relationship_type", "role", "is_active")
+    search_fields = ("programme__programme_code", "indicator__code")
+    list_filter = ("relationship_type", "is_active")
+
+
+@admin.register(MethodologyDatasetLink)
+class MethodologyDatasetLinkAdmin(admin.ModelAdmin):
+    list_display = ("methodology", "dataset", "relationship_type", "role", "is_active")
+    search_fields = ("methodology__methodology_code", "dataset__dataset_code")
+    list_filter = ("relationship_type", "is_active")
+
+
+@admin.register(MethodologyIndicatorLink)
+class MethodologyIndicatorLinkAdmin(admin.ModelAdmin):
+    list_display = ("methodology", "indicator", "relationship_type", "role", "is_active")
+    search_fields = ("methodology__methodology_code", "indicator__code")
+    list_filter = ("relationship_type", "is_active")
 
 
 @admin.register(DatasetRelease)
@@ -316,9 +426,39 @@ class ReportingCycleAdmin(admin.ModelAdmin):
 
 @admin.register(ReportingInstance)
 class ReportingInstanceAdmin(admin.ModelAdmin):
-    list_display = ("cycle", "version_label", "status", "frozen_at", "frozen_by")
+    list_display = (
+        "cycle",
+        "version_label",
+        "status",
+        "frozen_at",
+        "frozen_by",
+        "readiness_percent",
+        "blocking_gap_count",
+    )
     search_fields = ("cycle__code", "version_label")
     list_filter = ("status",)
+    actions = ["generate_readiness_report"]
+
+    @admin.display(description="Readiness %")
+    def readiness_percent(self, obj):
+        result = compute_reporting_readiness(obj.uuid, scope="selected")
+        return result["summary"].get("ready_percent")
+
+    @admin.display(description="Blocking gaps")
+    def blocking_gap_count(self, obj):
+        result = compute_reporting_readiness(obj.uuid, scope="selected")
+        return result["summary"].get("blocking_gap_count")
+
+    @admin.action(description="Generate readiness report")
+    def generate_readiness_report(self, request, queryset):
+        for instance in queryset:
+            result = compute_reporting_readiness(instance.uuid, scope="selected", user=request.user)
+            summary = result["summary"]
+            message = (
+                f"{instance}: ready {summary.get('ready_percent', 0)}% "
+                f"({summary.get('blocking_gap_count', 0)} blocking indicators)."
+            )
+            self.message_user(request, message)
 
 
 @admin.register(ReportSectionTemplate)
