@@ -28,6 +28,7 @@ before any ORT submission transforms are applied.
 7) Export v2 JSON (review artifact) and freeze the instance if ready.
 8) Create a reporting snapshot (immutable v2 export record).
 9) Use snapshot diff vs the last snapshot to confirm changes before sign-off.
+10) Record a review decision tied to the latest snapshot (approved or changes requested).
 
 ## Why this comes before ORT ingestion
 

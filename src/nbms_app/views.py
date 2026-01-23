@@ -46,6 +46,7 @@ from nbms_app.models import (
     ReportingCycle,
     ReportingInstance,
     ReportingSnapshot,
+    ReviewDecisionStatus,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
     User,
@@ -93,6 +94,11 @@ from nbms_app.services.readiness import (
 )
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.review import build_instance_review_summary, build_review_pack_context
+from nbms_app.services.review_decisions import (
+    create_review_decision,
+    get_current_review_decision,
+    review_decisions_for_user,
+)
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 from nbms_app.services.snapshots import create_reporting_snapshot, diff_snapshots
 from nbms_app.services.workflows import approve, reject
@@ -1712,11 +1718,27 @@ def reporting_instance_review(request, instance_uuid):
     summary = build_instance_review_summary(instance, request.user)
     export_url = reverse("nbms_app:export_ort_nr7_v2_instance", kwargs={"instance_uuid": instance.uuid})
     export_download_url = f"{export_url}?download=1"
+    snapshots_qs = ReportingSnapshot.objects.filter(reporting_instance=instance).order_by("-created_at")
+    latest_snapshot = snapshots_qs.first()
+    decisions = []
+    current_decision = None
+    can_manage_decisions = True
+    try:
+        decisions = review_decisions_for_user(instance, request.user)
+        current_decision = decisions.first() if hasattr(decisions, "first") else None
+    except PermissionDenied:
+        can_manage_decisions = False
     context = {
         "instance": instance,
         "summary": summary,
         "export_url": export_url,
         "export_download_url": export_download_url,
+        "snapshots": snapshots_qs,
+        "latest_snapshot": latest_snapshot,
+        "decisions": decisions,
+        "current_decision": current_decision,
+        "decision_choices": ReviewDecisionStatus.choices,
+        "can_manage_decisions": can_manage_decisions,
     }
     return render(request, "nbms_app/reporting/review_dashboard.html", context)
 
@@ -1866,6 +1888,69 @@ def reporting_instance_snapshot_diff(request, instance_uuid):
         "diff": diff,
     }
     return render(request, "nbms_app/reporting/snapshot_diff.html", context)
+
+
+@staff_member_required
+def reporting_instance_review_decisions(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    decisions = review_decisions_for_user(instance, request.user)
+    snapshots = ReportingSnapshot.objects.filter(reporting_instance=instance).order_by("-created_at")
+    latest_snapshot = snapshots.first()
+    context = {
+        "instance": instance,
+        "decisions": decisions,
+        "snapshots": snapshots,
+        "latest_snapshot": latest_snapshot,
+        "decision_choices": ReviewDecisionStatus.choices,
+    }
+    return render(request, "nbms_app/reporting/review_decisions_list.html", context)
+
+
+@staff_member_required
+def reporting_instance_review_decision_create(request, instance_uuid):
+    if request.method != "POST":
+        return redirect("nbms_app:reporting_instance_review_decisions", instance_uuid=instance_uuid)
+
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    decision_value = request.POST.get("decision", "")
+    notes = request.POST.get("notes", "").strip()
+    snapshot_uuid = request.POST.get("snapshot_uuid")
+    snapshots = ReportingSnapshot.objects.filter(reporting_instance=instance).order_by("-created_at")
+    snapshot = None
+    if snapshot_uuid:
+        snapshot = snapshots.filter(uuid=snapshot_uuid).first()
+    if not snapshot:
+        snapshot = snapshots.first()
+
+    try:
+        decision = create_review_decision(
+            instance=instance,
+            snapshot=snapshot,
+            user=request.user,
+            decision=decision_value,
+            notes=notes,
+        )
+        record_audit_event(
+            request.user,
+            "review_decision_create",
+            decision,
+            metadata={
+                "instance_uuid": str(instance.uuid),
+                "snapshot_uuid": str(decision.snapshot.uuid),
+                "decision": decision.decision,
+            },
+        )
+        messages.success(request, "Review decision recorded.")
+    except PermissionDenied:
+        raise
+    except ValidationError as exc:
+        messages.error(request, str(exc))
+
+    next_url = request.POST.get("next") or reverse(
+        "nbms_app:reporting_instance_review_decisions",
+        kwargs={"instance_uuid": instance.uuid},
+    )
+    return redirect(next_url)
 
 
 @staff_member_required

@@ -92,6 +92,11 @@ class ReportingStatus(models.TextChoices):
     ARCHIVED = "archived", "Archived"
 
 
+class ReviewDecisionStatus(models.TextChoices):
+    APPROVED = "approved", "Approved"
+    CHANGES_REQUESTED = "changes_requested", "Changes requested"
+
+
 class ReportingCycle(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -163,6 +168,49 @@ class ReportingSnapshot(TimeStampedModel):
                 fields=["reporting_instance", "payload_hash"],
                 name="uq_reporting_snapshot_instance_hash",
             ),
+        ]
+
+
+class ReviewDecision(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="review_decisions",
+    )
+    snapshot = models.ForeignKey(
+        ReportingSnapshot,
+        on_delete=models.PROTECT,
+        related_name="review_decisions",
+    )
+    decision = models.CharField(max_length=32, choices=ReviewDecisionStatus.choices)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_review_decisions",
+        blank=True,
+        null=True,
+    )
+    supersedes = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="superseded_by",
+        blank=True,
+        null=True,
+    )
+
+    def save(self, *args, **kwargs):
+        if self.pk and not self._state.adding:
+            raise ValidationError("Review decisions are immutable.")
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.reporting_instance_id} {self.decision} {self.created_at:%Y-%m-%d}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["reporting_instance", "created_at"]),
         ]
 
 
