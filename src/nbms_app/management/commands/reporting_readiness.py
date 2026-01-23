@@ -36,6 +36,12 @@ class Command(BaseCommand):
         )
         parser.add_argument("--output", help="Output path; stdout if omitted.")
         parser.add_argument("--scope", choices=["all", "selected"], default="all")
+        parser.add_argument(
+            "--mode",
+            choices=["authoring", "release"],
+            default="authoring",
+            help="Readiness evaluation mode (default: authoring).",
+        )
         parser.add_argument("--user", help="User id, email, or username for ABAC context.")
         parser.add_argument("--org", help="Organisation code for ABAC context (if no user provided).")
         parser.add_argument("--strict", action="store_true", help="Exit with non-zero status if not ready.")
@@ -46,9 +52,10 @@ class Command(BaseCommand):
         output_path = options.get("output")
         scope = options["scope"]
         strict = options["strict"]
+        mode = options["mode"]
         user = self._resolve_user(options.get("user"), options.get("org"))
 
-        result = compute_reporting_readiness(instance_ref, scope=scope, user=user)
+        result = compute_reporting_readiness(instance_ref, scope=scope, user=user, mode=mode)
 
         if output_format == "json":
             payload = json.dumps(result, indent=2)

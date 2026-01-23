@@ -138,6 +138,7 @@ Key URLs to test:
 Confirm export blockers:
 - Missing required sections should block export when EXPORT_REQUIRE_SECTIONS=1.
 - Missing consent for IPLC-sensitive approved items should block export.
+- When EXPORT_REQUIRE_READINESS=1, export/release is blocked if catalog readiness is not satisfied.
 
 ABAC quick check:
 - Create a restricted item in Org A and verify it is not visible to a user in Org B.
@@ -174,6 +175,7 @@ Storage and media:
 
 Reporting and exports:
 - `EXPORT_REQUIRE_SECTIONS` (set to 1 to block export when required sections are missing)
+- `EXPORT_REQUIRE_READINESS` (set to 1 to block export when catalog readiness is not satisfied)
 
 Security and monitoring:
 - `RATE_LIMIT_LOGIN`, `RATE_LIMIT_PASSWORD_RESET`, `RATE_LIMIT_WORKFLOW`

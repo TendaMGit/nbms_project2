@@ -41,3 +41,6 @@ only after the content is complete, reviewed, and governance-approved.
 If `EXPORT_REQUIRE_READINESS=true`, releases and exports will be blocked when
 catalog readiness reports blocking gaps. Use the readiness diagnostics command
 to identify missing registry links before sign-off.
+
+Release readiness is evaluated in export governance context (mode=release),
+so internal roles do not bypass policy checks.

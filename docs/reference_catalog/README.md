@@ -89,6 +89,12 @@ python manage.py reporting_readiness --instance <instance_uuid> --format json --
 python manage.py reporting_readiness --instance <instance_uuid> --format json --scope selected --org <org_code>
 ```
 
+Release-mode checks (export governance context):
+
+```powershell
+python manage.py reporting_readiness --instance <instance_uuid> --format json --scope selected --mode release
+```
+
 Interpretation:
 - `overall_ready` is true only when **no blocking gaps** exist.
 - Missing methodology versions, dataset catalog links, or programme links are
