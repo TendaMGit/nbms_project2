@@ -68,3 +68,26 @@ python manage.py reference_catalog_export --entity organisation --out .\\exports
   dataset_code, programme_code).
 - Required columns vary by entity; the importer validates that all template
   headers are present before processing rows.
+
+## Readiness diagnostics
+
+Use the readiness diagnostics command to assess catalog completeness for a
+reporting instance and identify blockers for NR7 reporting readiness.
+
+```powershell
+$env:DJANGO_SETTINGS_MODULE='config.settings.test'
+$env:PYTHONPATH="$PWD\src"
+
+python manage.py reporting_readiness --instance <instance_uuid> --format json --scope selected
+python manage.py reporting_readiness --instance <instance_uuid> --format csv --output .\\exports\\readiness.csv
+```
+
+Interpretation:
+- `overall_ready` is true only when **no blocking gaps** exist.
+- Missing methodology versions, dataset catalog links, or programme links are
+  treated as blockers for indicator readiness.
+- Consent and sensitivity checks surface as `CONSENT_REQUIRED` and
+  `SENSITIVITY_BLOCKED` blockers where applicable.
+
+Import ordering reminder:
+Org → Sensitivity → Agreements → Programmes/Datasets → Methods → Versions → Links

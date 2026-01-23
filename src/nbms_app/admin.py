@@ -41,6 +41,7 @@ from nbms_app.models import (
     ValidationRuleSet,
 )
 from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
+from nbms_app.services.readiness import compute_reporting_readiness
 
 
 @admin.register(Organisation)
@@ -425,9 +426,39 @@ class ReportingCycleAdmin(admin.ModelAdmin):
 
 @admin.register(ReportingInstance)
 class ReportingInstanceAdmin(admin.ModelAdmin):
-    list_display = ("cycle", "version_label", "status", "frozen_at", "frozen_by")
+    list_display = (
+        "cycle",
+        "version_label",
+        "status",
+        "frozen_at",
+        "frozen_by",
+        "readiness_percent",
+        "blocking_gap_count",
+    )
     search_fields = ("cycle__code", "version_label")
     list_filter = ("status",)
+    actions = ["generate_readiness_report"]
+
+    @admin.display(description="Readiness %")
+    def readiness_percent(self, obj):
+        result = compute_reporting_readiness(obj.uuid, scope="selected")
+        return result["summary"].get("ready_percent")
+
+    @admin.display(description="Blocking gaps")
+    def blocking_gap_count(self, obj):
+        result = compute_reporting_readiness(obj.uuid, scope="selected")
+        return result["summary"].get("blocking_gap_count")
+
+    @admin.action(description="Generate readiness report")
+    def generate_readiness_report(self, request, queryset):
+        for instance in queryset:
+            result = compute_reporting_readiness(instance.uuid, scope="selected", user=request.user)
+            summary = result["summary"]
+            message = (
+                f"{instance}: ready {summary.get('ready_percent', 0)}% "
+                f"({summary.get('blocking_gap_count', 0)} blocking indicators)."
+            )
+            self.message_user(request, message)
 
 
 @admin.register(ReportSectionTemplate)
