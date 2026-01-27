@@ -78,6 +78,15 @@ class FrameworkIndicatorType(models.TextChoices):
     OTHER = "other", "Other"
 
 
+class NationalIndicatorType(models.TextChoices):
+    HEADLINE = "headline", "Headline"
+    BINARY = "binary", "Binary"
+    COMPONENT = "component", "Component"
+    COMPLEMENTARY = "complementary", "Complementary"
+    NATIONAL = "national", "National"
+    OTHER = "other", "Other"
+
+
 class IndicatorValueType(models.TextChoices):
     NUMERIC = "numeric", "Numeric"
     PERCENT = "percent", "Percent"
@@ -304,6 +313,37 @@ class SensitivityClass(TimeStampedModel):
 
     def __str__(self):
         return f"{self.sensitivity_code} - {self.sensitivity_name}"
+
+
+class License(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=50, unique=True)
+    title = models.CharField(max_length=255)
+    url = models.URLField(blank=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.code
+
+
+class SourceDocument(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    title = models.CharField(max_length=255, blank=True)
+    source_url = models.URLField(blank=True)
+    citation = models.TextField(blank=True)
+    version_date = models.DateField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="source_documents",
+        blank=True,
+        null=True,
+    )
+
+    def __str__(self):
+        return self.title or self.source_url or str(self.uuid)
 
 
 class DataAgreement(TimeStampedModel):
