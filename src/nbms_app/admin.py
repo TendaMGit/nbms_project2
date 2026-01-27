@@ -11,6 +11,7 @@ from nbms_app.models import (
     DatasetCatalogIndicatorLink,
     Evidence,
     ExportPackage,
+    License,
     Framework,
     FrameworkIndicator,
     FrameworkGoal,
@@ -38,6 +39,7 @@ from nbms_app.models import (
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
+    SourceDocument,
     User,
     ValidationRuleSet,
 )
@@ -270,6 +272,20 @@ class SensitivityClassAdmin(admin.ModelAdmin):
     list_display = ("sensitivity_code", "sensitivity_name", "access_level_default", "consent_required_default", "is_active")
     search_fields = ("sensitivity_code", "sensitivity_name")
     list_filter = ("access_level_default", "consent_required_default", "is_active")
+
+
+@admin.register(License)
+class LicenseAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "url", "is_active", "created_at")
+    search_fields = ("code", "title")
+    list_filter = ("is_active",)
+
+
+@admin.register(SourceDocument)
+class SourceDocumentAdmin(admin.ModelAdmin):
+    list_display = ("title", "source_url", "version_date", "created_by", "created_at")
+    search_fields = ("title", "source_url", "citation")
+    list_filter = ("version_date",)
 
 
 @admin.register(DataAgreement)
