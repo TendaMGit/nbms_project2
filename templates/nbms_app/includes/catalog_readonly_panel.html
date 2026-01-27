@@ -1,0 +1,10 @@
+{% if readonly_fields %}
+  <div class="card">
+    <h2>Read-only</h2>
+    <ul>
+      {% for field in readonly_fields %}
+        <li><strong>{{ field.label|capfirst }}:</strong> {{ field.value|default:"-" }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endif %}

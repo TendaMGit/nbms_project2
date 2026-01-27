@@ -2,6 +2,9 @@
 {% block title %}Framework Goals{% endblock %}
 {% block content %}
   <h1>Framework Goals</h1>
+  {% if can_manage_catalog %}
+    <p><a href="{% url 'nbms_app:framework_goal_create' %}">New Goal</a></p>
+  {% endif %}
   <form method="get" class="card">
     <label for="goal-search">Search</label>
     <input id="goal-search" type="text" name="q" value="{{ query|default:'' }}" placeholder="Code or title">
@@ -16,7 +19,12 @@
           </a>
         </li>
       {% empty %}
-        <li>No framework goals available.</li>
+        <li>
+          No framework goals available.
+          {% if can_manage_catalog %}
+            <a href="{% url 'nbms_app:framework_goal_create' %}">Create the first one</a>.
+          {% endif %}
+        </li>
       {% endfor %}
     </ul>
   </div>

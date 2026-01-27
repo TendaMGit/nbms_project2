@@ -1,7 +1,7 @@
 {% extends "nbms_app/base.html" %}
-{% block title %}Indicators{% endblock %}
+{% block title %}National Indicators{% endblock %}
 {% block content %}
-  <h1>Indicators</h1>
+  <h1>National indicators</h1>
   {% if can_create_indicator %}
     <p><a href="{% url 'nbms_app:indicator_create' %}">Create Indicator</a></p>
   {% endif %}
