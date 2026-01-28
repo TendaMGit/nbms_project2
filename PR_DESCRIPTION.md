@@ -71,7 +71,11 @@ $env:DJANGO_SETTINGS_MODULE='config.settings.test'
 $env:PYTHONPATH="$PWD\src"
 pytest -q
 ```
-Result: `219 passed, 14 warnings in 90.11s`
+Result: `221 passed, 14 warnings in 88.30s`
+
+### Migration verification (Docker)
+- Windows: `scripts\\verify_migrations.ps1`
+- Linux/macOS: `docker compose -f docker-compose.verify.yml --env-file .env.verify run --rm app ./scripts/verify_migrations.sh`
 
 Warnings summary (pre-existing):
 - 2x `RemovedInDjango60Warning` for `CheckConstraint.check` deprecation.

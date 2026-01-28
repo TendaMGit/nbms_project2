@@ -1,0 +1,35 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${NBMS_DB_NAME:-nbms_verify_db}
+      POSTGRES_USER: ${NBMS_DB_USER:-nbms_verify_user}
+      POSTGRES_PASSWORD: ${NBMS_DB_PASSWORD:-nbms_verify_password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NBMS_DB_USER:-nbms_verify_user} -d ${NBMS_DB_NAME:-nbms_verify_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "${NBMS_DB_PORT_FORWARD:-5433}:5432"
+
+  app:
+    build:
+      context: .
+      dockerfile: docker/verify/Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.base}
+      NBMS_DB_NAME: ${NBMS_DB_NAME:-nbms_verify_db}
+      NBMS_DB_USER: ${NBMS_DB_USER:-nbms_verify_user}
+      NBMS_DB_PASSWORD: ${NBMS_DB_PASSWORD:-nbms_verify_password}
+      NBMS_TEST_DB_NAME: ${NBMS_TEST_DB_NAME:-test_nbms_verify_db}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      PYTHONPATH: /app/src
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy

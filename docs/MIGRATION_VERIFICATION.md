@@ -1,47 +1,58 @@
-# Migration Verification (Attempted)
+# Migration Verification (Canonical)
 
-Environment used for verification attempts (Windows):
-- `DJANGO_SETTINGS_MODULE=config.settings.base`
-- `DJANGO_DB_ENGINE=django.db.backends.sqlite3`
-- `NBMS_DB_NAME=.scratch_db.sqlite3`
+This repo uses a Docker-based verification environment to ensure migration 0026 runs end-to-end with PostGIS + GDAL.
 
-## Commands + Results
+## Windows (Docker Desktop)
 
-1) `python manage.py makemigrations --check --dry-run`
-- Result: FAILED during Django startup.
-- Error: `OSError: [WinError 127] The specified procedure could not be found` while importing `django.contrib.gis` (GDAL binding).
+1) Copy the verification env file:
 
-2) `python manage.py migrate --plan`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+```
+copy .env.verify.example .env.verify
+```
 
-3) `python manage.py migrate`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+2) Run the verification script:
 
-4) `python manage.py bootstrap_roles`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+```
+scripts\verify_migrations.ps1
+```
 
-5) `python manage.py seed_reporting_defaults`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+Optional: keep containers running for inspection:
 
-6) `python manage.py seed_report_templates`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+```
+scripts\verify_migrations.ps1 -KeepAlive
+```
 
-7) `python manage.py seed_validation_rules`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+## Linux/macOS (Docker)
 
-8) `python manage.py seed_end_to_end_demo`
-- Result: NOT RUN (blocked by the same GDAL import error at startup).
+```
+cp .env.verify.example .env.verify
 
-## Resolution Needed
-The repo imports `django.contrib.gis` (admin) at startup, which requires GDAL libraries. Run the migration verification steps in an environment with:
-- GDAL installed and on PATH
-- PostGIS-enabled PostgreSQL (preferred) OR GIS-capable local setup
+docker compose -f docker-compose.verify.yml --env-file .env.verify run --rm app ./scripts/verify_migrations.sh
+```
 
-Once GDAL is available, rerun the commands above and update this file with actual outputs and backfill validation results.
+## What the script does
 
-## Backfill Checks (Pending)
-- FrameworkGoal status migration from `is_active`.
-- AuditEvent `event_type` backfill samples.
-- Indicator to MethodologyVersion link backfill (only when exactly one active version).
+- Starts PostGIS (with GDAL available in the app container)
+- Drops and recreates a clean DB
+- Runs `python manage.py migrate`
+- Runs `python manage.py check`
+- Runs `pytest -q`
+- Runs `python manage.py verify_post_migration`
 
-These checks are pending until migrations can run successfully.
+Expected output includes:
+- `Post-migration verification passed.`
+
+## CI Gate (Linux)
+
+Workflow: `.github/workflows/migration-verify.yml`
+
+To enforce this as a required check, enable branch protection on `main` and require the workflow name:
+- **Migration Verification**
+
+## Local GDAL limitation (historical)
+
+Attempts to run migrations locally on Windows without GDAL fail during Django startup:
+
+`OSError: [WinError 127] The specified procedure could not be found` (GDAL binding)
+
+Use the Docker-based path above to avoid local GDAL dependencies.

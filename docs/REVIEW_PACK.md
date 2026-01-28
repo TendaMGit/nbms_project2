@@ -24,6 +24,9 @@
 - `src/nbms_app/tests/*` (role + methodology version updates)
 - `docs/SECURITY_GOVERNANCE_NOTES.md`, `docs/migrations/0026_security_governance_integrity.md`, `docs/API.md`
 - `docs/AUDIT_EVENTS.md`, `docs/AUDIT_QUERIES.md`, `docs/MIGRATION_VERIFICATION.md`, `PR_DESCRIPTION.md`
+- `docker-compose.verify.yml`, `docker/verify/Dockerfile`, `.env.verify.example`
+- `scripts/verify_migrations.ps1`, `scripts/verify_migrations.sh`
+- `.github/workflows/migration-verify.yml`
 
 ## How to Test (Windows)
 - `$env:DJANGO_SETTINGS_MODULE='config.settings.test'`
