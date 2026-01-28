@@ -12,6 +12,17 @@ ROLE_CONTRIBUTOR = "Contributor"
 ROLE_VIEWER = "Viewer"
 ROLE_SECURITY_OFFICER = "Security Officer"
 ROLE_COMMUNITY_REPRESENTATIVE = "Community Representative"
+ROLE_SYSTEM_ADMIN = "SystemAdmin"
+
+
+def is_system_admin(user):
+    if not user or isinstance(user, AnonymousUser):
+        return False
+    if getattr(user, "is_superuser", False):
+        return True
+    if user.groups.filter(name=ROLE_SYSTEM_ADMIN).exists():
+        return True
+    return user.has_perm("nbms_app.system_admin")
 
 
 def user_has_role(user, *roles):
@@ -23,14 +34,11 @@ def user_has_role(user, *roles):
 
 
 def can_view_object(user, obj):
-    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+    if is_system_admin(user):
         return True
 
     if not user or isinstance(user, AnonymousUser):
         return obj.status == LifecycleStatus.PUBLISHED and obj.sensitivity == SensitivityLevel.PUBLIC
-
-    if user_has_role(user, ROLE_SECURITY_OFFICER):
-        return True
 
     if getattr(obj, "created_by_id", None) == user.id:
         return True
@@ -54,7 +62,7 @@ def can_view_object(user, obj):
 def can_edit_object(user, obj):
     if not user or isinstance(user, AnonymousUser):
         return False
-    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+    if is_system_admin(user):
         return True
     if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD):
         return obj.organisation_id == getattr(user, "organisation_id", None)
@@ -62,14 +70,11 @@ def can_edit_object(user, obj):
 
 
 def filter_queryset_for_user(queryset, user, perm=None):
-    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+    if is_system_admin(user):
         return queryset
 
     if not user or isinstance(user, AnonymousUser):
         return queryset.filter(status=LifecycleStatus.PUBLISHED, sensitivity=SensitivityLevel.PUBLIC)
-
-    if user_has_role(user, ROLE_SECURITY_OFFICER):
-        return queryset
 
     public_q = Q(status=LifecycleStatus.PUBLISHED, sensitivity=SensitivityLevel.PUBLIC)
     creator_q = Q(created_by_id=user.id)

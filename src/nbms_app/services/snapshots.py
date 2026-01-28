@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 
 from nbms_app.exports.ort_nr7_v2 import build_ort_nr7_v2_payload
 from nbms_app.models import ReportingSnapshot
+from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.readiness import compute_release_readiness_report
 
 
@@ -23,6 +24,8 @@ class _StrictUserProxy:
 
 def _strict_user(user):
     if not user:
+        return user
+    if is_system_admin(user):
         return user
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return _StrictUserProxy(user)

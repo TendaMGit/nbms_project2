@@ -3,6 +3,7 @@ from datetime import date, datetime, timezone as py_timezone
 from unittest.mock import patch
 
 import pytest
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.core.management import call_command
 from django.test import override_settings
@@ -25,6 +26,7 @@ from nbms_app.models import (
     User,
 )
 from nbms_app.services.instance_approvals import approve_for_instance
+from nbms_app.services.authorization import ROLE_DATA_STEWARD
 from nbms_app.services.review_decisions import create_review_decision
 from nbms_app.services.snapshots import create_reporting_snapshot
 
@@ -53,13 +55,17 @@ def _create_cycle_and_instance(code=None):
     return cycle, instance
 
 
-def _create_user(org, username, staff=False):
-    return User.objects.create_user(
+def _create_user(org, username, staff=False, steward=False):
+    user = User.objects.create_user(
         username=username,
         password="pass1234",
         organisation=org,
         is_staff=staff,
     )
+    if steward or staff:
+        group, _ = Group.objects.get_or_create(name=ROLE_DATA_STEWARD)
+        user.groups.add(group)
+    return user
 
 
 def _create_section_response(instance, user, code, content):

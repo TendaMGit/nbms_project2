@@ -1,6 +1,7 @@
 import csv
 
 import pytest
+from django.contrib.auth.models import Group
 from django.core.management import call_command
 from django.core.exceptions import ValidationError
 from django.db import connection
@@ -15,9 +16,9 @@ from nbms_app.models import (
     IndicatorDataPoint,
     IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
+    IndicatorMethodologyVersionLink,
     LifecycleStatus,
     Methodology,
-    MethodologyIndicatorLink,
     MethodologyVersion,
     MonitoringProgramme,
     NationalTarget,
@@ -33,6 +34,7 @@ from nbms_app.models import (
 )
 from nbms_app.services.readiness import compute_reporting_readiness, validate_release_readiness
 from nbms_app.services.instance_approvals import approve_for_instance
+from nbms_app.services.authorization import ROLE_DATA_STEWARD
 
 
 pytestmark = pytest.mark.django_db
@@ -74,7 +76,7 @@ def _base_instance():
     return org, user, instance, target, indicator
 
 
-def _attach_full_chain(indicator, org):
+def _attach_full_chain(indicator, org, include_method_version=True):
     framework = Framework.objects.create(code="GBF", title="GBF")
     framework_target = FrameworkTarget.objects.create(framework=framework, code="T1", title="Target 1")
     framework_indicator = FrameworkIndicator.objects.create(
@@ -108,15 +110,17 @@ def _attach_full_chain(indicator, org):
         title="Method 1",
         owner_org=org,
     )
-    MethodologyIndicatorLink.objects.create(methodology=methodology, indicator=indicator)
+    version = None
+    if include_method_version:
+        version = MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+        IndicatorMethodologyVersionLink.objects.create(indicator=indicator, methodology_version=version)
 
-    return methodology, dataset
+    return methodology, dataset, version
 
 
 def test_completeness_full_chain_ready():
     org, user, instance, target, indicator = _base_instance()
-    methodology, _ = _attach_full_chain(indicator, org)
-    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    _attach_full_chain(indicator, org, include_method_version=True)
 
     series = IndicatorDataSeries.objects.create(indicator=indicator, title="Series 1", unit="count")
     IndicatorDataPoint.objects.create(series=series, year=2020, value_numeric=10)
@@ -135,7 +139,7 @@ def test_completeness_full_chain_ready():
 
 def test_missing_methodology_version_blocks():
     org, user, instance, target, indicator = _base_instance()
-    _attach_full_chain(indicator, org)
+    _attach_full_chain(indicator, org, include_method_version=False)
 
     result = compute_reporting_readiness(instance.uuid, scope="all")
     entry = result["per_indicator"][0]
@@ -145,8 +149,7 @@ def test_missing_methodology_version_blocks():
 
 def test_consent_required_blocks():
     org, user, instance, target, indicator = _base_instance()
-    methodology, dataset = _attach_full_chain(indicator, org)
-    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    _, dataset, _ = _attach_full_chain(indicator, org, include_method_version=True)
     dataset.consent_required = True
     dataset.save(update_fields=["consent_required"])
 
@@ -178,8 +181,7 @@ def test_csv_output_format(tmp_path):
 
 def test_release_mode_blocks_non_public_without_policy():
     org, user, instance, target, indicator = _base_instance()
-    methodology, dataset = _attach_full_chain(indicator, org)
-    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    _, dataset, _ = _attach_full_chain(indicator, org, include_method_version=True)
     dataset.access_level = "internal"
     dataset.save(update_fields=["access_level"])
 
@@ -190,8 +192,7 @@ def test_release_mode_blocks_non_public_without_policy():
 
 def test_release_mode_flags_missing_programme_policy_definition():
     org, user, instance, target, indicator = _base_instance()
-    methodology, dataset = _attach_full_chain(indicator, org)
-    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    _, dataset, _ = _attach_full_chain(indicator, org, include_method_version=True)
     dataset.access_level = "public"
     dataset.save(update_fields=["access_level"])
     programme = MonitoringProgramme.objects.first()
@@ -205,12 +206,10 @@ def test_release_mode_flags_missing_programme_policy_definition():
 
 def test_validate_release_readiness_raises_with_blocker_codes():
     org, user, instance, target, indicator = _base_instance()
-    methodology, dataset = _attach_full_chain(indicator, org)
-    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    _, dataset, _ = _attach_full_chain(indicator, org, include_method_version=True)
     dataset.access_level = "internal"
     dataset.save(update_fields=["access_level"])
-    user.is_staff = True
-    user.save(update_fields=["is_staff"])
+    user.groups.add(Group.objects.get_or_create(name=ROLE_DATA_STEWARD)[0])
     approve_for_instance(instance, indicator, user)
 
     with pytest.raises(ValidationError) as excinfo:
@@ -270,7 +269,7 @@ def test_readiness_query_count_under_threshold():
         title="Method Perf",
         owner_org=org,
     )
-    MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
+    version = MethodologyVersion.objects.create(methodology=methodology, version="1.0", is_active=True)
 
     progress = SectionIIINationalTargetProgress.objects.create(
         reporting_instance=instance,
@@ -292,7 +291,10 @@ def test_readiness_query_count_under_threshold():
             framework_indicator=framework_indicator,
         )
         ProgrammeIndicatorLink.objects.create(programme=programme, indicator=indicator)
-        MethodologyIndicatorLink.objects.create(methodology=methodology, indicator=indicator)
+        IndicatorMethodologyVersionLink.objects.create(
+            indicator=indicator,
+            methodology_version=version,
+        )
         series = IndicatorDataSeries.objects.create(indicator=indicator, title="Series", unit="count")
         IndicatorDataPoint.objects.create(series=series, year=2020, value_numeric=10)
         progress.indicator_data_series.add(series)

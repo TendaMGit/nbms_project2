@@ -6,12 +6,17 @@
     <p><strong>Status:</strong> {{ target.status }}</p>
     <p><strong>Sensitivity:</strong> {{ target.sensitivity }}</p>
     <p><strong>Description:</strong> {{ target.description|default:"-" }}</p>
+    {% if target.reporting_cadence %}<p><strong>Reporting cadence:</strong> {{ target.reporting_cadence }}</p>{% endif %}
+    <p><strong>QA status:</strong> {{ target.qa_status }}</p>
+    {% if target.source_document %}<p><strong>Source document:</strong> {{ target.source_document }}</p>{% endif %}
+    {% if target.license %}<p><strong>License:</strong> {{ target.license }}</p>{% endif %}
     {% if target.review_note %}
       <p><strong>Review note:</strong> {{ target.review_note }}</p>
     {% endif %}
     {% if can_edit %}
       <p><a href="{% url 'nbms_app:national_target_edit' target.uuid %}">Edit national target</a></p>
     {% endif %}
+    <p><a href="{% url 'nbms_app:national_target_alignments' target.uuid %}">Manage framework alignments</a></p>
   </div>
   <h2>Target Readiness</h2>
   {% for card in readiness_cards %}

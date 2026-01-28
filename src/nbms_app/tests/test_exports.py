@@ -25,7 +25,7 @@ from nbms_app.models import (
     SensitivityLevel,
     User,
 )
-from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT
 from nbms_app.services.consent import set_consent_status
 from nbms_app.services.exports import approve_export, build_export_payload, release_export, submit_export_for_review
 from nbms_app.services.instance_approvals import approve_for_instance
@@ -203,6 +203,8 @@ class ExportWorkflowTests(TestCase):
             organisation=self.org,
             is_staff=True,
         )
+        admin_group, _ = Group.objects.get_or_create(name=ROLE_ADMIN)
+        admin.groups.add(admin_group)
         target = NationalTarget.objects.create(
             code="NT-IPLC",
             title="Target IPLC",

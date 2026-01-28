@@ -19,6 +19,7 @@ from nbms_app.models import (
     FrameworkIndicatorType,
     FrameworkTarget,
     Indicator,
+    IndicatorMethodologyVersionLink,
     LifecycleStatus,
     Methodology,
     MethodologyDatasetLink,
@@ -1069,6 +1070,9 @@ def _import_methodology_indicator_link(row, mode, row_number):
         "source_system": _clean(row.get("source_system")),
         "source_ref": _clean(row.get("source_ref")),
     }
+    created_total = 0
+    updated_total = 0
+
     _, created, updated = _upsert_model(
         MethodologyIndicatorLink,
         {"methodology": methodology, "indicator": indicator},
@@ -1077,7 +1081,57 @@ def _import_methodology_indicator_link(row, mode, row_number):
         row_number,
         "MethodologyIndicatorLink",
     )
-    return created, updated
+    created_total += created
+    updated_total += updated
+
+    version_uuid = _parse_uuid(row.get("methodology_version_uuid"), "methodology_version_uuid", row_number)
+    version_label = _clean(row.get("methodology_version"))
+    version = None
+    if version_uuid:
+        version = MethodologyVersion.objects.filter(uuid=version_uuid).first()
+        if not version:
+            raise CommandError(f"Row {row_number}: MethodologyVersion not found for uuid '{version_uuid}'.")
+        if version.methodology_id != methodology.id:
+            raise CommandError(
+                f"Row {row_number}: MethodologyVersion does not belong to methodology '{methodology.methodology_code}'."
+            )
+    elif version_label:
+        version = MethodologyVersion.objects.filter(methodology=methodology, version=version_label).first()
+        if not version:
+            raise CommandError(
+                f"Row {row_number}: MethodologyVersion '{version_label}' not found for methodology '{methodology.methodology_code}'."
+            )
+    else:
+        active_versions = MethodologyVersion.objects.filter(methodology=methodology, is_active=True)
+        if not active_versions.exists():
+            raise CommandError(
+                f"Row {row_number}: No active MethodologyVersion for methodology '{methodology.methodology_code}'."
+            )
+        if active_versions.count() > 1:
+            raise CommandError(
+                f"Row {row_number}: Multiple active MethodologyVersions for methodology '{methodology.methodology_code}'."
+            )
+        version = active_versions.first()
+
+    source_ref = _clean(row.get("source_ref"))
+    source_url = source_ref if source_ref.startswith("http") else ""
+    version_defaults = {
+        "is_primary": False,
+        "notes": _clean(row.get("notes")),
+        "source": source_url,
+        "is_active": _parse_bool(row.get("is_active"), "is_active", row_number, default=True),
+    }
+    _, created, updated = _upsert_model(
+        IndicatorMethodologyVersionLink,
+        {"indicator": indicator, "methodology_version": version},
+        version_defaults,
+        mode,
+        row_number,
+        "IndicatorMethodologyVersionLink",
+    )
+    created_total += created
+    updated_total += updated
+    return created_total, updated_total
 
 
 

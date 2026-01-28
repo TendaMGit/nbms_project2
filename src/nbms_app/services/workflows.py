@@ -1,7 +1,7 @@
 from django.core.exceptions import PermissionDenied, ValidationError
 
 from nbms_app.models import LifecycleStatus
-from nbms_app.services.audit import record_audit_event
+from nbms_app.services.audit import record_audit_event, suppress_audit_events
 from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
 from nbms_app.services.authorization import (
@@ -9,12 +9,13 @@ from nbms_app.services.authorization import (
     ROLE_DATA_STEWARD,
     ROLE_INDICATOR_LEAD,
     ROLE_SECRETARIAT,
+    is_system_admin,
     user_has_role,
 )
 
 
 def _is_admin(user):
-    return bool(user and (getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN)))
+    return bool(user and (is_system_admin(user) or user_has_role(user, ROLE_ADMIN)))
 
 
 def _require_status(obj, *allowed_statuses):
@@ -38,7 +39,8 @@ def submit_for_review(obj, user):
     _require_status(obj, LifecycleStatus.DRAFT)
     obj.status = LifecycleStatus.PENDING_REVIEW
     obj.review_note = ""
-    obj.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "submit_for_review", obj, metadata={"status": obj.status})
     inc_counter(
         "workflow_transitions_total",
@@ -62,7 +64,8 @@ def approve(obj, user, note=""):
     _require_status(obj, LifecycleStatus.PENDING_REVIEW)
     obj.status = LifecycleStatus.APPROVED
     obj.review_note = note or ""
-    obj.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "approve", obj, metadata={"status": obj.status, "note": obj.review_note})
     inc_counter(
         "workflow_transitions_total",
@@ -88,7 +91,8 @@ def reject(obj, user, note):
     _require_status(obj, LifecycleStatus.PENDING_REVIEW)
     obj.status = LifecycleStatus.DRAFT
     obj.review_note = note
-    obj.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        obj.save(update_fields=["status", "review_note"])
     record_audit_event(user, "reject", obj, metadata={"status": obj.status, "note": obj.review_note})
     inc_counter(
         "workflow_transitions_total",
@@ -111,7 +115,8 @@ def publish(obj, user):
 
     _require_status(obj, LifecycleStatus.APPROVED)
     obj.status = LifecycleStatus.PUBLISHED
-    obj.save(update_fields=["status"])
+    with suppress_audit_events():
+        obj.save(update_fields=["status"])
     record_audit_event(user, "publish", obj, metadata={"status": obj.status})
     inc_counter(
         "workflow_transitions_total",
@@ -134,7 +139,8 @@ def archive(obj, user):
 
     _require_status(obj, LifecycleStatus.PUBLISHED)
     obj.status = LifecycleStatus.ARCHIVED
-    obj.save(update_fields=["status"])
+    with suppress_audit_events():
+        obj.save(update_fields=["status"])
     record_audit_event(user, "archive", obj, metadata={"status": obj.status})
     inc_counter(
         "workflow_transitions_total",

@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -14,6 +15,7 @@ from nbms_app.models import (
     ReportingInstance,
     User,
 )
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_SYSTEM_ADMIN
 
 
 class ReportingFreezeTests(TestCase):
@@ -26,6 +28,10 @@ class ReportingFreezeTests(TestCase):
             organisation=self.org,
             is_staff=True,
         )
+        admin_group, _ = Group.objects.get_or_create(name=ROLE_ADMIN)
+        system_group, _ = Group.objects.get_or_create(name=ROLE_SYSTEM_ADMIN)
+        self.admin.groups.add(admin_group)
+        self.admin.groups.add(system_group)
         self.cycle = ReportingCycle.objects.create(
             code="CYCLE-1",
             title="Cycle 1",

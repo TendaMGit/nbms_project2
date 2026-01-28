@@ -1,0 +1,41 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Indicator Methodologies{% endblock %}
+{% block content %}
+  <h1>Methodology versions for {{ indicator.code }}</h1>
+  <p>{{ indicator.title }}</p>
+
+  <div class="card">
+    <h2>Linked methodology versions</h2>
+    <ul>
+      {% for link in links %}
+        <li>
+          {{ link.methodology_version.methodology.methodology_code }} v{{ link.methodology_version.version }}
+          {% if link.is_primary %}<strong>(primary)</strong>{% endif %}
+          {% if link.notes %}<div class="muted">{{ link.notes }}</div>{% endif %}
+          {% if link.source %}<div class="muted">{{ link.source }}</div>{% endif %}
+          {% if can_manage %}
+            <form method="post" action="{% url 'nbms_app:indicator_methodology_archive' link.id %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit">Archive</button>
+            </form>
+          {% endif %}
+        </li>
+      {% empty %}
+        <li>No methodology versions linked.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if can_manage %}
+    <div class="card">
+      <h2>Add methodology version</h2>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Link methodology</button>
+      </form>
+    </div>
+  {% endif %}
+
+  <p><a href="{% url 'nbms_app:indicator_detail' indicator.uuid %}">Back to indicator</a></p>
+{% endblock %}

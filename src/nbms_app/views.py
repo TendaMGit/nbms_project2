@@ -2,8 +2,7 @@ import logging
 
 from django.conf import settings
 from django.contrib import messages
-from django.contrib.admin.views.decorators import staff_member_required
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
@@ -22,10 +21,13 @@ from nbms_app.forms import (
     DatasetCatalogForm,
     EvidenceForm,
     ExportPackageForm,
+    IndicatorAlignmentForm,
     IndicatorForm,
+    IndicatorMethodologyVersionForm,
     MethodologyForm,
     MethodologyVersionForm,
     MonitoringProgrammeForm,
+    NationalTargetAlignmentForm,
     NationalTargetForm,
     OrganisationForm,
     ReportSectionResponseForm,
@@ -59,12 +61,15 @@ from nbms_app.models import (
     FrameworkIndicator,
     FrameworkTarget,
     Indicator,
+    IndicatorFrameworkIndicatorLink,
+    IndicatorMethodologyVersionLink,
     LifecycleStatus,
     Methodology,
     MethodologyDatasetLink,
     MethodologyVersion,
     MonitoringProgramme,
     NationalTarget,
+    NationalTargetFrameworkTargetLink,
     Organisation,
     ProgrammeDatasetLink,
     ReportSectionResponse,
@@ -94,6 +99,7 @@ from nbms_app.services.authorization import (
     ROLE_SECRETARIAT,
     can_edit_object,
     filter_queryset_for_user,
+    is_system_admin,
     user_has_role,
 )
 from nbms_app.services.catalog_access import (
@@ -109,7 +115,12 @@ from nbms_app.services.catalog_access import (
     filter_organisations_for_user,
     filter_sensitivity_classes_for_user,
 )
-from nbms_app.services.audit import record_audit_event
+from nbms_app.services.audit import (
+    audit_queryset_access,
+    audit_sensitive_access,
+    record_audit_event,
+    suppress_audit_events,
+)
 from nbms_app.services.consent import (
     consent_is_granted,
     consent_status_for_instance,
@@ -124,6 +135,7 @@ from nbms_app.services.instance_approvals import (
     bulk_revoke_for_instance,
     revoke_for_instance,
 )
+from nbms_app.services.lifecycle_service import archive_object, reactivate_object
 from nbms_app.services.readiness import (
     get_evidence_readiness,
     get_export_package_readiness,
@@ -216,7 +228,7 @@ def home(request):
         my_drafts.sort(key=lambda item: item["updated_at"], reverse=True)
 
     pending_review = []
-    if request.user.is_staff:
+    if is_system_admin(request.user) or user_has_role(request.user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_ADMIN):
         pending_review.extend(
             _build_items(
                 NationalTarget.objects.filter(status=LifecycleStatus.PENDING_REVIEW).select_related("created_by"),
@@ -324,6 +336,13 @@ def health_storage(request):
         logger.exception("Storage health check failed.")
         return JsonResponse({"status": "error"}, status=503)
 
+
+def staff_or_system_admin_required(view_func):
+    def _test(user):
+        return bool(user and user.is_authenticated and (user.is_staff or is_system_admin(user)))
+
+    return user_passes_test(_test)(view_func)
+
 def _require_contributor(user):
     if not user or not getattr(user, "is_authenticated", False):
         raise PermissionDenied("Authentication required.")
@@ -337,17 +356,17 @@ def _require_contributor(user):
 def _can_create_data(user):
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+    if is_system_admin(user):
         return True
     return user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD, ROLE_CONTRIBUTOR)
 
 
 def _is_admin_user(user):
-    return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
+    return bool(user and (is_system_admin(user) or user_has_role(user, ROLE_ADMIN)))
 
 
 def _is_catalog_manager(user):
-    return bool(user and (getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN)))
+    return bool(user and (is_system_admin(user) or user_has_role(user, ROLE_ADMIN)))
 
 
 def _require_catalog_manager(user):
@@ -358,8 +377,32 @@ def _require_catalog_manager(user):
     raise PermissionDenied("Not allowed to manage catalog registries.")
 
 
+def _is_alignment_manager(user):
+    return bool(
+        user
+        and (
+            is_system_admin(user)
+            or user_has_role(
+                user,
+                ROLE_ADMIN,
+                ROLE_SECRETARIAT,
+                ROLE_DATA_STEWARD,
+                ROLE_INDICATOR_LEAD,
+            )
+        )
+    )
+
+
+def _require_alignment_manager(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        raise PermissionDenied("Authentication required.")
+    if _is_alignment_manager(user):
+        return
+    raise PermissionDenied("Not allowed to manage alignments.")
+
+
 def _require_section_progress_access(instance, user):
-    if getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN):
+    if is_system_admin(user) or user_has_role(user, ROLE_ADMIN):
         return
     approvals_exist = InstanceExportApproval.objects.filter(
         reporting_instance=instance,
@@ -399,7 +442,7 @@ def _can_manage_consent(user):
 def _require_export_creator(user):
     if not user or not getattr(user, "is_authenticated", False):
         raise PermissionDenied("Authentication required.")
-    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+    if is_system_admin(user):
         return
     if user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD):
         return
@@ -409,14 +452,14 @@ def _require_export_creator(user):
 def _can_create_export(user):
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+    if is_system_admin(user):
         return True
     return user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD)
 
 
 def _export_queryset_for_user(user):
     packages = ExportPackage.objects.select_related("organisation", "created_by").order_by("-created_at")
-    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+    if is_system_admin(user):
         return packages
     if not user or not getattr(user, "is_authenticated", False):
         return packages.none()
@@ -506,7 +549,7 @@ def _approval_state_for_instance(instance, user, obj_type=None, obj_uuid=None):
     return state
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_organisation_list(request):
     organisations = Organisation.objects.order_by("name")
     return render(
@@ -516,7 +559,7 @@ def manage_organisation_list(request):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_organisation_create(request):
     form = OrganisationForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -526,7 +569,7 @@ def manage_organisation_create(request):
     return render(request, "nbms_app/manage/organisation_form.html", {"form": form, "mode": "create"})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_organisation_edit(request, org_id):
     organisation = get_object_or_404(Organisation, pk=org_id)
     form = OrganisationForm(request.POST or None, instance=organisation)
@@ -541,7 +584,7 @@ def manage_organisation_edit(request, org_id):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_user_list(request):
     org_filter = request.GET.get("org")
     users = User.objects.select_related("organisation").prefetch_related("groups").order_by("username")
@@ -555,7 +598,7 @@ def manage_user_list(request):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_user_create(request):
     form = UserCreateForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -565,7 +608,7 @@ def manage_user_create(request):
     return render(request, "nbms_app/manage/user_form.html", {"form": form, "mode": "create"})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_user_edit(request, user_id):
     user = get_object_or_404(User, pk=user_id)
     form = UserUpdateForm(request.POST or None, instance=user)
@@ -580,7 +623,7 @@ def manage_user_edit(request, user_id):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def manage_user_send_reset(request, user_id):
     if request.method != "POST":
         return redirect("nbms_app:manage_user_list")
@@ -607,10 +650,13 @@ def manage_user_send_reset(request, user_id):
 
 def national_target_list(request):
     targets = filter_queryset_for_user(
-        NationalTarget.objects.select_related("organisation", "created_by").order_by("code"),
+        NationalTarget.objects.select_related("organisation", "created_by")
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("code"),
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
+    targets = audit_queryset_access(request, targets, action="list")
     return render(
         request,
         "nbms_app/targets/nationaltarget_list.html",
@@ -625,6 +671,7 @@ def national_target_detail(request, target_uuid):
         perm="nbms_app.view_nationaltarget",
     )
     target = get_object_or_404(targets, uuid=target_uuid)
+    audit_sensitive_access(request, target)
     can_edit = can_edit_object(request.user, target) and _status_allows_edit(target, request.user)
     current_instance = _current_reporting_instance(request)
     readiness = get_target_readiness(target, request.user, instance=current_instance)
@@ -718,8 +765,8 @@ def national_target_detail(request, target_uuid):
 @login_required
 def national_target_create(request):
     _require_contributor(request.user)
-    form = NationalTargetForm(request.POST or None)
-    if not request.user.is_staff:
+    form = NationalTargetForm(request.POST or None, user=request.user)
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         target = form.save(commit=False)
@@ -745,8 +792,8 @@ def national_target_edit(request, target_uuid):
         raise PermissionDenied("Not allowed to edit this national target.")
     if not _status_allows_edit(target, request.user):
         raise PermissionDenied("National target cannot be edited at this status.")
-    form = NationalTargetForm(request.POST or None, instance=target)
-    if not request.user.is_staff:
+    form = NationalTargetForm(request.POST or None, instance=target, user=request.user)
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -761,13 +808,16 @@ def national_target_edit(request, target_uuid):
 
 def indicator_list(request):
     indicators = filter_queryset_for_user(
-        Indicator.objects.select_related("national_target", "organisation", "created_by").order_by("code"),
+        Indicator.objects.select_related("national_target", "organisation", "created_by")
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("code"),
         request.user,
         perm="nbms_app.view_indicator",
     )
     target_uuid = request.GET.get("target")
     if target_uuid:
         indicators = indicators.filter(national_target__uuid=target_uuid)
+    indicators = audit_queryset_access(request, indicators, action="list")
     return render(
         request,
         "nbms_app/indicators/indicator_list.html",
@@ -782,6 +832,7 @@ def indicator_detail(request, indicator_uuid):
         perm="nbms_app.view_indicator",
     )
     indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    audit_sensitive_access(request, indicator)
     can_edit = can_edit_object(request.user, indicator) and _status_allows_edit(indicator, request.user)
     current_instance = _current_reporting_instance(request)
     readiness = get_indicator_readiness(indicator, request.user, instance=current_instance)
@@ -857,15 +908,237 @@ def indicator_detail(request, indicator_uuid):
 
 
 @login_required
+def national_target_alignments(request, target_uuid):
+    targets = filter_queryset_for_user(
+        NationalTarget.objects.select_related("organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    audit_sensitive_access(request, target)
+    frameworks = filter_queryset_for_user(
+        Framework.objects.exclude(status=LifecycleStatus.ARCHIVED),
+        request.user,
+        perm="nbms_app.view_framework",
+    ).order_by("code")
+    selected_framework_uuid = request.GET.get("framework") or ""
+    selected_framework = None
+    if selected_framework_uuid:
+        selected_framework = frameworks.filter(uuid=selected_framework_uuid).first()
+    form = NationalTargetAlignmentForm(
+        request.POST or None,
+        user=request.user,
+        framework_id=selected_framework.id if selected_framework else None,
+    )
+    if request.method == "POST":
+        _require_alignment_manager(request.user)
+        if form.is_valid():
+            framework_target = form.cleaned_data["framework_target"]
+            link = NationalTargetFrameworkTargetLink.objects.filter(
+                national_target=target,
+                framework_target=framework_target,
+            ).first()
+            if link:
+                was_active = link.is_active
+                link.relation_type = form.cleaned_data["relation_type"]
+                link.confidence = form.cleaned_data["confidence"]
+                link.notes = form.cleaned_data["notes"]
+                link.source = form.cleaned_data["source"]
+                link.save()
+                if not was_active:
+                    reactivate_object(request.user, link, request=request)
+            else:
+                link = form.save(commit=False)
+                link.national_target = target
+                link.save()
+            messages.success(request, "Alignment saved.")
+            return redirect("nbms_app:national_target_alignments", target_uuid=target.uuid)
+    links = (
+        NationalTargetFrameworkTargetLink.objects.filter(national_target=target, is_active=True)
+        .select_related("framework_target", "framework_target__framework")
+        .order_by("framework_target__framework__code", "framework_target__code")
+    )
+    if selected_framework:
+        links = links.filter(framework_target__framework=selected_framework)
+    return render(
+        request,
+        "nbms_app/alignments/national_target_alignments.html",
+        {
+            "target": target,
+            "links": links,
+            "form": form,
+            "frameworks": frameworks,
+            "selected_framework": selected_framework,
+            "can_manage": _is_alignment_manager(request.user),
+        },
+    )
+
+
+@login_required
+@require_POST
+def national_target_alignment_archive(request, link_id):
+    _require_alignment_manager(request.user)
+    links = NationalTargetFrameworkTargetLink.objects.select_related(
+        "national_target",
+        "framework_target",
+    ).filter(is_active=True)
+    link = get_object_or_404(links, id=link_id)
+    archive_object(request.user, link, request=request)
+    messages.success(request, "Alignment archived.")
+    return redirect("nbms_app:national_target_alignments", target_uuid=link.national_target.uuid)
+
+
+@login_required
+def indicator_alignments(request, indicator_uuid):
+    indicators = filter_queryset_for_user(
+        Indicator.objects.select_related("national_target", "organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    audit_sensitive_access(request, indicator)
+    frameworks = filter_queryset_for_user(
+        Framework.objects.exclude(status=LifecycleStatus.ARCHIVED),
+        request.user,
+        perm="nbms_app.view_framework",
+    ).order_by("code")
+    selected_framework_uuid = request.GET.get("framework") or ""
+    selected_framework = None
+    if selected_framework_uuid:
+        selected_framework = frameworks.filter(uuid=selected_framework_uuid).first()
+    form = IndicatorAlignmentForm(
+        request.POST or None,
+        user=request.user,
+        framework_id=selected_framework.id if selected_framework else None,
+    )
+    if request.method == "POST":
+        _require_alignment_manager(request.user)
+        if form.is_valid():
+            framework_indicator = form.cleaned_data["framework_indicator"]
+            link = IndicatorFrameworkIndicatorLink.objects.filter(
+                indicator=indicator,
+                framework_indicator=framework_indicator,
+            ).first()
+            if link:
+                was_active = link.is_active
+                link.relation_type = form.cleaned_data["relation_type"]
+                link.confidence = form.cleaned_data["confidence"]
+                link.notes = form.cleaned_data["notes"]
+                link.source = form.cleaned_data["source"]
+                link.save()
+                if not was_active:
+                    reactivate_object(request.user, link, request=request)
+            else:
+                link = form.save(commit=False)
+                link.indicator = indicator
+                link.save()
+            messages.success(request, "Alignment saved.")
+            return redirect("nbms_app:indicator_alignments", indicator_uuid=indicator.uuid)
+    links = (
+        IndicatorFrameworkIndicatorLink.objects.filter(indicator=indicator, is_active=True)
+        .select_related("framework_indicator", "framework_indicator__framework")
+        .order_by("framework_indicator__framework__code", "framework_indicator__code")
+    )
+    if selected_framework:
+        links = links.filter(framework_indicator__framework=selected_framework)
+    return render(
+        request,
+        "nbms_app/alignments/indicator_alignments.html",
+        {
+            "indicator": indicator,
+            "links": links,
+            "form": form,
+            "frameworks": frameworks,
+            "selected_framework": selected_framework,
+            "can_manage": _is_alignment_manager(request.user),
+        },
+    )
+
+
+@login_required
+@require_POST
+def indicator_alignment_archive(request, link_id):
+    _require_alignment_manager(request.user)
+    links = IndicatorFrameworkIndicatorLink.objects.select_related(
+        "indicator",
+        "framework_indicator",
+    ).filter(is_active=True)
+    link = get_object_or_404(links, id=link_id)
+    archive_object(request.user, link, request=request)
+    messages.success(request, "Alignment archived.")
+    return redirect("nbms_app:indicator_alignments", indicator_uuid=link.indicator.uuid)
+
+
+@login_required
+def indicator_methodology_versions(request, indicator_uuid):
+    indicators = filter_queryset_for_user(
+        Indicator.objects.select_related("national_target", "organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_indicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    audit_sensitive_access(request, indicator)
+    form = IndicatorMethodologyVersionForm(request.POST or None, user=request.user)
+    if request.method == "POST":
+        _require_alignment_manager(request.user)
+        if form.is_valid():
+            version = form.cleaned_data["methodology_version"]
+            link = IndicatorMethodologyVersionLink.objects.filter(
+                indicator=indicator,
+                methodology_version=version,
+            ).first()
+            if link:
+                was_active = link.is_active
+                link.is_primary = form.cleaned_data["is_primary"]
+                link.notes = form.cleaned_data["notes"]
+                link.source = form.cleaned_data["source"]
+                link.save()
+                if not was_active:
+                    reactivate_object(request.user, link, request=request)
+            else:
+                link = form.save(commit=False)
+                link.indicator = indicator
+                link.save()
+            messages.success(request, "Methodology version linked.")
+            return redirect("nbms_app:indicator_methodologies", indicator_uuid=indicator.uuid)
+    links = (
+        IndicatorMethodologyVersionLink.objects.filter(indicator=indicator, is_active=True)
+        .select_related("methodology_version", "methodology_version__methodology")
+        .order_by("-is_primary", "methodology_version__methodology__methodology_code", "methodology_version__version")
+    )
+    return render(
+        request,
+        "nbms_app/alignments/indicator_methodologies.html",
+        {
+            "indicator": indicator,
+            "links": links,
+            "form": form,
+            "can_manage": _is_alignment_manager(request.user),
+        },
+    )
+
+
+@login_required
+@require_POST
+def indicator_methodology_archive(request, link_id):
+    _require_alignment_manager(request.user)
+    links = IndicatorMethodologyVersionLink.objects.select_related("indicator").filter(is_active=True)
+    link = get_object_or_404(links, id=link_id)
+    archive_object(request.user, link, request=request)
+    messages.success(request, "Methodology link archived.")
+    return redirect("nbms_app:indicator_methodologies", indicator_uuid=link.indicator.uuid)
+
+
+@login_required
 def indicator_create(request):
     _require_contributor(request.user)
-    form = IndicatorForm(request.POST or None)
+    form = IndicatorForm(request.POST or None, user=request.user)
     form.fields["national_target"].queryset = filter_queryset_for_user(
         NationalTarget.objects.order_by("code"),
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
-    if not request.user.is_staff:
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         indicator = form.save(commit=False)
@@ -891,13 +1164,13 @@ def indicator_edit(request, indicator_uuid):
         raise PermissionDenied("Not allowed to edit this indicator.")
     if not _status_allows_edit(indicator, request.user):
         raise PermissionDenied("Indicator cannot be edited at this status.")
-    form = IndicatorForm(request.POST or None, instance=indicator)
+    form = IndicatorForm(request.POST or None, instance=indicator, user=request.user)
     form.fields["national_target"].queryset = filter_queryset_for_user(
         NationalTarget.objects.order_by("code"),
         request.user,
         perm="nbms_app.view_nationaltarget",
     )
-    if not request.user.is_staff:
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -916,6 +1189,7 @@ def evidence_list(request):
         request.user,
         perm="nbms_app.view_evidence",
     )
+    evidence_items = audit_queryset_access(request, evidence_items, action="list")
     return render(request, "nbms_app/evidence/evidence_list.html", {"evidence_items": evidence_items})
 
 
@@ -926,6 +1200,7 @@ def evidence_detail(request, evidence_uuid):
         perm="nbms_app.view_evidence",
     )
     evidence = get_object_or_404(evidence_qs, uuid=evidence_uuid)
+    audit_sensitive_access(request, evidence)
     can_edit = can_edit_object(request.user, evidence) if request.user.is_authenticated else False
     current_instance = _current_reporting_instance(request)
     readiness = get_evidence_readiness(evidence, request.user, instance=current_instance)
@@ -1004,7 +1279,7 @@ def evidence_detail(request, evidence_uuid):
 def evidence_create(request):
     _require_contributor(request.user)
     form = EvidenceForm(request.POST or None, request.FILES or None)
-    if not request.user.is_staff:
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         evidence = form.save(commit=False)
@@ -1029,7 +1304,7 @@ def evidence_edit(request, evidence_uuid):
     if not can_edit_object(request.user, evidence):
         raise PermissionDenied("Not allowed to edit this evidence.")
     form = EvidenceForm(request.POST or None, request.FILES or None, instance=evidence)
-    if not request.user.is_staff:
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         form.save()
@@ -1085,6 +1360,7 @@ def dataset_list(request):
         ).order_by("dataset_code"),
         request.user,
     )
+    datasets = audit_queryset_access(request, datasets, action="list")
     return render(request, "nbms_app/datasets/dataset_list.html", {"datasets": datasets})
 
 
@@ -1099,6 +1375,7 @@ def dataset_detail(request, dataset_uuid):
         request.user,
     )
     dataset = get_object_or_404(datasets, uuid=dataset_uuid)
+    audit_sensitive_access(request, dataset)
     can_edit = can_edit_dataset_catalog(request.user, dataset) if request.user.is_authenticated else False
     allowed_programmes = filter_monitoring_programmes_for_user(MonitoringProgramme.objects.all(), request.user)
     allowed_methodologies = filter_methodologies_for_user(Methodology.objects.all(), request.user)
@@ -1190,6 +1467,7 @@ def monitoring_programme_list(request):
         MonitoringProgramme.objects.select_related("lead_org", "sensitivity_class").order_by("programme_code"),
         request.user,
     )
+    programmes = audit_queryset_access(request, programmes, action="list")
     return render(
         request,
         "nbms_app/catalog/monitoring_programme_list.html",
@@ -1203,6 +1481,7 @@ def monitoring_programme_detail(request, programme_uuid):
         request.user,
     )
     programme = get_object_or_404(programmes, uuid=programme_uuid)
+    audit_sensitive_access(request, programme)
     can_edit = can_edit_monitoring_programme(request.user, programme) if request.user.is_authenticated else False
     allowed_datasets = filter_dataset_catalog_for_user(DatasetCatalog.objects.all(), request.user)
     allowed_indicators = filter_queryset_for_user(
@@ -1271,6 +1550,7 @@ def methodology_list(request):
         Methodology.objects.select_related("owner_org").order_by("methodology_code"),
         request.user,
     )
+    methodologies = audit_queryset_access(request, methodologies, action="list")
     return render(
         request,
         "nbms_app/catalog/methodology_list.html",
@@ -1284,6 +1564,7 @@ def methodology_detail(request, methodology_uuid):
         request.user,
     )
     methodology = get_object_or_404(methodologies, uuid=methodology_uuid)
+    audit_sensitive_access(request, methodology)
     can_edit = can_edit_methodology(request.user, methodology) if request.user.is_authenticated else False
     versions = methodology.versions.order_by("-effective_date", "-created_at")
     allowed_datasets = filter_dataset_catalog_for_user(DatasetCatalog.objects.all(), request.user)
@@ -1354,6 +1635,7 @@ def methodology_version_list(request):
     versions = MethodologyVersion.objects.select_related("methodology").filter(
         methodology_id__in=methodology_ids
     ).order_by("methodology__methodology_code", "-effective_date", "-created_at")
+    versions = audit_queryset_access(request, versions, action="list")
     return render(
         request,
         "nbms_app/catalog/methodology_version_list.html",
@@ -1382,6 +1664,7 @@ def methodology_version_edit(request, version_uuid):
     methodology_ids = list(methodologies.values_list("id", flat=True))
     versions = MethodologyVersion.objects.select_related("methodology").filter(methodology_id__in=methodology_ids)
     version = get_object_or_404(versions, uuid=version_uuid)
+    audit_sensitive_access(request, version, action="edit")
     if not can_edit_methodology(request.user, version.methodology):
         raise PermissionDenied("Not allowed to edit this methodology version.")
     form = MethodologyVersionForm(request.POST or None, instance=version, user=request.user)
@@ -1401,6 +1684,7 @@ def data_agreement_list(request):
         DataAgreement.objects.prefetch_related("parties").order_by("agreement_code"),
         request.user,
     )
+    agreements = audit_queryset_access(request, agreements, action="list")
     return render(
         request,
         "nbms_app/catalog/data_agreement_list.html",
@@ -1414,6 +1698,7 @@ def data_agreement_detail(request, agreement_uuid):
         request.user,
     )
     agreement = get_object_or_404(agreements, uuid=agreement_uuid)
+    audit_sensitive_access(request, agreement)
     can_edit = can_edit_data_agreement(request.user, agreement) if request.user.is_authenticated else False
     return render(
         request,
@@ -1472,6 +1757,7 @@ def sensitivity_class_detail(request, class_uuid):
         request.user,
     )
     sensitivity_class = get_object_or_404(classes, uuid=class_uuid)
+    audit_sensitive_access(request, sensitivity_class)
     can_edit = can_edit_sensitivity_class(request.user, sensitivity_class) if request.user.is_authenticated else False
     return render(
         request,
@@ -1537,7 +1823,9 @@ def framework_detail(request, framework_uuid):
         perm="nbms_app.view_framework",
     )
     framework = get_object_or_404(frameworks, uuid=framework_uuid)
-    goals = FrameworkGoal.objects.filter(framework=framework, is_active=True).order_by("sort_order", "code")
+    goals = FrameworkGoal.objects.filter(framework=framework).exclude(status=LifecycleStatus.ARCHIVED).order_by(
+        "sort_order", "code"
+    )
     targets = filter_queryset_for_user(
         FrameworkTarget.objects.filter(framework=framework)
         .exclude(status=LifecycleStatus.ARCHIVED)
@@ -1575,9 +1863,9 @@ def framework_goal_list(request):
             "id", flat=True
         )
     )
-    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids, is_active=True).order_by(
-        "framework__code", "sort_order"
-    )
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids).exclude(
+        status=LifecycleStatus.ARCHIVED
+    ).order_by("framework__code", "sort_order")
     query = request.GET.get("q")
     if query:
         goals = goals.filter(Q(code__icontains=query) | Q(title__icontains=query))
@@ -1598,7 +1886,7 @@ def framework_goal_detail(request, goal_uuid):
             "id", flat=True
         )
     )
-    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids, is_active=True)
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids).exclude(status=LifecycleStatus.ARCHIVED)
     goal = get_object_or_404(goals, uuid=goal_uuid)
     targets = filter_queryset_for_user(
         FrameworkTarget.objects.filter(goal=goal).exclude(status=LifecycleStatus.ARCHIVED).order_by("code"),
@@ -1736,8 +2024,7 @@ def framework_archive(request, framework_uuid):
         perm="nbms_app.view_framework",
     )
     framework = get_object_or_404(frameworks, uuid=framework_uuid)
-    framework.status = LifecycleStatus.ARCHIVED
-    framework.save(update_fields=["status"])
+    archive_object(request.user, framework, request=request)
     messages.success(request, "Framework archived.")
     return redirect("nbms_app:framework_list")
 
@@ -1747,7 +2034,12 @@ def framework_goal_create(request):
     _require_catalog_manager(request.user)
     form = FrameworkGoalCatalogForm(request.POST or None, user=request.user)
     if request.method == "POST" and form.is_valid():
-        goal = form.save()
+        goal = form.save(commit=False)
+        if not goal.created_by:
+            goal.created_by = request.user
+        if not goal.organisation and getattr(request.user, "organisation", None):
+            goal.organisation = request.user.organisation
+        goal.save()
         messages.success(request, "Framework goal created.")
         return redirect("nbms_app:framework_goal_detail", goal_uuid=goal.uuid)
     return render(request, "nbms_app/frameworks/framework_goal_form.html", {"form": form, "mode": "create"})
@@ -1796,8 +2088,7 @@ def framework_goal_archive(request, goal_uuid):
     )
     goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids)
     goal = get_object_or_404(goals, uuid=goal_uuid)
-    goal.is_active = False
-    goal.save(update_fields=["is_active"])
+    archive_object(request.user, goal, request=request)
     messages.success(request, "Framework goal archived.")
     return redirect("nbms_app:framework_goal_list")
 
@@ -1855,8 +2146,7 @@ def framework_target_archive(request, target_uuid):
         perm="nbms_app.view_frameworktarget",
     )
     target = get_object_or_404(targets, uuid=target_uuid)
-    target.status = LifecycleStatus.ARCHIVED
-    target.save(update_fields=["status"])
+    archive_object(request.user, target, request=request)
     messages.success(request, "Framework target archived.")
     return redirect("nbms_app:framework_target_list")
 
@@ -1918,8 +2208,7 @@ def framework_indicator_archive(request, indicator_uuid):
         perm="nbms_app.view_frameworkindicator",
     )
     indicator = get_object_or_404(indicators, uuid=indicator_uuid)
-    indicator.status = LifecycleStatus.ARCHIVED
-    indicator.save(update_fields=["status"])
+    archive_object(request.user, indicator, request=request)
     messages.success(request, "Framework indicator archived.")
     return redirect("nbms_app:framework_indicator_list")
 
@@ -1934,7 +2223,7 @@ def export_package_list(request):
 def export_package_create(request):
     _require_export_creator(request.user)
     form = ExportPackageForm(request.POST or None)
-    if not request.user.is_staff:
+    if not is_system_admin(request.user):
         form.fields["organisation"].disabled = True
     if request.method == "POST" and form.is_valid():
         package = form.save(commit=False)
@@ -1951,9 +2240,13 @@ def export_package_create(request):
 @login_required
 def export_package_detail(request, package_uuid):
     package = get_object_or_404(_export_queryset_for_user(request.user), uuid=package_uuid)
-    can_submit = package.created_by_id == request.user.id or user_has_role(request.user, ROLE_SECRETARIAT)
-    can_review = user_has_role(request.user, ROLE_DATA_STEWARD, ROLE_SECRETARIAT) or request.user.is_staff
-    can_release = user_has_role(request.user, ROLE_SECRETARIAT) or request.user.is_staff
+    can_submit = (
+        package.created_by_id == request.user.id
+        or user_has_role(request.user, ROLE_SECRETARIAT)
+        or is_system_admin(request.user)
+    )
+    can_review = user_has_role(request.user, ROLE_DATA_STEWARD, ROLE_SECRETARIAT) or is_system_admin(request.user)
+    can_release = user_has_role(request.user, ROLE_SECRETARIAT) or is_system_admin(request.user)
     readiness = get_export_package_readiness(package, request.user)
     eligibility_checks = [
         {
@@ -2057,7 +2350,7 @@ def export_package_download(request, package_uuid):
     return response
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def export_ort_nr7_narrative_instance(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     try:
@@ -2066,10 +2359,17 @@ def export_ort_nr7_narrative_instance(request, instance_uuid):
         return JsonResponse({"error": str(exc)}, status=403)
     except ValidationError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
+    record_audit_event(
+        request.user,
+        "export_nr7_narrative",
+        instance,
+        metadata={"download": False},
+        request=request,
+    )
     return JsonResponse(payload, json_dumps_params={"indent": 2})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def export_ort_nr7_v2_instance(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     try:
@@ -2079,18 +2379,26 @@ def export_ort_nr7_v2_instance(request, instance_uuid):
     except ValidationError as exc:
         return JsonResponse({"error": str(exc)}, status=400)
     response = JsonResponse(payload, json_dumps_params={"indent": 2})
-    if str(request.GET.get("download", "")).lower() in {"1", "true", "yes"}:
+    download = str(request.GET.get("download", "")).lower() in {"1", "true", "yes"}
+    record_audit_event(
+        request.user,
+        "export_nr7_v2",
+        instance,
+        metadata={"download": bool(download)},
+        request=request,
+    )
+    if download:
         response["Content-Disposition"] = f'attachment; filename="ort-nr7-v2-{instance.uuid}.json"'
     return response
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_cycle_list(request):
     cycles = ReportingCycle.objects.order_by("-start_date", "code")
     return render(request, "nbms_app/reporting/cycle_list.html", {"cycles": cycles})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_cycle_create(request):
     form = ReportingCycleForm(request.POST or None)
     if request.method == "POST" and form.is_valid():
@@ -2100,7 +2408,7 @@ def reporting_cycle_create(request):
     return render(request, "nbms_app/reporting/cycle_form.html", {"form": form, "mode": "create"})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_cycle_detail(request, cycle_uuid):
     cycle = get_object_or_404(ReportingCycle, uuid=cycle_uuid)
     instances = cycle.instances.order_by("-created_at")
@@ -2111,7 +2419,7 @@ def reporting_cycle_detail(request, cycle_uuid):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_create(request):
     cycle_uuid = request.GET.get("cycle")
     initial = {}
@@ -2126,7 +2434,7 @@ def reporting_instance_create(request):
     return render(request, "nbms_app/reporting/instance_form.html", {"form": form, "mode": "create"})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_detail(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
     readiness = get_instance_readiness(instance, request.user)
@@ -2473,10 +2781,8 @@ def build_report_pack_context(instance, user):
     }
 
 
+@staff_or_system_admin_required
 def reporting_instance_report_pack(request, instance_uuid):
-    if not request.user.is_staff:
-        raise PermissionDenied("Staff-only action.")
-
     instance = get_object_or_404(
         ReportingInstance.objects.select_related("cycle", "frozen_by"),
         uuid=instance_uuid,
@@ -2485,7 +2791,7 @@ def reporting_instance_report_pack(request, instance_uuid):
     return render(request, "nbms_app/reporting/report_pack.html", context)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_review(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2517,7 +2823,7 @@ def reporting_instance_review(request, instance_uuid):
     return render(request, "nbms_app/reporting/review_dashboard.html", context)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_review_pack_v2(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2561,7 +2867,7 @@ def _snapshot_counts(payload):
     }
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_snapshots(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2577,7 +2883,7 @@ def reporting_instance_snapshots(request, instance_uuid):
     return render(request, "nbms_app/reporting/snapshots_list.html", context)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_snapshot_create(request, instance_uuid):
     if request.method != "POST":
         return redirect("nbms_app:reporting_instance_snapshots", instance_uuid=instance_uuid)
@@ -2587,19 +2893,13 @@ def reporting_instance_snapshot_create(request, instance_uuid):
     note = request.POST.get("note", "").strip()
     try:
         snapshot = create_reporting_snapshot(instance=instance, user=request.user, note=note)
-        record_audit_event(
-            request.user,
-            "reporting_snapshot_create",
-            snapshot,
-            metadata={"instance_uuid": str(instance.uuid), "snapshot_type": snapshot.snapshot_type},
-        )
         messages.success(request, "Snapshot created.")
     except (PermissionDenied, ValidationError) as exc:
         messages.error(request, str(exc))
     return redirect("nbms_app:reporting_instance_snapshots", instance_uuid=instance.uuid)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_snapshot_detail(request, instance_uuid, snapshot_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2607,6 +2907,12 @@ def reporting_instance_snapshot_detail(request, instance_uuid, snapshot_uuid):
         ReportingSnapshot.objects.select_related("created_by"),
         reporting_instance=instance,
         uuid=snapshot_uuid,
+    )
+    record_audit_event(
+        request.user,
+        "snapshot_view",
+        snapshot,
+        metadata={"instance_uuid": str(instance.uuid)},
     )
     context = {
         "instance": instance,
@@ -2616,7 +2922,7 @@ def reporting_instance_snapshot_detail(request, instance_uuid, snapshot_uuid):
     return render(request, "nbms_app/reporting/snapshot_detail.html", context)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_snapshot_download(request, instance_uuid, snapshot_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2625,12 +2931,18 @@ def reporting_instance_snapshot_download(request, instance_uuid, snapshot_uuid):
         reporting_instance=instance,
         uuid=snapshot_uuid,
     )
+    record_audit_event(
+        request.user,
+        "snapshot_download",
+        snapshot,
+        metadata={"instance_uuid": str(instance.uuid)},
+    )
     response = JsonResponse(snapshot.payload_json, json_dumps_params={"indent": 2})
     response["Content-Disposition"] = f'attachment; filename="snapshot-{snapshot.uuid}.json"'
     return response
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_snapshot_diff(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2655,6 +2967,16 @@ def reporting_instance_snapshot_diff(request, instance_uuid):
     if snapshot_a and snapshot_b:
         diff = diff_snapshots(snapshot_a.payload_json, snapshot_b.payload_json)
         readiness_diff = diff_snapshot_readiness(snapshot_a, snapshot_b)
+        record_audit_event(
+            request.user,
+            "snapshot_diff",
+            snapshot_b,
+            metadata={
+                "instance_uuid": str(instance.uuid),
+                "snapshot_a": str(snapshot_a.uuid),
+                "snapshot_b": str(snapshot_b.uuid),
+            },
+        )
 
     context = {
         "instance": instance,
@@ -2667,7 +2989,7 @@ def reporting_instance_snapshot_diff(request, instance_uuid):
     return render(request, "nbms_app/reporting/snapshot_diff.html", context)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_review_decisions(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     decisions = review_decisions_for_user(instance, request.user)
@@ -2683,7 +3005,7 @@ def reporting_instance_review_decisions(request, instance_uuid):
     return render(request, "nbms_app/reporting/review_decisions_list.html", context)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_review_decision_create(request, instance_uuid):
     if request.method != "POST":
         return redirect("nbms_app:reporting_instance_review_decisions", instance_uuid=instance_uuid)
@@ -2707,16 +3029,6 @@ def reporting_instance_review_decision_create(request, instance_uuid):
             decision=decision_value,
             notes=notes,
         )
-        record_audit_event(
-            request.user,
-            "review_decision_create",
-            decision,
-            metadata={
-                "instance_uuid": str(instance.uuid),
-                "snapshot_uuid": str(decision.snapshot.uuid),
-                "decision": decision.decision,
-            },
-        )
         messages.success(request, "Review decision recorded.")
     except PermissionDenied:
         raise
@@ -2730,7 +3042,7 @@ def reporting_instance_review_decision_create(request, instance_uuid):
     return redirect(next_url)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_set_current_instance(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     request.session["current_reporting_instance_uuid"] = str(instance.uuid)
@@ -2740,7 +3052,7 @@ def reporting_set_current_instance(request, instance_uuid):
     return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_clear_current_instance(request):
     request.session.pop("current_reporting_instance_uuid", None)
     next_url = request.GET.get("next") or request.META.get("HTTP_REFERER")
@@ -2749,7 +3061,7 @@ def reporting_clear_current_instance(request):
     return redirect("nbms_app:home")
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_sections(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     readiness = get_instance_readiness(instance, request.user)
@@ -2768,7 +3080,7 @@ def reporting_instance_sections(request, instance_uuid):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_section_edit(request, instance_uuid, section_code):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     template = get_object_or_404(ReportSectionTemplate, code=section_code, is_active=True)
@@ -2776,7 +3088,7 @@ def reporting_instance_section_edit(request, instance_uuid, section_code):
     initial_data = response.response_json if response else {}
     form = ReportSectionResponseForm(request.POST or None, template=template, initial_data=initial_data)
 
-    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
     read_only = bool(instance.frozen_at and not admin_override)
     if read_only:
         for field in form.fields.values():
@@ -2808,7 +3120,7 @@ def reporting_instance_section_edit(request, instance_uuid, section_code):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_section_preview(request, instance_uuid, section_code):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     template = get_object_or_404(ReportSectionTemplate, code=section_code, is_active=True)
@@ -2834,7 +3146,7 @@ def reporting_instance_section_preview(request, instance_uuid, section_code):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_section_iii(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2850,7 +3162,7 @@ def reporting_instance_section_iii(request, instance_uuid):
     entry_map = {entry.national_target_id: entry for entry in entries}
     items = [{"target": target, "entry": entry_map.get(target.id)} for target in targets]
 
-    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
     read_only = bool(instance.frozen_at and not admin_override)
     return render(
         request,
@@ -2859,7 +3171,7 @@ def reporting_instance_section_iii(request, instance_uuid):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_section_iii_edit(request, instance_uuid, target_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2875,7 +3187,7 @@ def reporting_instance_section_iii_edit(request, instance_uuid, target_uuid):
         reporting_instance=instance,
     )
 
-    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
     read_only = bool(instance.frozen_at and not admin_override)
     if read_only:
         for field in form.fields.values():
@@ -2905,7 +3217,7 @@ def reporting_instance_section_iii_edit(request, instance_uuid, target_uuid):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_section_iv(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2921,7 +3233,7 @@ def reporting_instance_section_iv(request, instance_uuid):
     entry_map = {entry.framework_target_id: entry for entry in entries}
     items = [{"target": target, "entry": entry_map.get(target.id)} for target in targets]
 
-    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
     read_only = bool(instance.frozen_at and not admin_override)
     return render(
         request,
@@ -2930,7 +3242,7 @@ def reporting_instance_section_iv(request, instance_uuid):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_section_iv_edit(request, instance_uuid, framework_target_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
@@ -2946,7 +3258,7 @@ def reporting_instance_section_iv_edit(request, instance_uuid, framework_target_
         reporting_instance=instance,
     )
 
-    admin_override = bool(getattr(request.user, "is_superuser", False) or user_has_role(request.user, ROLE_ADMIN))
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
     read_only = bool(instance.frozen_at and not admin_override)
     if read_only:
         for field in form.fields.values():
@@ -3025,12 +3337,6 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
 
     if action == "approve":
         approve_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)
-        record_audit_event(
-            request.user,
-            "instance_export_approve",
-            obj,
-            metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.APPROVED},
-        )
         if instance.frozen_at and admin_override and _is_admin_user(request.user):
             record_audit_event(
                 request.user,
@@ -3046,12 +3352,6 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
         messages.success(request, "Approval recorded.")
     elif action == "revoke":
         revoke_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)
-        record_audit_event(
-            request.user,
-            "instance_export_revoke",
-            obj,
-            metadata={"instance_uuid": str(instance.uuid), "decision": ApprovalDecision.REVOKED},
-        )
         if instance.frozen_at and admin_override and _is_admin_user(request.user):
             record_audit_event(
                 request.user,
@@ -3078,8 +3378,6 @@ def reporting_instance_approval_bulk(request, instance_uuid):
 
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     approvals_base = reverse("nbms_app:reporting_instance_approvals", kwargs={"instance_uuid": instance.uuid})
-    if not (request.user.is_staff or request.user.is_superuser):
-        raise PermissionDenied("Staff-only action.")
     if not can_approve_instance(request.user):
         raise PermissionDenied("Not allowed to approve.")
 
@@ -3166,12 +3464,6 @@ def reporting_instance_approval_bulk(request, instance_uuid):
         approved = result["approved"]
         skipped = result["skipped"]
         for obj, _approval in approved:
-            record_audit_event(
-                request.user,
-                "instance_export_approve",
-                obj,
-                metadata={"instance_uuid": str(instance.uuid), "bulk": True, "decision": ApprovalDecision.APPROVED},
-            )
             create_notification(
                 getattr(obj, "created_by", None),
                 f"Export approved for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
@@ -3201,12 +3493,6 @@ def reporting_instance_approval_bulk(request, instance_uuid):
             admin_override=admin_override,
         )
         for obj, _approval in revoked:
-            record_audit_event(
-                request.user,
-                "instance_export_revoke",
-                obj,
-                metadata={"instance_uuid": str(instance.uuid), "bulk": True, "decision": ApprovalDecision.REVOKED},
-            )
             create_notification(
                 getattr(obj, "created_by", None),
                 f"Export approval revoked for {obj.__class__.__name__}: {getattr(obj, 'code', None) or getattr(obj, 'title', '')}",
@@ -3295,7 +3581,7 @@ def reporting_instance_consent_action(request, instance_uuid, obj_type, obj_uuid
     return redirect("nbms_app:reporting_instance_consent", instance_uuid=instance.uuid)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def reporting_instance_freeze(request, instance_uuid):
     if request.method != "POST":
         return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance_uuid)
@@ -3308,7 +3594,8 @@ def reporting_instance_freeze(request, instance_uuid):
             raise PermissionDenied("Only admins can unfreeze reporting instances.")
         instance.frozen_at = None
         instance.frozen_by = None
-        instance.save(update_fields=["frozen_at", "frozen_by"])
+        with suppress_audit_events():
+            instance.save(update_fields=["frozen_at", "frozen_by"])
         record_audit_event(
             request.user,
             "instance_unfreeze",
@@ -3329,7 +3616,8 @@ def reporting_instance_freeze(request, instance_uuid):
 
     instance.frozen_at = timezone.now()
     instance.frozen_by = request.user
-    instance.save(update_fields=["frozen_at", "frozen_by"])
+    with suppress_audit_events():
+        instance.save(update_fields=["frozen_at", "frozen_by"])
     record_audit_event(
         request.user,
         "instance_freeze",
@@ -3345,7 +3633,7 @@ def reporting_instance_freeze(request, instance_uuid):
     return redirect("nbms_app:reporting_instance_detail", instance_uuid=instance.uuid)
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def review_queue(request):
     targets = NationalTarget.objects.filter(status=LifecycleStatus.PENDING_REVIEW).order_by("code")
     indicators = Indicator.objects.filter(status=LifecycleStatus.PENDING_REVIEW).order_by("code")
@@ -3356,7 +3644,7 @@ def review_queue(request):
     )
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def review_detail(request, obj_type, obj_uuid):
     if obj_type == "target":
         obj = get_object_or_404(NationalTarget, uuid=obj_uuid)
@@ -3373,7 +3661,7 @@ def review_detail(request, obj_type, obj_uuid):
     return render(request, "nbms_app/manage/review_detail.html", {"obj": obj, "obj_type": obj_type})
 
 
-@staff_member_required
+@staff_or_system_admin_required
 def review_action(request, obj_type, obj_uuid, action):
     if request.method != "POST":
         return redirect("nbms_app:review_queue")

@@ -15,8 +15,8 @@ from nbms_app.models import (
     ReportSectionTemplate,
     SensitivityLevel,
 )
-from nbms_app.services.audit import record_audit_event
-from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT, user_has_role
+from nbms_app.services.audit import record_audit_event, suppress_audit_events
+from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT, is_system_admin, user_has_role
 from nbms_app.services.consent import consent_is_granted
 from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.metrics import inc_counter
@@ -29,7 +29,7 @@ from nbms_app.services.readiness import (
 
 
 def _is_admin(user):
-    return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)))
+    return bool(user and is_system_admin(user))
 
 
 def assert_instance_exportable(instance, user):
@@ -203,7 +203,8 @@ def submit_export_for_review(package, user):
     _require_status(package, ExportStatus.DRAFT)
     package.status = ExportStatus.PENDING_REVIEW
     package.review_note = ""
-    package.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "review_note"])
     record_audit_event(user, "export_submit", package, metadata={"status": package.status})
     inc_counter(
         "workflow_transitions_total",
@@ -225,7 +226,8 @@ def approve_export(package, user, note=""):
     _require_status(package, ExportStatus.PENDING_REVIEW)
     package.status = ExportStatus.APPROVED
     package.review_note = note or ""
-    package.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "review_note"])
     record_audit_event(user, "export_approve", package, metadata={"status": package.status})
     inc_counter(
         "workflow_transitions_total",
@@ -249,7 +251,8 @@ def reject_export(package, user, note):
     _require_status(package, ExportStatus.PENDING_REVIEW)
     package.status = ExportStatus.DRAFT
     package.review_note = note
-    package.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "review_note"])
     record_audit_event(user, "export_reject", package, metadata={"status": package.status, "note": note})
     inc_counter(
         "workflow_transitions_total",
@@ -295,7 +298,8 @@ def release_export(package, user):
     package.payload = payload
     package.generated_at = now
     package.released_at = now
-    package.save(update_fields=["status", "payload", "generated_at", "released_at"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "payload", "generated_at", "released_at"])
     record_audit_event(user, "export_release", package, metadata={"status": package.status})
     inc_counter(
         "workflow_transitions_total",

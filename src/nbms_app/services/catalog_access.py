@@ -2,15 +2,15 @@ from django.contrib.auth.models import AnonymousUser
 from django.db.models import Q
 
 from nbms_app.models import AccessLevel
-from nbms_app.services.authorization import ROLE_SECURITY_OFFICER, user_has_role
+from nbms_app.services.authorization import is_system_admin
 
 
 def _is_privileged(user):
     if not user or isinstance(user, AnonymousUser):
         return False
-    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+    if is_system_admin(user):
         return True
-    return user_has_role(user, ROLE_SECURITY_OFFICER)
+    return False
 
 
 def filter_organisations_for_user(queryset, user):

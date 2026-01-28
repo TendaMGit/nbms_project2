@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
-from nbms_app.models import LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
+from nbms_app.models import LifecycleStatus, NationalTarget, Organisation, QaStatus, SensitivityLevel, User
 from nbms_app.services.authorization import ROLE_CONTRIBUTOR
 
 
@@ -30,6 +30,7 @@ class NationalTargetUiTests(TestCase):
                 "title": "Target 1",
                 "description": "",
                 "sensitivity": SensitivityLevel.INTERNAL,
+                "qa_status": QaStatus.DRAFT,
             },
         )
         self.assertEqual(resp.status_code, 302)

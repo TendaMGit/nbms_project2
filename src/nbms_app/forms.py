@@ -14,19 +14,27 @@ from nbms_app.models import (
     DataAgreement,
     Evidence,
     ExportPackage,
+    FrameworkIndicator,
+    FrameworkTarget,
     Indicator,
     IndicatorDataSeries,
+    IndicatorFrameworkIndicatorLink,
+    IndicatorMethodologyVersionLink,
+    License,
     Methodology,
     MethodologyVersion,
     MonitoringProgramme,
     NationalTarget,
+    NationalTargetFrameworkTargetLink,
     Organisation,
+    LifecycleStatus,
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
     SensitivityClass,
+    SourceDocument,
     User,
 )
 from nbms_app.roles import get_canonical_groups_queryset
@@ -389,9 +397,86 @@ class IndicatorForm(forms.ModelForm):
             "code",
             "title",
             "national_target",
+            "indicator_type",
+            "reporting_cadence",
+            "qa_status",
+            "responsible_org",
+            "data_steward",
+            "indicator_lead",
+            "source_document",
+            "license",
+            "computation_notes",
+            "limitations",
+            "spatial_coverage",
+            "temporal_coverage",
             "organisation",
             "sensitivity",
+            "source_system",
+            "source_ref",
         ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["organisation"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["responsible_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        user_qs = User.objects.order_by("username")
+        if user and getattr(user, "organisation_id", None):
+            user_qs = user_qs.filter(organisation_id=user.organisation_id)
+        self.fields["data_steward"].queryset = user_qs
+        self.fields["indicator_lead"].queryset = user_qs
+
+
+class NationalTargetAlignmentForm(forms.ModelForm):
+    class Meta:
+        model = NationalTargetFrameworkTargetLink
+        fields = ["framework_target", "relation_type", "confidence", "notes", "source"]
+
+    def __init__(self, *args, user=None, framework_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        targets = filter_queryset_for_user(
+            FrameworkTarget.objects.exclude(status=LifecycleStatus.ARCHIVED).select_related("framework"),
+            user,
+            perm="nbms_app.view_frameworktarget",
+        )
+        if framework_id:
+            targets = targets.filter(framework_id=framework_id)
+        self.fields["framework_target"].queryset = targets.order_by("framework__code", "code")
+
+
+class IndicatorAlignmentForm(forms.ModelForm):
+    class Meta:
+        model = IndicatorFrameworkIndicatorLink
+        fields = ["framework_indicator", "relation_type", "confidence", "notes", "source"]
+
+    def __init__(self, *args, user=None, framework_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        indicators = filter_queryset_for_user(
+            FrameworkIndicator.objects.exclude(status=LifecycleStatus.ARCHIVED).select_related("framework"),
+            user,
+            perm="nbms_app.view_frameworkindicator",
+        )
+        if framework_id:
+            indicators = indicators.filter(framework_id=framework_id)
+        self.fields["framework_indicator"].queryset = indicators.order_by("framework__code", "code")
+
+
+class IndicatorMethodologyVersionForm(forms.ModelForm):
+    class Meta:
+        model = IndicatorMethodologyVersionLink
+        fields = ["methodology_version", "is_primary", "notes", "source"]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        methodologies = filter_methodologies_for_user(Methodology.objects.all(), user)
+        versions = MethodologyVersion.objects.filter(methodology__in=methodologies, is_active=True)
+        self.fields["methodology_version"].queryset = versions.select_related("methodology").order_by(
+            "methodology__methodology_code",
+            "version",
+        )
 
 
 class NationalTargetForm(forms.ModelForm):
@@ -401,9 +486,28 @@ class NationalTargetForm(forms.ModelForm):
             "code",
             "title",
             "description",
+            "responsible_org",
+            "qa_status",
+            "reporting_cadence",
+            "source_document",
+            "license",
+            "provenance_notes",
+            "spatial_coverage",
+            "temporal_coverage",
             "organisation",
             "sensitivity",
+            "source_system",
+            "source_ref",
         ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["organisation"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["responsible_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
 
 
 class ExportPackageForm(forms.ModelForm):

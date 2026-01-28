@@ -54,6 +54,11 @@ class User(AbstractUser):
     def __str__(self):
         return self.get_username()
 
+    class Meta:
+        permissions = [
+            ("system_admin", "System Admin access"),
+        ]
+
 
 class LifecycleStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
@@ -597,6 +602,27 @@ class MethodologyIndicatorLink(TimeStampedModel):
         ]
 
 
+class IndicatorMethodologyVersionLink(TimeStampedModel):
+    indicator = models.ForeignKey("Indicator", on_delete=models.CASCADE, related_name="methodology_version_links")
+    methodology_version = models.ForeignKey(
+        MethodologyVersion,
+        on_delete=models.CASCADE,
+        related_name="indicator_links",
+    )
+    is_primary = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    source = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["indicator", "methodology_version"],
+                name="uq_indicator_methodology_version",
+            ),
+        ]
+
+
 class DatasetCatalogIndicatorLink(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     dataset = models.ForeignKey(DatasetCatalog, on_delete=models.CASCADE, related_name="indicator_links")
@@ -774,6 +800,32 @@ class NationalTarget(TimeStampedModel):
     code = models.CharField(max_length=50, unique=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    responsible_org = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="responsible_national_targets",
+        blank=True,
+        null=True,
+    )
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    reporting_cadence = models.CharField(max_length=20, choices=UpdateFrequency.choices, blank=True)
+    source_document = models.ForeignKey(
+        SourceDocument,
+        on_delete=models.SET_NULL,
+        related_name="national_targets",
+        blank=True,
+        null=True,
+    )
+    license = models.ForeignKey(
+        License,
+        on_delete=models.SET_NULL,
+        related_name="national_targets",
+        blank=True,
+        null=True,
+    )
+    provenance_notes = models.TextField(blank=True)
+    spatial_coverage = models.TextField(blank=True)
+    temporal_coverage = models.TextField(blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -792,6 +844,8 @@ class NationalTarget(TimeStampedModel):
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
     export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
@@ -810,6 +864,52 @@ class Indicator(TimeStampedModel):
     code = models.CharField(max_length=50, unique=True)
     title = models.CharField(max_length=255)
     national_target = models.ForeignKey(NationalTarget, on_delete=models.CASCADE, related_name="indicators")
+    indicator_type = models.CharField(
+        max_length=20,
+        choices=NationalIndicatorType.choices,
+        default=NationalIndicatorType.OTHER,
+    )
+    reporting_cadence = models.CharField(max_length=20, choices=UpdateFrequency.choices, blank=True)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    responsible_org = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="responsible_indicators",
+        blank=True,
+        null=True,
+    )
+    data_steward = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="stewarded_indicators",
+        blank=True,
+        null=True,
+    )
+    indicator_lead = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="lead_indicators",
+        blank=True,
+        null=True,
+    )
+    source_document = models.ForeignKey(
+        SourceDocument,
+        on_delete=models.SET_NULL,
+        related_name="indicators",
+        blank=True,
+        null=True,
+    )
+    license = models.ForeignKey(
+        License,
+        on_delete=models.SET_NULL,
+        related_name="indicators",
+        blank=True,
+        null=True,
+    )
+    computation_notes = models.TextField(blank=True)
+    limitations = models.TextField(blank=True)
+    spatial_coverage = models.TextField(blank=True)
+    temporal_coverage = models.TextField(blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -828,6 +928,8 @@ class Indicator(TimeStampedModel):
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
     export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return f"{self.code} - {self.title}"
@@ -884,12 +986,39 @@ class FrameworkGoal(TimeStampedModel):
     official_text = models.TextField(blank=True)
     description = models.TextField(blank=True)
     sort_order = models.PositiveIntegerField(default=0)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="framework_goals",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_framework_goals",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    review_note = models.TextField(blank=True)
     is_active = models.BooleanField(default=True)
     source_system = models.CharField(max_length=100, blank=True)
     source_ref = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return f"{self.framework.code} Goal {self.code}"
+
+    def save(self, *args, **kwargs):
+        if hasattr(self, "status"):
+            self.is_active = self.status != LifecycleStatus.ARCHIVED
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None and "status" in update_fields and "is_active" not in update_fields:
+                update_fields = {field for field in update_fields}
+                update_fields.add("is_active")
+                kwargs["update_fields"] = list(update_fields)
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -934,6 +1063,17 @@ class FrameworkTarget(TimeStampedModel):
 
     def __str__(self):
         return f"{self.framework.code} {self.code}"
+
+    def clean(self):
+        super().clean()
+        if self.goal_id and self.framework_id and self.goal.framework_id != self.framework_id:
+            raise ValidationError({"goal": "Goal must belong to the same framework as the target."})
+
+    def save(self, *args, **kwargs):
+        validate = kwargs.pop("validate", True)
+        if validate:
+            self.full_clean()
+        return super().save(*args, **kwargs)
 
     class Meta:
         constraints = [
@@ -988,6 +1128,23 @@ class FrameworkIndicator(TimeStampedModel):
     def __str__(self):
         return f"{self.framework.code} {self.code}"
 
+    def clean(self):
+        super().clean()
+        if (
+            self.framework_target_id
+            and self.framework_id
+            and self.framework_target.framework_id != self.framework_id
+        ):
+            raise ValidationError(
+                {"framework_target": "Framework target must belong to the same framework as the indicator."}
+            )
+
+    def save(self, *args, **kwargs):
+        validate = kwargs.pop("validate", True)
+        if validate:
+            self.full_clean()
+        return super().save(*args, **kwargs)
+
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["framework", "code"], name="uq_framework_indicator"),
@@ -1023,6 +1180,7 @@ class NationalTargetFrameworkTargetLink(TimeStampedModel):
     )
     notes = models.TextField(blank=True)
     source = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
@@ -1056,6 +1214,7 @@ class IndicatorFrameworkIndicatorLink(TimeStampedModel):
     )
     notes = models.TextField(blank=True)
     source = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [
@@ -1573,12 +1732,28 @@ class AuditEvent(TimeStampedModel):
         null=True,
     )
     action = models.CharField(max_length=100)
-    object_type = models.CharField(max_length=100)
-    object_uuid = models.UUIDField()
+    event_type = models.CharField(max_length=100, blank=True)
+    content_type = models.ForeignKey(
+        ContentType,
+        on_delete=models.SET_NULL,
+        related_name="audit_events",
+        blank=True,
+        null=True,
+    )
+    object_type = models.CharField(max_length=100, blank=True)
+    object_id = models.CharField(max_length=64, blank=True)
+    object_uuid = models.UUIDField(blank=True, null=True)
     metadata = models.JSONField(default=dict, blank=True)
+    request_path = models.CharField(max_length=255, blank=True)
+    request_method = models.CharField(max_length=16, blank=True)
+    ip_address = models.CharField(max_length=64, blank=True)
+    user_agent = models.TextField(blank=True)
+    session_key = models.CharField(max_length=64, blank=True)
+    request_id = models.CharField(max_length=64, blank=True)
 
     def __str__(self):
-        return f"{self.action} {self.object_type} {self.object_uuid}"
+        label = self.event_type or self.action
+        return f"{label} {self.object_type or '-'} {self.object_uuid or ''}".strip()
 
 
 class Notification(TimeStampedModel):
