@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: docker/verify/Dockerfile
     environment:
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.base}
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.test}
       NBMS_DB_NAME: ${NBMS_DB_NAME:-nbms_verify_db}
       NBMS_DB_USER: ${NBMS_DB_USER:-nbms_verify_user}
       NBMS_DB_PASSWORD: ${NBMS_DB_PASSWORD:-nbms_verify_password}
