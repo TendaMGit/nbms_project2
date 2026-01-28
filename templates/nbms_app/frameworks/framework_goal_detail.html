@@ -2,6 +2,15 @@
 {% block title %}Framework Goal{% endblock %}
 {% block content %}
   <h1>{{ goal.framework.code }} {{ goal.code }} - {{ goal.title }}</h1>
+  {% if can_manage_catalog %}
+    <div class="actions">
+      <a href="{% url 'nbms_app:framework_goal_edit' goal.uuid %}">Edit</a>
+      <form method="post" action="{% url 'nbms_app:framework_goal_archive' goal.uuid %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">Archive</button>
+      </form>
+    </div>
+  {% endif %}
   <div class="card">
     <p><strong>Official text:</strong> {{ goal.official_text|default:"-" }}</p>
     <p><strong>Description:</strong> {{ goal.description|default:"-" }}</p>

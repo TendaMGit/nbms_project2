@@ -1,7 +1,10 @@
 {% extends "nbms_app/base.html" %}
 {% block title %}Framework Indicators{% endblock %}
 {% block content %}
-  <h1>Framework Indicators</h1>
+  <h1>Framework indicators (GBF/MEA)</h1>
+  {% if can_manage_catalog %}
+    <p><a href="{% url 'nbms_app:framework_indicator_create' %}">New Framework Indicator</a></p>
+  {% endif %}
   <form method="get" class="card">
     <label for="indicator-search">Search</label>
     <input id="indicator-search" type="text" name="q" value="{{ query|default:'' }}" placeholder="Code or title">
@@ -16,7 +19,12 @@
           </a>
         </li>
       {% empty %}
-        <li>No framework indicators available.</li>
+        <li>
+          No framework indicators available.
+          {% if can_manage_catalog %}
+            <a href="{% url 'nbms_app:framework_indicator_create' %}">Create the first one</a>.
+          {% endif %}
+        </li>
       {% endfor %}
     </ul>
   </div>

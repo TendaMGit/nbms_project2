@@ -1,6 +1,16 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
+from nbms_app.forms_catalog import (
+    FRAMEWORK_GOAL_READONLY_FIELDS,
+    FRAMEWORK_INDICATOR_READONLY_FIELDS,
+    FRAMEWORK_READONLY_FIELDS,
+    FRAMEWORK_TARGET_READONLY_FIELDS,
+    FrameworkCatalogForm,
+    FrameworkGoalCatalogForm,
+    FrameworkIndicatorCatalogForm,
+    FrameworkTargetCatalogForm,
+)
 from nbms_app.models import (
     AuditEvent,
     BinaryIndicatorQuestion,
@@ -45,6 +55,60 @@ from nbms_app.models import (
 )
 from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
 from nbms_app.services.readiness import compute_reporting_readiness
+
+
+class CatalogArchiveAdminMixin(admin.ModelAdmin):
+    archive_field = "status"
+
+    def _is_catalog_manager(self, user):
+        return bool(user and (getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN)))
+
+    def has_view_permission(self, request, obj=None):
+        return self._is_catalog_manager(request.user)
+
+    def has_add_permission(self, request):
+        return self._is_catalog_manager(request.user)
+
+    def has_change_permission(self, request, obj=None):
+        return self._is_catalog_manager(request.user)
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
+
+    def get_form(self, request, obj=None, **kwargs):
+        form_class = super().get_form(request, obj, **kwargs)
+
+        class FormWithUser(form_class):
+            def __init__(self, *args, **form_kwargs):
+                form_kwargs["user"] = request.user
+                super().__init__(*args, **form_kwargs)
+
+        return FormWithUser
+
+    def archive_selected(self, request, queryset):
+        if not self._is_catalog_manager(request.user):
+            return
+        if self.archive_field == "is_active":
+            queryset.update(is_active=False)
+        else:
+            queryset.update(status=LifecycleStatus.ARCHIVED)
+
+    archive_selected.short_description = "Archive selected"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if self.archive_field == "is_active":
+            if "is_active__exact" in request.GET:
+                return qs
+            return qs.filter(is_active=True)
+        if "status__exact" in request.GET:
+            return qs
+        return qs.exclude(status=LifecycleStatus.ARCHIVED)
 
 
 @admin.register(Organisation)
@@ -127,28 +191,41 @@ class IndicatorAdmin(admin.ModelAdmin):
 
 
 @admin.register(Framework)
-class FrameworkAdmin(admin.ModelAdmin):
+class FrameworkAdmin(CatalogArchiveAdminMixin):
+    form = FrameworkCatalogForm
+    readonly_fields = FRAMEWORK_READONLY_FIELDS
+    actions = ("archive_selected",)
     list_display = ("code", "title", "status", "sensitivity", "organisation", "created_at")
     search_fields = ("code", "title")
     list_filter = ("status", "sensitivity", "organisation")
 
 
 @admin.register(FrameworkGoal)
-class FrameworkGoalAdmin(admin.ModelAdmin):
+class FrameworkGoalAdmin(CatalogArchiveAdminMixin):
+    form = FrameworkGoalCatalogForm
+    readonly_fields = FRAMEWORK_GOAL_READONLY_FIELDS
+    archive_field = "is_active"
+    actions = ("archive_selected",)
     list_display = ("code", "title", "framework", "is_active", "sort_order", "created_at")
     search_fields = ("code", "title", "framework__code")
     list_filter = ("framework", "is_active")
 
 
 @admin.register(FrameworkTarget)
-class FrameworkTargetAdmin(admin.ModelAdmin):
+class FrameworkTargetAdmin(CatalogArchiveAdminMixin):
+    form = FrameworkTargetCatalogForm
+    readonly_fields = FRAMEWORK_TARGET_READONLY_FIELDS
+    actions = ("archive_selected",)
     list_display = ("code", "title", "framework", "goal", "status", "sensitivity", "organisation", "created_at")
     search_fields = ("code", "title")
     list_filter = ("framework", "goal", "status", "sensitivity", "organisation")
 
 
 @admin.register(FrameworkIndicator)
-class FrameworkIndicatorAdmin(admin.ModelAdmin):
+class FrameworkIndicatorAdmin(CatalogArchiveAdminMixin):
+    form = FrameworkIndicatorCatalogForm
+    readonly_fields = FRAMEWORK_INDICATOR_READONLY_FIELDS
+    actions = ("archive_selected",)
     list_display = (
         "code",
         "title",

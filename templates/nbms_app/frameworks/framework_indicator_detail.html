@@ -2,6 +2,15 @@
 {% block title %}Framework Indicator{% endblock %}
 {% block content %}
   <h1>{{ indicator.framework.code }} {{ indicator.code }} - {{ indicator.title }}</h1>
+  {% if can_manage_catalog %}
+    <div class="actions">
+      <a href="{% url 'nbms_app:framework_indicator_edit' indicator.uuid %}">Edit</a>
+      <form method="post" action="{% url 'nbms_app:framework_indicator_archive' indicator.uuid %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">Archive</button>
+      </form>
+    </div>
+  {% endif %}
   <div class="card">
     <p><strong>Target:</strong> {{ indicator.framework_target|default:"-" }}</p>
     <p><strong>Type:</strong> {{ indicator.indicator_type|default:"-" }}</p>

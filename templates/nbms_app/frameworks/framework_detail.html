@@ -2,6 +2,15 @@
 {% block title %}Framework{% endblock %}
 {% block content %}
   <h1>{{ framework.code }} - {{ framework.title }}</h1>
+  {% if can_manage_catalog %}
+    <div class="actions">
+      <a href="{% url 'nbms_app:framework_edit' framework.uuid %}">Edit</a>
+      <form method="post" action="{% url 'nbms_app:framework_archive' framework.uuid %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">Archive</button>
+      </form>
+    </div>
+  {% endif %}
   <div class="card">
     <p><strong>Description:</strong> {{ framework.description|default:"-" }}</p>
   </div>

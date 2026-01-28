@@ -14,6 +14,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 from urllib.parse import urlencode
 
 from nbms_app.forms import (
@@ -35,6 +36,14 @@ from nbms_app.forms import (
     ReportingInstanceForm,
     UserCreateForm,
     UserUpdateForm,
+)
+from nbms_app.forms_catalog import (
+    FrameworkCatalogForm,
+    FrameworkGoalCatalogForm,
+    FrameworkIndicatorCatalogForm,
+    FrameworkTargetCatalogForm,
+    build_readonly_panel,
+    get_catalog_readonly_fields,
 )
 from nbms_app.models import (
     DataAgreement,
@@ -335,6 +344,18 @@ def _can_create_data(user):
 
 def _is_admin_user(user):
     return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
+
+
+def _is_catalog_manager(user):
+    return bool(user and (getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN)))
+
+
+def _require_catalog_manager(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        raise PermissionDenied("Authentication required.")
+    if _is_catalog_manager(user):
+        return
+    raise PermissionDenied("Not allowed to manage catalog registries.")
 
 
 def _require_section_progress_access(instance, user):
@@ -1495,14 +1516,18 @@ def sensitivity_class_edit(request, class_uuid):
 
 def framework_list(request):
     frameworks = filter_queryset_for_user(
-        Framework.objects.order_by("code"),
+        Framework.objects.exclude(status=LifecycleStatus.ARCHIVED).order_by("code"),
         request.user,
         perm="nbms_app.view_framework",
     )
     query = request.GET.get("q")
     if query:
         frameworks = frameworks.filter(Q(code__icontains=query) | Q(title__icontains=query))
-    return render(request, "nbms_app/frameworks/framework_list.html", {"frameworks": frameworks, "query": query})
+    return render(
+        request,
+        "nbms_app/frameworks/framework_list.html",
+        {"frameworks": frameworks, "query": query, "can_manage_catalog": _is_catalog_manager(request.user)},
+    )
 
 
 def framework_detail(request, framework_uuid):
@@ -1512,91 +1537,125 @@ def framework_detail(request, framework_uuid):
         perm="nbms_app.view_framework",
     )
     framework = get_object_or_404(frameworks, uuid=framework_uuid)
-    goals = FrameworkGoal.objects.filter(framework=framework).order_by("sort_order", "code")
+    goals = FrameworkGoal.objects.filter(framework=framework, is_active=True).order_by("sort_order", "code")
     targets = filter_queryset_for_user(
-        FrameworkTarget.objects.filter(framework=framework).order_by("code"),
+        FrameworkTarget.objects.filter(framework=framework)
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("code"),
         request.user,
         perm="nbms_app.view_frameworktarget",
     )
     indicators = filter_queryset_for_user(
-        FrameworkIndicator.objects.filter(framework=framework).order_by("code"),
+        FrameworkIndicator.objects.filter(framework=framework)
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("code"),
         request.user,
         perm="nbms_app.view_frameworkindicator",
     )
     return render(
         request,
         "nbms_app/frameworks/framework_detail.html",
-        {"framework": framework, "goals": goals, "targets": targets, "indicators": indicators},
+        {
+            "framework": framework,
+            "goals": goals,
+            "targets": targets,
+            "indicators": indicators,
+            "can_manage_catalog": _is_catalog_manager(request.user),
+        },
     )
 
 
 def framework_goal_list(request):
     framework_ids = list(
-        filter_queryset_for_user(Framework.objects.all(), request.user, perm="nbms_app.view_framework").values_list(
+        filter_queryset_for_user(
+            Framework.objects.exclude(status=LifecycleStatus.ARCHIVED),
+            request.user,
+            perm="nbms_app.view_framework",
+        ).values_list(
             "id", flat=True
         )
     )
-    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids).order_by("framework__code", "sort_order")
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids, is_active=True).order_by(
+        "framework__code", "sort_order"
+    )
     query = request.GET.get("q")
     if query:
         goals = goals.filter(Q(code__icontains=query) | Q(title__icontains=query))
-    return render(request, "nbms_app/frameworks/framework_goal_list.html", {"goals": goals, "query": query})
+    return render(
+        request,
+        "nbms_app/frameworks/framework_goal_list.html",
+        {"goals": goals, "query": query, "can_manage_catalog": _is_catalog_manager(request.user)},
+    )
 
 
 def framework_goal_detail(request, goal_uuid):
     framework_ids = list(
-        filter_queryset_for_user(Framework.objects.all(), request.user, perm="nbms_app.view_framework").values_list(
+        filter_queryset_for_user(
+            Framework.objects.exclude(status=LifecycleStatus.ARCHIVED),
+            request.user,
+            perm="nbms_app.view_framework",
+        ).values_list(
             "id", flat=True
         )
     )
-    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids)
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids, is_active=True)
     goal = get_object_or_404(goals, uuid=goal_uuid)
     targets = filter_queryset_for_user(
-        FrameworkTarget.objects.filter(goal=goal).order_by("code"),
+        FrameworkTarget.objects.filter(goal=goal).exclude(status=LifecycleStatus.ARCHIVED).order_by("code"),
         request.user,
         perm="nbms_app.view_frameworktarget",
     )
     return render(
         request,
         "nbms_app/frameworks/framework_goal_detail.html",
-        {"goal": goal, "targets": targets},
+        {"goal": goal, "targets": targets, "can_manage_catalog": _is_catalog_manager(request.user)},
     )
 
 
 def framework_target_list(request):
     targets = filter_queryset_for_user(
-        FrameworkTarget.objects.select_related("framework", "goal").order_by("framework__code", "code"),
+        FrameworkTarget.objects.select_related("framework", "goal")
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("framework__code", "code"),
         request.user,
         perm="nbms_app.view_frameworktarget",
     )
     query = request.GET.get("q")
     if query:
         targets = targets.filter(Q(code__icontains=query) | Q(title__icontains=query))
-    return render(request, "nbms_app/frameworks/framework_target_list.html", {"targets": targets, "query": query})
+    return render(
+        request,
+        "nbms_app/frameworks/framework_target_list.html",
+        {"targets": targets, "query": query, "can_manage_catalog": _is_catalog_manager(request.user)},
+    )
 
 
 def framework_target_detail(request, target_uuid):
     targets = filter_queryset_for_user(
-        FrameworkTarget.objects.select_related("framework", "goal"),
+        FrameworkTarget.objects.select_related("framework", "goal").exclude(status=LifecycleStatus.ARCHIVED),
         request.user,
         perm="nbms_app.view_frameworktarget",
     )
     target = get_object_or_404(targets, uuid=target_uuid)
     indicators = filter_queryset_for_user(
-        FrameworkIndicator.objects.filter(framework_target=target).order_by("code"),
+        FrameworkIndicator.objects.filter(framework_target=target)
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("code"),
         request.user,
         perm="nbms_app.view_frameworkindicator",
     )
     return render(
         request,
         "nbms_app/frameworks/framework_target_detail.html",
-        {"target": target, "indicators": indicators},
+        {"target": target, "indicators": indicators, "can_manage_catalog": _is_catalog_manager(request.user)},
     )
 
 
 def framework_indicator_list(request):
     indicators = filter_queryset_for_user(
-        FrameworkIndicator.objects.select_related("framework", "framework_target").order_by("framework__code", "code"),
+        FrameworkIndicator.objects.select_related("framework", "framework_target")
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("framework__code", "code"),
         request.user,
         perm="nbms_app.view_frameworkindicator",
     )
@@ -1606,13 +1665,13 @@ def framework_indicator_list(request):
     return render(
         request,
         "nbms_app/frameworks/framework_indicator_list.html",
-        {"indicators": indicators, "query": query},
+        {"indicators": indicators, "query": query, "can_manage_catalog": _is_catalog_manager(request.user)},
     )
 
 
 def framework_indicator_detail(request, indicator_uuid):
     indicators = filter_queryset_for_user(
-        FrameworkIndicator.objects.select_related("framework", "framework_target"),
+        FrameworkIndicator.objects.select_related("framework", "framework_target").exclude(status=LifecycleStatus.ARCHIVED),
         request.user,
         perm="nbms_app.view_frameworkindicator",
     )
@@ -1620,8 +1679,249 @@ def framework_indicator_detail(request, indicator_uuid):
     return render(
         request,
         "nbms_app/frameworks/framework_indicator_detail.html",
-        {"indicator": indicator},
+        {"indicator": indicator, "can_manage_catalog": _is_catalog_manager(request.user)},
     )
+
+
+@login_required
+def framework_create(request):
+    _require_catalog_manager(request.user)
+    form = FrameworkCatalogForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        framework = form.save(commit=False)
+        if not framework.created_by:
+            framework.created_by = request.user
+        if not framework.organisation and getattr(request.user, "organisation", None):
+            framework.organisation = request.user.organisation
+        framework.save()
+        messages.success(request, "Framework created.")
+        return redirect("nbms_app:framework_detail", framework_uuid=framework.uuid)
+    return render(request, "nbms_app/frameworks/framework_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def framework_edit(request, framework_uuid):
+    _require_catalog_manager(request.user)
+    frameworks = filter_queryset_for_user(
+        Framework.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_framework",
+    )
+    framework = get_object_or_404(frameworks, uuid=framework_uuid)
+    form = FrameworkCatalogForm(request.POST or None, instance=framework, user=request.user)
+    readonly_fields = build_readonly_panel(framework, get_catalog_readonly_fields(Framework))
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Framework updated.")
+        return redirect("nbms_app:framework_detail", framework_uuid=framework.uuid)
+    return render(
+        request,
+        "nbms_app/frameworks/framework_form.html",
+        {
+            "form": form,
+            "mode": "edit",
+            "framework": framework,
+            "readonly_fields": readonly_fields,
+        },
+    )
+
+
+@login_required
+@require_POST
+def framework_archive(request, framework_uuid):
+    _require_catalog_manager(request.user)
+    frameworks = filter_queryset_for_user(
+        Framework.objects.order_by("code"),
+        request.user,
+        perm="nbms_app.view_framework",
+    )
+    framework = get_object_or_404(frameworks, uuid=framework_uuid)
+    framework.status = LifecycleStatus.ARCHIVED
+    framework.save(update_fields=["status"])
+    messages.success(request, "Framework archived.")
+    return redirect("nbms_app:framework_list")
+
+
+@login_required
+def framework_goal_create(request):
+    _require_catalog_manager(request.user)
+    form = FrameworkGoalCatalogForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        goal = form.save()
+        messages.success(request, "Framework goal created.")
+        return redirect("nbms_app:framework_goal_detail", goal_uuid=goal.uuid)
+    return render(request, "nbms_app/frameworks/framework_goal_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def framework_goal_edit(request, goal_uuid):
+    _require_catalog_manager(request.user)
+    framework_ids = list(
+        filter_queryset_for_user(
+            Framework.objects.exclude(status=LifecycleStatus.ARCHIVED),
+            request.user,
+            perm="nbms_app.view_framework",
+        ).values_list("id", flat=True)
+    )
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids)
+    goal = get_object_or_404(goals, uuid=goal_uuid)
+    form = FrameworkGoalCatalogForm(request.POST or None, instance=goal, user=request.user)
+    readonly_fields = build_readonly_panel(goal, get_catalog_readonly_fields(FrameworkGoal))
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Framework goal updated.")
+        return redirect("nbms_app:framework_goal_detail", goal_uuid=goal.uuid)
+    return render(
+        request,
+        "nbms_app/frameworks/framework_goal_form.html",
+        {
+            "form": form,
+            "mode": "edit",
+            "goal": goal,
+            "readonly_fields": readonly_fields,
+        },
+    )
+
+
+@login_required
+@require_POST
+def framework_goal_archive(request, goal_uuid):
+    _require_catalog_manager(request.user)
+    framework_ids = list(
+        filter_queryset_for_user(
+            Framework.objects.exclude(status=LifecycleStatus.ARCHIVED),
+            request.user,
+            perm="nbms_app.view_framework",
+        ).values_list("id", flat=True)
+    )
+    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids)
+    goal = get_object_or_404(goals, uuid=goal_uuid)
+    goal.is_active = False
+    goal.save(update_fields=["is_active"])
+    messages.success(request, "Framework goal archived.")
+    return redirect("nbms_app:framework_goal_list")
+
+
+@login_required
+def framework_target_create(request):
+    _require_catalog_manager(request.user)
+    form = FrameworkTargetCatalogForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        target = form.save(commit=False)
+        if not target.created_by:
+            target.created_by = request.user
+        if not target.organisation and getattr(request.user, "organisation", None):
+            target.organisation = request.user.organisation
+        target.save()
+        messages.success(request, "Framework target created.")
+        return redirect("nbms_app:framework_target_detail", target_uuid=target.uuid)
+    return render(request, "nbms_app/frameworks/framework_target_form.html", {"form": form, "mode": "create"})
+
+
+@login_required
+def framework_target_edit(request, target_uuid):
+    _require_catalog_manager(request.user)
+    targets = filter_queryset_for_user(
+        FrameworkTarget.objects.select_related("framework", "goal"),
+        request.user,
+        perm="nbms_app.view_frameworktarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    form = FrameworkTargetCatalogForm(request.POST or None, instance=target, user=request.user)
+    readonly_fields = build_readonly_panel(target, get_catalog_readonly_fields(FrameworkTarget))
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Framework target updated.")
+        return redirect("nbms_app:framework_target_detail", target_uuid=target.uuid)
+    return render(
+        request,
+        "nbms_app/frameworks/framework_target_form.html",
+        {
+            "form": form,
+            "mode": "edit",
+            "target": target,
+            "readonly_fields": readonly_fields,
+        },
+    )
+
+
+@login_required
+@require_POST
+def framework_target_archive(request, target_uuid):
+    _require_catalog_manager(request.user)
+    targets = filter_queryset_for_user(
+        FrameworkTarget.objects.select_related("framework", "goal"),
+        request.user,
+        perm="nbms_app.view_frameworktarget",
+    )
+    target = get_object_or_404(targets, uuid=target_uuid)
+    target.status = LifecycleStatus.ARCHIVED
+    target.save(update_fields=["status"])
+    messages.success(request, "Framework target archived.")
+    return redirect("nbms_app:framework_target_list")
+
+
+@login_required
+def framework_indicator_create(request):
+    _require_catalog_manager(request.user)
+    form = FrameworkIndicatorCatalogForm(request.POST or None, user=request.user)
+    if request.method == "POST" and form.is_valid():
+        indicator = form.save(commit=False)
+        if not indicator.created_by:
+            indicator.created_by = request.user
+        if not indicator.organisation and getattr(request.user, "organisation", None):
+            indicator.organisation = request.user.organisation
+        indicator.save()
+        messages.success(request, "Framework indicator created.")
+        return redirect("nbms_app:framework_indicator_detail", indicator_uuid=indicator.uuid)
+    return render(
+        request,
+        "nbms_app/frameworks/framework_indicator_form.html",
+        {"form": form, "mode": "create"},
+    )
+
+
+@login_required
+def framework_indicator_edit(request, indicator_uuid):
+    _require_catalog_manager(request.user)
+    indicators = filter_queryset_for_user(
+        FrameworkIndicator.objects.select_related("framework", "framework_target"),
+        request.user,
+        perm="nbms_app.view_frameworkindicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    form = FrameworkIndicatorCatalogForm(request.POST or None, instance=indicator, user=request.user)
+    readonly_fields = build_readonly_panel(indicator, get_catalog_readonly_fields(FrameworkIndicator))
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Framework indicator updated.")
+        return redirect("nbms_app:framework_indicator_detail", indicator_uuid=indicator.uuid)
+    return render(
+        request,
+        "nbms_app/frameworks/framework_indicator_form.html",
+        {
+            "form": form,
+            "mode": "edit",
+            "indicator": indicator,
+            "readonly_fields": readonly_fields,
+        },
+    )
+
+
+@login_required
+@require_POST
+def framework_indicator_archive(request, indicator_uuid):
+    _require_catalog_manager(request.user)
+    indicators = filter_queryset_for_user(
+        FrameworkIndicator.objects.select_related("framework", "framework_target"),
+        request.user,
+        perm="nbms_app.view_frameworkindicator",
+    )
+    indicator = get_object_or_404(indicators, uuid=indicator_uuid)
+    indicator.status = LifecycleStatus.ARCHIVED
+    indicator.save(update_fields=["status"])
+    messages.success(request, "Framework indicator archived.")
+    return redirect("nbms_app:framework_indicator_list")
 
 
 @login_required
