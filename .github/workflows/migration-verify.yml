@@ -50,6 +50,7 @@ jobs:
           python manage.py makemigrations --check --dry-run
           python manage.py migrate
           python manage.py check
-          python manage.py verify_post_migration
       - name: Run tests
         run: pytest -q
+      - name: Post-migration assertions
+        run: python manage.py verify_post_migration
