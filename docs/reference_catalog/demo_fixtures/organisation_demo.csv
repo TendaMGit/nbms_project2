@@ -1,0 +1,2 @@
+org_uuid,org_code,org_name,org_type,parent_org_code,website_url,primary_contact_name,primary_contact_email,alternative_contact_name,alternative_contact_email,notes,is_active,source_system,source_ref
+,DEMO-ORG,Demo Biodiversity Org,Government,,https://example.org/demo,Demo Contact,demo@example.org,,,Fictitious demo organisation,true,demo_seed,demo_v1

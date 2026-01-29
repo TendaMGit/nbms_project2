@@ -1,0 +1,2 @@
+sensitivity_code,sensitivity_name,description,access_level_default,consent_required_default,redaction_policy,legal_basis,notes,is_active,source_system,source_ref
+DEMO-SENS,Demo Internal,Fictitious internal class,internal,false,redact-identifiers,demo-legal-basis,Demo only,true,demo_seed,demo_v1

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden
 from django.views.decorators.http import require_GET
 
+from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.metrics import render_prometheus
 
 
@@ -19,7 +20,7 @@ def _token_allowed(request):
 
 @require_GET
 def metrics(request):
-    if request.user.is_authenticated and request.user.is_staff:
+    if request.user.is_authenticated and is_system_admin(request.user):
         return HttpResponse(render_prometheus(), content_type="text/plain")
     if _token_allowed(request):
         return HttpResponse(render_prometheus(), content_type="text/plain")

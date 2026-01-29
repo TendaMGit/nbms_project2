@@ -16,13 +16,14 @@ including governance, consent checks, and instance-scoped approvals.
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
 - Manager report pack preview (HTML)
+- Reference catalog UI for programmes, datasets, methodologies, agreements, and sensitivity classes
 
 ## Demo flow
 
 1) Create a reporting cycle and reporting instance.
 2) Seed section templates and validation rules.
 3) Capture Section I to V narrative content.
-4) Create targets, indicators, evidence, and datasets.
+4) Create targets, indicators, evidence, and catalog datasets (with programme/method/indicator links).
 5) Approve items for the instance and resolve consent blockers.
 6) Review the manager report pack preview.
 7) Release an export package once blockers are cleared.
@@ -110,6 +111,24 @@ Notes:
   Use this if `--keepdb` hits schema drift or test DB mismatch errors.
   The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
+## Migration verification (Docker)
+
+Windows (Docker Desktop):
+
+```
+copy .env.verify.example .env.verify
+scripts\\verify_migrations.ps1
+```
+
+Linux/macOS:
+
+```
+cp .env.verify.example .env.verify
+docker compose -f docker-compose.verify.yml --env-file .env.verify run --rm app ./scripts/verify_migrations.sh
+```
+
+This path provides PostGIS + GDAL and runs migrations, checks, tests, and post-migration assertions.
+
 ## Manual smoke pass
 
 Setup order:
@@ -127,6 +146,15 @@ Key URLs to test:
 - /
 - /manage/users/
 - /manage/organisations/
+- /datasets/
+- /catalog/monitoring-programmes/
+- /catalog/methodologies/
+- /catalog/methodology-versions/
+- /catalog/data-agreements/
+- /catalog/sensitivity-classes/
+- /frameworks/
+- /framework-targets/
+- /framework-indicators/
 - /reporting/cycles/
 - /reporting/instances/<uuid>/
 - /reporting/instances/<uuid>/sections/
@@ -138,6 +166,7 @@ Key URLs to test:
 Confirm export blockers:
 - Missing required sections should block export when EXPORT_REQUIRE_SECTIONS=1.
 - Missing consent for IPLC-sensitive approved items should block export.
+- When EXPORT_REQUIRE_READINESS=1, export/release is blocked if catalog readiness is not satisfied.
 
 ABAC quick check:
 - Create a restricted item in Org A and verify it is not visible to a user in Org B.
@@ -174,6 +203,7 @@ Storage and media:
 
 Reporting and exports:
 - `EXPORT_REQUIRE_SECTIONS` (set to 1 to block export when required sections are missing)
+- `EXPORT_REQUIRE_READINESS` (set to 1 to block export when catalog readiness is not satisfied)
 
 Security and monitoring:
 - `RATE_LIMIT_LOGIN`, `RATE_LIMIT_PASSWORD_RESET`, `RATE_LIMIT_WORKFLOW`
@@ -189,6 +219,15 @@ Security and monitoring:
 
 - Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
 - Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
+
+## Reference catalog UI
+
+Catalog-first workflows now live in the non-admin UI:
+
+- Create catalog datasets at `/datasets/` and link them to programmes, methodologies, and indicators.
+- Manage programmes, methodologies, agreements, and sensitivity classes under `/catalog/*`.
+- Use release-mode readiness checks with:
+  `python manage.py reporting_readiness --instance <uuid> --format json --scope selected --mode release`
 
 ## Rulesets
 

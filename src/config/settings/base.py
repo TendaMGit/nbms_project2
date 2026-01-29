@@ -57,6 +57,7 @@ MIDDLEWARE = [
     "nbms_app.middleware_metrics.MetricsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "nbms_app.middleware_audit.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_otp.middleware.OTPMiddleware",
@@ -154,6 +155,7 @@ EVIDENCE_ALLOWED_EXTENSIONS = [
 ]
 
 EXPORT_REQUIRE_SECTIONS = os.environ.get("EXPORT_REQUIRE_SECTIONS", "false").lower() == "true"
+EXPORT_REQUIRE_READINESS = os.environ.get("EXPORT_REQUIRE_READINESS", "false").lower() == "true"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

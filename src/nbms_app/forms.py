@@ -9,22 +9,43 @@ from django.db import models
 from nbms_app.models import (
     BinaryIndicatorResponse,
     Dataset,
+    DatasetCatalog,
     DatasetRelease,
+    DataAgreement,
     Evidence,
     ExportPackage,
+    FrameworkIndicator,
+    FrameworkTarget,
     Indicator,
     IndicatorDataSeries,
+    IndicatorFrameworkIndicatorLink,
+    IndicatorMethodologyVersionLink,
+    License,
+    Methodology,
+    MethodologyVersion,
+    MonitoringProgramme,
     NationalTarget,
+    NationalTargetFrameworkTargetLink,
     Organisation,
+    LifecycleStatus,
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
+    SensitivityClass,
+    SourceDocument,
     User,
 )
 from nbms_app.roles import get_canonical_groups_queryset
 from nbms_app.services.authorization import filter_queryset_for_user
+from nbms_app.services.catalog_access import (
+    filter_data_agreements_for_user,
+    filter_methodologies_for_user,
+    filter_monitoring_programmes_for_user,
+    filter_organisations_for_user,
+    filter_sensitivity_classes_for_user,
+)
 from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.indicator_data import (
     binary_indicator_responses_for_user,
@@ -142,6 +163,233 @@ class DatasetForm(forms.ModelForm):
         ]
 
 
+class DatasetCatalogForm(forms.ModelForm):
+    programmes = forms.ModelMultipleChoiceField(queryset=MonitoringProgramme.objects.none(), required=False)
+    indicators = forms.ModelMultipleChoiceField(queryset=Indicator.objects.none(), required=False)
+    methodologies = forms.ModelMultipleChoiceField(queryset=Methodology.objects.none(), required=False)
+
+    class Meta:
+        model = DatasetCatalog
+        fields = [
+            "dataset_code",
+            "title",
+            "description",
+            "dataset_type",
+            "custodian_org",
+            "producer_org",
+            "licence",
+            "access_level",
+            "sensitivity_class",
+            "consent_required",
+            "agreement",
+            "temporal_start",
+            "temporal_end",
+            "update_frequency",
+            "spatial_coverage_description",
+            "spatial_resolution",
+            "taxonomy_standard",
+            "ecosystem_classification",
+            "doi_or_identifier",
+            "landing_page_url",
+            "api_endpoint_url",
+            "file_formats",
+            "qa_status",
+            "citation",
+            "keywords",
+            "last_updated_date",
+            "is_active",
+            "source_system",
+            "source_ref",
+        ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["custodian_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["producer_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["agreement"].queryset = filter_data_agreements_for_user(
+            DataAgreement.objects.order_by("agreement_code"), user
+        )
+        self.fields["sensitivity_class"].queryset = filter_sensitivity_classes_for_user(
+            SensitivityClass.objects.order_by("sensitivity_code"), user
+        )
+        self.fields["programmes"].queryset = filter_monitoring_programmes_for_user(
+            MonitoringProgramme.objects.order_by("programme_code"), user
+        )
+        self.fields["methodologies"].queryset = filter_methodologies_for_user(
+            Methodology.objects.order_by("methodology_code"), user
+        )
+        self.fields["indicators"].queryset = filter_queryset_for_user(
+            Indicator.objects.all().order_by("code"),
+            user,
+            perm="nbms_app.view_indicator",
+        )
+        if self.instance and getattr(self.instance, "pk", None):
+            self.fields["programmes"].initial = self.instance.programme_links.values_list("programme_id", flat=True)
+            self.fields["methodologies"].initial = self.instance.methodology_links.values_list("methodology_id", flat=True)
+            self.fields["indicators"].initial = self.instance.indicator_links.values_list("indicator_id", flat=True)
+
+
+class MonitoringProgrammeForm(forms.ModelForm):
+    partners = forms.ModelMultipleChoiceField(queryset=Organisation.objects.none(), required=False)
+
+    class Meta:
+        model = MonitoringProgramme
+        fields = [
+            "programme_code",
+            "title",
+            "description",
+            "programme_type",
+            "lead_org",
+            "partners",
+            "start_year",
+            "end_year",
+            "geographic_scope",
+            "spatial_coverage_description",
+            "taxonomic_scope",
+            "ecosystem_scope",
+            "objectives",
+            "sampling_design_summary",
+            "update_frequency",
+            "qa_process_summary",
+            "sensitivity_class",
+            "consent_required",
+            "agreement",
+            "website_url",
+            "primary_contact_name",
+            "primary_contact_email",
+            "alternative_contact_name",
+            "alternative_contact_email",
+            "notes",
+            "is_active",
+            "source_system",
+            "source_ref",
+        ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["lead_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["partners"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["sensitivity_class"].queryset = filter_sensitivity_classes_for_user(
+            SensitivityClass.objects.order_by("sensitivity_code"), user
+        )
+        self.fields["agreement"].queryset = filter_data_agreements_for_user(
+            DataAgreement.objects.order_by("agreement_code"), user
+        )
+        if self.instance and getattr(self.instance, "pk", None):
+            self.fields["partners"].initial = self.instance.partners.values_list("id", flat=True)
+
+
+class MethodologyForm(forms.ModelForm):
+    class Meta:
+        model = Methodology
+        fields = [
+            "methodology_code",
+            "title",
+            "description",
+            "owner_org",
+            "scope",
+            "references_url",
+            "is_active",
+            "source_system",
+            "source_ref",
+        ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["owner_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+
+
+class MethodologyVersionForm(forms.ModelForm):
+    class Meta:
+        model = MethodologyVersion
+        fields = [
+            "methodology",
+            "version",
+            "status",
+            "effective_date",
+            "deprecated_date",
+            "change_log",
+            "protocol_url",
+            "computational_script_url",
+            "parameters_json",
+            "qa_steps_summary",
+            "peer_reviewed",
+            "approval_body",
+            "approval_reference",
+            "is_active",
+            "source_system",
+            "source_ref",
+        ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["methodology"].queryset = filter_methodologies_for_user(
+            Methodology.objects.order_by("methodology_code"), user
+        )
+
+
+class DataAgreementForm(forms.ModelForm):
+    parties = forms.ModelMultipleChoiceField(queryset=Organisation.objects.none(), required=False)
+
+    class Meta:
+        model = DataAgreement
+        fields = [
+            "agreement_code",
+            "title",
+            "agreement_type",
+            "status",
+            "parties",
+            "start_date",
+            "end_date",
+            "licence",
+            "restrictions_summary",
+            "benefit_sharing_terms",
+            "citation_requirement",
+            "document_url",
+            "primary_contact_name",
+            "primary_contact_email",
+            "is_active",
+            "source_system",
+            "source_ref",
+        ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["parties"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        if self.instance and getattr(self.instance, "pk", None):
+            self.fields["parties"].initial = self.instance.parties.values_list("id", flat=True)
+
+
+class SensitivityClassForm(forms.ModelForm):
+    class Meta:
+        model = SensitivityClass
+        fields = [
+            "sensitivity_code",
+            "sensitivity_name",
+            "description",
+            "access_level_default",
+            "consent_required_default",
+            "redaction_policy",
+            "legal_basis",
+            "notes",
+            "is_active",
+            "source_system",
+            "source_ref",
+        ]
+
+
 class IndicatorForm(forms.ModelForm):
     class Meta:
         model = Indicator
@@ -149,9 +397,86 @@ class IndicatorForm(forms.ModelForm):
             "code",
             "title",
             "national_target",
+            "indicator_type",
+            "reporting_cadence",
+            "qa_status",
+            "responsible_org",
+            "data_steward",
+            "indicator_lead",
+            "source_document",
+            "license",
+            "computation_notes",
+            "limitations",
+            "spatial_coverage",
+            "temporal_coverage",
             "organisation",
             "sensitivity",
+            "source_system",
+            "source_ref",
         ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["organisation"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["responsible_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        user_qs = User.objects.order_by("username")
+        if user and getattr(user, "organisation_id", None):
+            user_qs = user_qs.filter(organisation_id=user.organisation_id)
+        self.fields["data_steward"].queryset = user_qs
+        self.fields["indicator_lead"].queryset = user_qs
+
+
+class NationalTargetAlignmentForm(forms.ModelForm):
+    class Meta:
+        model = NationalTargetFrameworkTargetLink
+        fields = ["framework_target", "relation_type", "confidence", "notes", "source"]
+
+    def __init__(self, *args, user=None, framework_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        targets = filter_queryset_for_user(
+            FrameworkTarget.objects.exclude(status=LifecycleStatus.ARCHIVED).select_related("framework"),
+            user,
+            perm="nbms_app.view_frameworktarget",
+        )
+        if framework_id:
+            targets = targets.filter(framework_id=framework_id)
+        self.fields["framework_target"].queryset = targets.order_by("framework__code", "code")
+
+
+class IndicatorAlignmentForm(forms.ModelForm):
+    class Meta:
+        model = IndicatorFrameworkIndicatorLink
+        fields = ["framework_indicator", "relation_type", "confidence", "notes", "source"]
+
+    def __init__(self, *args, user=None, framework_id=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        indicators = filter_queryset_for_user(
+            FrameworkIndicator.objects.exclude(status=LifecycleStatus.ARCHIVED).select_related("framework"),
+            user,
+            perm="nbms_app.view_frameworkindicator",
+        )
+        if framework_id:
+            indicators = indicators.filter(framework_id=framework_id)
+        self.fields["framework_indicator"].queryset = indicators.order_by("framework__code", "code")
+
+
+class IndicatorMethodologyVersionForm(forms.ModelForm):
+    class Meta:
+        model = IndicatorMethodologyVersionLink
+        fields = ["methodology_version", "is_primary", "notes", "source"]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        methodologies = filter_methodologies_for_user(Methodology.objects.all(), user)
+        versions = MethodologyVersion.objects.filter(methodology__in=methodologies, is_active=True)
+        self.fields["methodology_version"].queryset = versions.select_related("methodology").order_by(
+            "methodology__methodology_code",
+            "version",
+        )
 
 
 class NationalTargetForm(forms.ModelForm):
@@ -161,9 +486,28 @@ class NationalTargetForm(forms.ModelForm):
             "code",
             "title",
             "description",
+            "responsible_org",
+            "qa_status",
+            "reporting_cadence",
+            "source_document",
+            "license",
+            "provenance_notes",
+            "spatial_coverage",
+            "temporal_coverage",
             "organisation",
             "sensitivity",
+            "source_system",
+            "source_ref",
         ]
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["organisation"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["responsible_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
 
 
 class ExportPackageForm(forms.ModelForm):

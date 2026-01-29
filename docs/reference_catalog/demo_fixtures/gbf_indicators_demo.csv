@@ -1,0 +1,3 @@
+framework_code,framework_target_code,indicator_code,indicator_title,indicator_type,description,is_active,source_system,source_ref
+DEMO-GBF,DEMO-T1,DEMO-FW-IND-1,Demo Framework Indicator 1,headline,Demo indicator,true,demo_seed,demo_v1
+DEMO-GBF,DEMO-T1,DEMO-FW-IND-2,Demo Framework Indicator 2,headline,Demo indicator,true,demo_seed,demo_v1

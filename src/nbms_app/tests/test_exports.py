@@ -5,6 +5,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from django.core.exceptions import ValidationError
+from unittest.mock import patch
 
 from nbms_app.models import (
     ConsentStatus,
@@ -24,7 +25,7 @@ from nbms_app.models import (
     SensitivityLevel,
     User,
 )
-from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT
 from nbms_app.services.consent import set_consent_status
 from nbms_app.services.exports import approve_export, build_export_payload, release_export, submit_export_for_review
 from nbms_app.services.instance_approvals import approve_for_instance
@@ -202,6 +203,8 @@ class ExportWorkflowTests(TestCase):
             organisation=self.org,
             is_staff=True,
         )
+        admin_group, _ = Group.objects.get_or_create(name=ROLE_ADMIN)
+        admin.groups.add(admin_group)
         target = NationalTarget.objects.create(
             code="NT-IPLC",
             title="Target IPLC",
@@ -254,3 +257,149 @@ class ExportWorkflowTests(TestCase):
         approve_export(package, self.creator, note="ok")
         with self.assertRaises(ValidationError):
             release_export(package, self.secretariat)
+
+    @override_settings(EXPORT_REQUIRE_READINESS=True)
+    def test_export_release_blocked_when_readiness_missing(self):
+        target = NationalTarget.objects.create(
+            code="NT-READY",
+            title="Target Ready",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        indicator = Indicator.objects.create(
+            code="IND-READY",
+            title="Indicator Ready",
+            national_target=target,
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        approve_for_instance(self.instance, target, self.creator)
+        approve_for_instance(self.instance, indicator, self.creator)
+        package = ExportPackage.objects.create(
+            title="Export Missing Readiness",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+
+        with self.assertRaises(ValidationError):
+            release_export(package, self.secretariat)
+
+    @override_settings(EXPORT_REQUIRE_READINESS=True)
+    def test_export_release_blocked_when_readiness_invalid(self):
+        target = NationalTarget.objects.create(
+            code="NT-READY-2",
+            title="Target Ready 2",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        indicator = Indicator.objects.create(
+            code="IND-READY-2",
+            title="Indicator Ready 2",
+            national_target=target,
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        approve_for_instance(self.instance, target, self.creator)
+        approve_for_instance(self.instance, indicator, self.creator)
+        package = ExportPackage.objects.create(
+            title="Export Invalid Readiness",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+
+        with patch("nbms_app.services.readiness.compute_reporting_readiness", return_value={}):
+            with self.assertRaises(ValidationError) as exc:
+                release_export(package, self.secretariat)
+        self.assertIn("Readiness computation failed or incomplete", str(exc.exception))
+
+    @override_settings(EXPORT_REQUIRE_READINESS=True)
+    def test_export_release_blocked_when_readiness_not_ready_includes_codes(self):
+        target = NationalTarget.objects.create(
+            code="NT-READY-3",
+            title="Target Ready 3",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        indicator = Indicator.objects.create(
+            code="IND-READY-3",
+            title="Indicator Ready 3",
+            national_target=target,
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        approve_for_instance(self.instance, target, self.creator)
+        approve_for_instance(self.instance, indicator, self.creator)
+        package = ExportPackage.objects.create(
+            title="Export Not Ready",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+
+        readiness_stub = {
+            "summary": {"overall_ready": False, "blocking_gap_count": 1},
+            "diagnostics": {"top_blockers": [{"code": "NO_DATASET", "count": 1}]},
+        }
+        with patch("nbms_app.services.readiness.compute_reporting_readiness", return_value=readiness_stub):
+            with self.assertRaises(ValidationError) as exc:
+                release_export(package, self.secretariat)
+        self.assertIn("NO_DATASET", str(exc.exception))
+
+    @override_settings(EXPORT_REQUIRE_READINESS=True)
+    def test_export_release_allows_when_readiness_ready(self):
+        target = NationalTarget.objects.create(
+            code="NT-READY-4",
+            title="Target Ready 4",
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        indicator = Indicator.objects.create(
+            code="IND-READY-4",
+            title="Indicator Ready 4",
+            national_target=target,
+            organisation=self.org,
+            created_by=self.creator,
+            status=LifecycleStatus.PUBLISHED,
+            sensitivity=SensitivityLevel.PUBLIC,
+        )
+        approve_for_instance(self.instance, target, self.creator)
+        approve_for_instance(self.instance, indicator, self.creator)
+        package = ExportPackage.objects.create(
+            title="Export Ready",
+            organisation=self.org,
+            created_by=self.creator,
+            reporting_instance=self.instance,
+        )
+        submit_export_for_review(package, self.creator)
+        approve_export(package, self.creator, note="ok")
+
+        readiness_stub = {
+            "summary": {"overall_ready": True, "blocking_gap_count": 0},
+            "diagnostics": {"top_blockers": []},
+        }
+        with patch("nbms_app.services.readiness.compute_reporting_readiness", return_value=readiness_stub):
+            release_export(package, self.secretariat)
+        package.refresh_from_db()
+        self.assertEqual(package.status, ExportStatus.RELEASED)

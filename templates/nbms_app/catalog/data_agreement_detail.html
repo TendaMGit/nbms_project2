@@ -1,0 +1,21 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Data Agreement{% endblock %}
+{% block content %}
+  <h1>{{ agreement.agreement_code }} - {{ agreement.title }}</h1>
+  <div class="card">
+    <p><strong>Type:</strong> {{ agreement.agreement_type|default:"-" }}</p>
+    <p><strong>Status:</strong> {{ agreement.status|default:"-" }}</p>
+    <p><strong>Parties:</strong>
+      {% for party in agreement.parties.all %}
+        {{ party.name }}{% if not forloop.last %}, {% endif %}
+      {% empty %}
+        -
+      {% endfor %}
+    </p>
+    <p><strong>Restrictions:</strong> {{ agreement.restrictions_summary|default:"-" }}</p>
+    {% if can_edit %}
+      <p><a href="{% url 'nbms_app:data_agreement_edit' agreement.uuid %}">Edit data agreement</a></p>
+    {% endif %}
+  </div>
+  <p><a href="{% url 'nbms_app:data_agreement_list' %}">Back to list</a></p>
+{% endblock %}

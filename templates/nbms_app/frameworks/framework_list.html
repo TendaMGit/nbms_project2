@@ -1,0 +1,31 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Frameworks{% endblock %}
+{% block content %}
+  <h1>Frameworks</h1>
+  {% if can_manage_catalog %}
+    <p><a href="{% url 'nbms_app:framework_create' %}">New Framework</a></p>
+  {% endif %}
+  <form method="get" class="card">
+    <label for="framework-search">Search</label>
+    <input id="framework-search" type="text" name="q" value="{{ query|default:'' }}" placeholder="Code or title">
+    <button type="submit">Filter</button>
+  </form>
+  <div class="card">
+    <ul>
+      {% for framework in frameworks %}
+        <li>
+          <a href="{% url 'nbms_app:framework_detail' framework.uuid %}">
+            {{ framework.code }} - {{ framework.title }}
+          </a>
+        </li>
+      {% empty %}
+        <li>
+          No frameworks available.
+          {% if can_manage_catalog %}
+            <a href="{% url 'nbms_app:framework_create' %}">Create the first one</a>.
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+{% endblock %}

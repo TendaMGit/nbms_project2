@@ -68,13 +68,17 @@ def _create_cycle_and_instance(*, cycle_uuid, instance_uuid):
     return cycle, instance
 
 
-def _create_user(org, username, staff=False):
-    return User.objects.create_user(
+def _create_user(org, username, staff=False, steward=False):
+    user = User.objects.create_user(
         username=username,
         password="pass1234",
         organisation=org,
         is_staff=staff,
     )
+    if steward:
+        group, _ = Group.objects.get_or_create(name=ROLE_DATA_STEWARD)
+        user.groups.add(group)
+    return user
 
 
 def _create_section_response(instance, user, code, content):
@@ -147,7 +151,7 @@ def _create_framework_stack(org, user):
 def test_ort_nr7_v2_happy_path_golden():
     _seed_templates_and_rules()
     org = Organisation.objects.create(name="Org A")
-    user = _create_user(org, "staff", staff=True)
+    user = _create_user(org, "staff", staff=True, steward=True)
     instance_uuid = uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
     cycle_uuid = uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
     _, instance = _create_cycle_and_instance(cycle_uuid=cycle_uuid, instance_uuid=instance_uuid)
@@ -313,7 +317,7 @@ def test_ort_nr7_v2_happy_path_golden():
 def test_ort_nr7_v2_blocks_missing_progress_when_required():
     _seed_templates_and_rules()
     org = Organisation.objects.create(name="Org A")
-    user = _create_user(org, "staff", staff=True)
+    user = _create_user(org, "staff", staff=True, steward=True)
     _, instance = _create_cycle_and_instance(
         cycle_uuid=uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaab"),
         instance_uuid=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbc"),
@@ -348,7 +352,7 @@ def test_ort_nr7_v2_blocks_missing_progress_when_required():
 def test_ort_nr7_v2_blocks_references_not_export_eligible():
     _seed_templates_and_rules()
     org = Organisation.objects.create(name="Org A")
-    user = _create_user(org, "staff", staff=True)
+    user = _create_user(org, "staff", staff=True, steward=True)
     _, instance = _create_cycle_and_instance(
         cycle_uuid=uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"),
         instance_uuid=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbd"),

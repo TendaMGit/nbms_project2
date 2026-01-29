@@ -1,0 +1,195 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Snapshot Diff{% endblock %}
+{% block content %}
+  <h1>Snapshot Diff</h1>
+
+  <section class="card">
+    <h2>Select snapshots</h2>
+    <form method="get">
+      <label for="snapshot-a">Baseline (older)</label>
+      <select id="snapshot-a" name="a">
+        <option value="">-- Select --</option>
+        {% for snap in snapshots %}
+          <option value="{{ snap.uuid }}"{% if snapshot_a and snap.uuid == snapshot_a.uuid %} selected{% endif %}>
+            {{ snap.created_at|date:"Y-m-d H:i" }} - {{ snap.payload_hash|slice:":8" }}
+          </option>
+        {% endfor %}
+      </select>
+      <label for="snapshot-b">Comparison (newer)</label>
+      <select id="snapshot-b" name="b">
+        <option value="">-- Select --</option>
+        {% for snap in snapshots %}
+          <option value="{{ snap.uuid }}"{% if snapshot_b and snap.uuid == snapshot_b.uuid %} selected{% endif %}>
+            {{ snap.created_at|date:"Y-m-d H:i" }} - {{ snap.payload_hash|slice:":8" }}
+          </option>
+        {% endfor %}
+      </select>
+      <button type="submit">Compare</button>
+    </form>
+    <p class="muted">Defaults to latest vs previous snapshot if no selection is made.</p>
+  </section>
+
+  {% if diff %}
+    <section class="card">
+      <h2>Summary</h2>
+      <p><strong>Baseline:</strong> {{ snapshot_a.created_at|date:"Y-m-d H:i" }} ({{ snapshot_a.payload_hash|slice:":8" }})</p>
+      <p><strong>Comparison:</strong> {{ snapshot_b.created_at|date:"Y-m-d H:i" }} ({{ snapshot_b.payload_hash|slice:":8" }})</p>
+      <p><strong>Other changes detected:</strong> {{ diff.other_changes_detected }}</p>
+    </section>
+
+    {% if readiness_diff %}
+      <section class="card">
+        <h2>Readiness changes</h2>
+        <p><strong>Overall ready:</strong> {{ readiness_diff.overall_ready.from }} → {{ readiness_diff.overall_ready.to }}</p>
+        <p><strong>Blocking gaps:</strong> {{ readiness_diff.blocking_gap_count.from }} → {{ readiness_diff.blocking_gap_count.to }}</p>
+        {% if readiness_diff.top_blockers_added %}
+          <p><strong>Top blockers added:</strong> {{ readiness_diff.top_blockers_added|join:", " }}</p>
+        {% else %}
+          <p class="muted">Top blockers added: none.</p>
+        {% endif %}
+        {% if readiness_diff.top_blockers_removed %}
+          <p><strong>Top blockers removed:</strong> {{ readiness_diff.top_blockers_removed|join:", " }}</p>
+        {% else %}
+          <p class="muted">Top blockers removed: none.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>Narrative sections</h2>
+      {% if diff.sections.added %}
+        <p><strong>Added:</strong> {{ diff.sections.added|join:", " }}</p>
+      {% else %}
+        <p class="muted">Added: none.</p>
+      {% endif %}
+      {% if diff.sections.removed %}
+        <p><strong>Removed:</strong> {{ diff.sections.removed|join:", " }}</p>
+      {% else %}
+        <p class="muted">Removed: none.</p>
+      {% endif %}
+      {% if diff.sections.modified %}
+        <p><strong>Modified:</strong> {{ diff.sections.modified|join:", " }}</p>
+      {% else %}
+        <p class="muted">Modified: none.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Section III progress</h2>
+      {% if diff.section_iii_progress.added %}
+        <p><strong>Added:</strong> {{ diff.section_iii_progress.added|join:", " }}</p>
+      {% else %}
+        <p class="muted">Added: none.</p>
+      {% endif %}
+      {% if diff.section_iii_progress.removed %}
+        <p><strong>Removed:</strong> {{ diff.section_iii_progress.removed|join:", " }}</p>
+      {% else %}
+        <p class="muted">Removed: none.</p>
+      {% endif %}
+      {% if diff.section_iii_progress.modified %}
+        <ul>
+          {% for item in diff.section_iii_progress.modified %}
+            <li>{{ item.key }} ({{ item.changed_fields|join:", " }})</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Modified: none.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Section IV progress</h2>
+      {% if diff.section_iv_progress.added %}
+        <p><strong>Added:</strong> {{ diff.section_iv_progress.added|join:", " }}</p>
+      {% else %}
+        <p class="muted">Added: none.</p>
+      {% endif %}
+      {% if diff.section_iv_progress.removed %}
+        <p><strong>Removed:</strong> {{ diff.section_iv_progress.removed|join:", " }}</p>
+      {% else %}
+        <p class="muted">Removed: none.</p>
+      {% endif %}
+      {% if diff.section_iv_progress.modified %}
+        <ul>
+          {% for item in diff.section_iv_progress.modified %}
+            <li>{{ item.key }} ({{ item.changed_fields|join:", " }})</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Modified: none.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Indicator data series</h2>
+      {% if diff.indicator_data_series.added %}
+        <p><strong>Added:</strong> {{ diff.indicator_data_series.added|join:", " }}</p>
+      {% else %}
+        <p class="muted">Added: none.</p>
+      {% endif %}
+      {% if diff.indicator_data_series.removed %}
+        <p><strong>Removed:</strong> {{ diff.indicator_data_series.removed|join:", " }}</p>
+      {% else %}
+        <p class="muted">Removed: none.</p>
+      {% endif %}
+      {% if diff.indicator_data_series.modified %}
+        <ul>
+          {% for item in diff.indicator_data_series.modified %}
+            <li>
+              {{ item.series }}
+              {% if item.changed_fields %}(fields: {{ item.changed_fields|join:", " }}){% endif %}
+              {% if item.points_added %} | points added: {{ item.points_added|length }}{% endif %}
+              {% if item.points_removed %} | points removed: {{ item.points_removed|length }}{% endif %}
+              {% if item.points_modified %} | points modified: {{ item.points_modified|length }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Modified: none.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Binary responses</h2>
+      {% if diff.binary_indicator_data.added %}
+        <p><strong>Added:</strong> {{ diff.binary_indicator_data.added|join:", " }}</p>
+      {% else %}
+        <p class="muted">Added: none.</p>
+      {% endif %}
+      {% if diff.binary_indicator_data.removed %}
+        <p><strong>Removed:</strong> {{ diff.binary_indicator_data.removed|join:", " }}</p>
+      {% else %}
+        <p class="muted">Removed: none.</p>
+      {% endif %}
+      {% if diff.binary_indicator_data.modified %}
+        <ul>
+          {% for item in diff.binary_indicator_data.modified %}
+            <li>{{ item.key }} ({{ item.changed_fields|join:", " }})</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">Modified: none.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Changed paths (limited)</h2>
+      {% if diff.changed_paths %}
+        <ul>
+          {% for path in diff.changed_paths %}
+            <li>{{ path }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">No detailed path changes captured.</p>
+      {% endif %}
+    </section>
+  {% else %}
+    <section class="card">
+      <h2>No diff available</h2>
+      <p>Capture at least two snapshots or select a baseline and comparison.</p>
+    </section>
+  {% endif %}
+
+  <p><a href="{% url 'nbms_app:reporting_instance_snapshots' instance.uuid %}">Back to snapshots</a></p>
+{% endblock %}

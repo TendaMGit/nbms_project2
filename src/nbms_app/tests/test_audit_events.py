@@ -33,7 +33,7 @@ class AuditEventTests(TestCase):
         self.assertTrue(AuditEvent.objects.filter(action="submit_for_review").exists())
         event = AuditEvent.objects.filter(action="approve").first()
         self.assertIsNotNone(event)
-        self.assertEqual(event.metadata.get("note"), "ok")
+        self.assertEqual(event.metadata.get("note"), "[redacted]")
 
     def test_sensitive_field_change_audited(self):
         target = NationalTarget.objects.create(

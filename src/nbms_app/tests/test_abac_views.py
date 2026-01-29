@@ -2,8 +2,18 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
-from nbms_app.models import Dataset, Evidence, Indicator, LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
-from nbms_app.services.authorization import ROLE_SECURITY_OFFICER
+from nbms_app.models import (
+    AccessLevel,
+    DatasetCatalog,
+    Evidence,
+    Indicator,
+    LifecycleStatus,
+    NationalTarget,
+    Organisation,
+    SensitivityLevel,
+    User,
+)
+from nbms_app.services.authorization import ROLE_SYSTEM_ADMIN
 
 
 class AbacViewTests(TestCase):
@@ -21,12 +31,18 @@ class AbacViewTests(TestCase):
             password="pass1234",
             organisation=self.org_b,
         )
-        self.security_officer = User.objects.create_user(
-            username="security",
+        self.staff_user = User.objects.create_user(
+            username="staff-user",
+            password="pass1234",
+            organisation=self.org_a,
+            is_staff=True,
+        )
+        self.system_admin = User.objects.create_user(
+            username="sysadmin",
             password="pass1234",
             organisation=self.org_b,
         )
-        self.security_officer.groups.add(Group.objects.create(name=ROLE_SECURITY_OFFICER))
+        self.system_admin.groups.add(Group.objects.create(name=ROLE_SYSTEM_ADMIN))
 
         self.target_public = NationalTarget.objects.create(
             code="NT-PUB",
@@ -86,19 +102,19 @@ class AbacViewTests(TestCase):
             sensitivity=SensitivityLevel.INTERNAL,
         )
 
-        self.dataset_public = Dataset.objects.create(
+        self.dataset_public = DatasetCatalog.objects.create(
+            dataset_code="DS-PUB",
             title="Public Dataset",
-            organisation=self.org_a,
-            created_by=self.creator,
-            status=LifecycleStatus.PUBLISHED,
-            sensitivity=SensitivityLevel.PUBLIC,
+            access_level=AccessLevel.PUBLIC,
+            custodian_org=self.org_a,
+            is_active=True,
         )
-        self.dataset_internal = Dataset.objects.create(
+        self.dataset_internal = DatasetCatalog.objects.create(
+            dataset_code="DS-INT",
             title="Internal Dataset",
-            organisation=self.org_b,
-            created_by=self.other_user,
-            status=LifecycleStatus.PUBLISHED,
-            sensitivity=SensitivityLevel.INTERNAL,
+            access_level=AccessLevel.INTERNAL,
+            custodian_org=self.org_b,
+            is_active=True,
         )
 
     def test_anonymous_sees_only_public_targets(self):
@@ -113,8 +129,8 @@ class AbacViewTests(TestCase):
         )
         self.assertEqual(resp.status_code, 404)
 
-    def test_security_officer_can_view_restricted_and_iplc(self):
-        self.client.force_login(self.security_officer)
+    def test_system_admin_can_view_restricted_and_iplc(self):
+        self.client.force_login(self.system_admin)
         resp = self.client.get(
             reverse("nbms_app:national_target_detail", args=[self.target_restricted.uuid])
         )
@@ -123,6 +139,13 @@ class AbacViewTests(TestCase):
             reverse("nbms_app:national_target_detail", args=[self.target_iplc.uuid])
         )
         self.assertEqual(resp.status_code, 200)
+
+    def test_staff_without_system_admin_cannot_view_iplc(self):
+        self.client.force_login(self.staff_user)
+        resp = self.client.get(
+            reverse("nbms_app:national_target_detail", args=[self.target_iplc.uuid])
+        )
+        self.assertEqual(resp.status_code, 404)
 
     def test_indicator_list_anonymous_public_only(self):
         resp = self.client.get(reverse("nbms_app:indicator_list"))

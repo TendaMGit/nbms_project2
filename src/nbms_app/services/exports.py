@@ -15,17 +15,21 @@ from nbms_app.models import (
     ReportSectionTemplate,
     SensitivityLevel,
 )
-from nbms_app.services.audit import record_audit_event
-from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT, user_has_role
+from nbms_app.services.audit import record_audit_event, suppress_audit_events
+from nbms_app.services.authorization import ROLE_DATA_STEWARD, ROLE_SECRETARIAT, is_system_admin, user_has_role
 from nbms_app.services.consent import consent_is_granted
 from nbms_app.services.instance_approvals import approved_queryset
 from nbms_app.services.metrics import inc_counter
 from nbms_app.services.notifications import create_notification
-from nbms_app.services.readiness import get_instance_readiness
+from nbms_app.services.readiness import (
+    compute_release_readiness_report,
+    get_instance_readiness,
+    validate_release_readiness,
+)
 
 
 def _is_admin(user):
-    return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)))
+    return bool(user and is_system_admin(user))
 
 
 def assert_instance_exportable(instance, user):
@@ -39,6 +43,15 @@ def assert_instance_exportable(instance, user):
     if blockers:
         messages = "; ".join(blocker.get("message", "") for blocker in blockers if blocker)
         raise ValidationError(messages or "Export blocked by readiness checks.")
+
+    if getattr(settings, "EXPORT_REQUIRE_READINESS", False):
+        readiness_report, _summary = validate_release_readiness(instance)
+    else:
+        try:
+            readiness_report, _summary = compute_release_readiness_report(instance)
+        except ValidationError:
+            readiness_report = {}
+    readiness.setdefault("details", {})["readiness_report"] = readiness_report
 
     approvals = readiness.get("details", {}).get("approvals", {})
     pending = sum(item.get("pending", 0) for item in approvals.values())
@@ -190,7 +203,8 @@ def submit_export_for_review(package, user):
     _require_status(package, ExportStatus.DRAFT)
     package.status = ExportStatus.PENDING_REVIEW
     package.review_note = ""
-    package.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "review_note"])
     record_audit_event(user, "export_submit", package, metadata={"status": package.status})
     inc_counter(
         "workflow_transitions_total",
@@ -212,7 +226,8 @@ def approve_export(package, user, note=""):
     _require_status(package, ExportStatus.PENDING_REVIEW)
     package.status = ExportStatus.APPROVED
     package.review_note = note or ""
-    package.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "review_note"])
     record_audit_event(user, "export_approve", package, metadata={"status": package.status})
     inc_counter(
         "workflow_transitions_total",
@@ -236,7 +251,8 @@ def reject_export(package, user, note):
     _require_status(package, ExportStatus.PENDING_REVIEW)
     package.status = ExportStatus.DRAFT
     package.review_note = note
-    package.save(update_fields=["status", "review_note"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "review_note"])
     record_audit_event(user, "export_reject", package, metadata={"status": package.status, "note": note})
     inc_counter(
         "workflow_transitions_total",
@@ -260,7 +276,20 @@ def release_export(package, user):
     if not package.reporting_instance:
         raise ValidationError("Reporting instance is required to release exports.")
     _validate_consents(package.reporting_instance)
+    readiness_report = {}
+    summary = {}
+    if getattr(settings, "EXPORT_REQUIRE_READINESS", False):
+        readiness_report, summary = validate_release_readiness(package.reporting_instance)
+    else:
+        try:
+            readiness_report, summary = compute_release_readiness_report(package.reporting_instance)
+        except ValidationError:
+            readiness_report = {}
+            summary = {}
     payload = build_export_payload(package.reporting_instance)
+    if not getattr(settings, "EXPORT_REQUIRE_READINESS", False):
+        payload["readiness_report"] = readiness_report
+        payload["readiness_summary"] = summary
     missing_sections = payload.get("missing_required_sections", [])
     if missing_sections and getattr(settings, "EXPORT_REQUIRE_SECTIONS", False):
         raise ValidationError(f"Missing required sections: {', '.join(missing_sections)}")
@@ -269,7 +298,8 @@ def release_export(package, user):
     package.payload = payload
     package.generated_at = now
     package.released_at = now
-    package.save(update_fields=["status", "payload", "generated_at", "released_at"])
+    with suppress_audit_events():
+        package.save(update_fields=["status", "payload", "generated_at", "released_at"])
     record_audit_event(user, "export_release", package, metadata={"status": package.status})
     inc_counter(
         "workflow_transitions_total",

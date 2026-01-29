@@ -1,0 +1,16 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Framework Indicator{% endblock %}
+{% block content %}
+  <h1>{% if mode == "edit" %}Edit{% else %}Create{% endif %} framework indicator</h1>
+  {% if mode == "edit" %}
+    {% include "nbms_app/includes/catalog_readonly_panel.html" %}
+  {% endif %}
+  <div class="card">
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit">Save</button>
+    </form>
+  </div>
+  <p><a href="{% url 'nbms_app:framework_indicator_list' %}">Back to indicators</a></p>
+{% endblock %}

@@ -9,19 +9,16 @@ from nbms_app.models import (
     NationalTargetFrameworkTargetLink,
     SensitivityLevel,
 )
-from nbms_app.services.authorization import ROLE_SECURITY_OFFICER, user_has_role
+from nbms_app.services.authorization import is_system_admin, user_has_role
 from nbms_app.services.instance_approvals import approved_queryset
 
 
 def _filter_queryset_for_user_strict(queryset, user):
-    if getattr(user, "is_superuser", False):
+    if is_system_admin(user):
         return queryset
 
     if not user or isinstance(user, AnonymousUser):
         return queryset.filter(status=LifecycleStatus.PUBLISHED, sensitivity=SensitivityLevel.PUBLIC)
-
-    if user_has_role(user, ROLE_SECURITY_OFFICER):
-        return queryset
 
     public_q = Q(status=LifecycleStatus.PUBLISHED, sensitivity=SensitivityLevel.PUBLIC)
     creator_q = Q(created_by_id=user.id)
@@ -82,7 +79,8 @@ def scoped_framework_targets(instance, user):
         return visible.none()
 
     framework_target_ids = NationalTargetFrameworkTargetLink.objects.filter(
-        national_target__in=national_targets
+        national_target__in=national_targets,
+        is_active=True,
     ).values_list("framework_target_id", flat=True)
 
     return visible.filter(id__in=framework_target_ids).distinct().order_by("framework__code", "code")

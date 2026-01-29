@@ -1,0 +1,67 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Snapshot Detail{% endblock %}
+{% block content %}
+  <h1>Snapshot Detail</h1>
+
+  <section class="card">
+    <h2>Snapshot metadata</h2>
+    <p><strong>Instance:</strong> {{ instance.cycle.code }} {{ instance.version_label }}</p>
+    <p><strong>Snapshot:</strong> {{ snapshot.uuid }}</p>
+    <p><strong>Created at:</strong> {{ snapshot.created_at|date:"Y-m-d H:i" }}</p>
+    <p><strong>Created by:</strong> {{ snapshot.created_by.get_username|default:"-" }}</p>
+    <p><strong>Exporter schema:</strong> {{ snapshot.exporter_schema }}</p>
+    <p><strong>Exporter version:</strong> {{ snapshot.exporter_version }}</p>
+    <p><strong>Readiness overall:</strong> {{ snapshot.readiness_overall_ready }}</p>
+    <p><strong>Readiness blocking gaps:</strong> {{ snapshot.readiness_blocking_gap_count }}</p>
+    <p><strong>Hash:</strong> {{ snapshot.payload_hash }}</p>
+    {% if snapshot.notes %}
+      <p><strong>Notes:</strong> {{ snapshot.notes }}</p>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>Payload summary</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Component</th>
+          <th>Count</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Narrative sections</td>
+          <td>{{ counts.sections }}</td>
+        </tr>
+        <tr>
+          <td>Section III progress entries</td>
+          <td>{{ counts.section_iii }}</td>
+        </tr>
+        <tr>
+          <td>Section IV progress entries</td>
+          <td>{{ counts.section_iv }}</td>
+        </tr>
+        <tr>
+          <td>Indicator data series</td>
+          <td>{{ counts.indicator_series }}</td>
+        </tr>
+        <tr>
+          <td>Binary indicator responses</td>
+          <td>{{ counts.binary_responses }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Actions</h2>
+    <p>
+      <a href="{% url 'nbms_app:reporting_instance_snapshot_download' instance.uuid snapshot.uuid %}">Download JSON</a>
+    </p>
+    <p>
+      <a href="{% url 'nbms_app:reporting_instance_snapshot_diff' instance.uuid %}">Compare snapshots</a>
+    </p>
+  </section>
+
+  <p><a href="{% url 'nbms_app:reporting_instance_snapshots' instance.uuid %}">Back to snapshots</a></p>
+{% endblock %}

@@ -1,0 +1,30 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Framework Target{% endblock %}
+{% block content %}
+  <h1>{{ target.framework.code }} {{ target.code }} - {{ target.title }}</h1>
+  {% if can_manage_catalog %}
+    <div class="actions">
+      <a href="{% url 'nbms_app:framework_target_edit' target.uuid %}">Edit</a>
+      <form method="post" action="{% url 'nbms_app:framework_target_archive' target.uuid %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">Archive</button>
+      </form>
+    </div>
+  {% endif %}
+  <div class="card">
+    <p><strong>Goal:</strong> {{ target.goal|default:"-" }}</p>
+    <p><strong>Official text:</strong> {{ target.official_text|default:"-" }}</p>
+    <p><strong>Description:</strong> {{ target.description|default:"-" }}</p>
+  </div>
+  <div class="card">
+    <h2>Indicators</h2>
+    <ul>
+      {% for indicator in indicators %}
+        <li><a href="{% url 'nbms_app:framework_indicator_detail' indicator.uuid %}">{{ indicator.code }} - {{ indicator.title }}</a></li>
+      {% empty %}
+        <li>No indicators linked to this target.</li>
+      {% endfor %}
+    </ul>
+  </div>
+  <p><a href="{% url 'nbms_app:framework_target_list' %}">Back to targets</a></p>
+{% endblock %}

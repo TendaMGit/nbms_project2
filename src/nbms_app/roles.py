@@ -1,6 +1,7 @@
 from django.contrib.auth.models import Group
 
 CANONICAL_GROUPS = [
+    "SystemAdmin",
     "Admin",
     "Secretariat",
     "Data Steward",

@@ -6,12 +6,19 @@
     <p><strong>Status:</strong> {{ indicator.status }}</p>
     <p><strong>Sensitivity:</strong> {{ indicator.sensitivity }}</p>
     <p><strong>National target:</strong> {{ indicator.national_target }}</p>
+    <p><strong>Indicator type:</strong> {{ indicator.indicator_type }}</p>
+    {% if indicator.reporting_cadence %}<p><strong>Reporting cadence:</strong> {{ indicator.reporting_cadence }}</p>{% endif %}
+    <p><strong>QA status:</strong> {{ indicator.qa_status }}</p>
+    {% if indicator.source_document %}<p><strong>Source document:</strong> {{ indicator.source_document }}</p>{% endif %}
+    {% if indicator.license %}<p><strong>License:</strong> {{ indicator.license }}</p>{% endif %}
     {% if indicator.review_note %}
       <p><strong>Review note:</strong> {{ indicator.review_note }}</p>
     {% endif %}
     {% if can_edit %}
       <p><a href="{% url 'nbms_app:indicator_edit' indicator.uuid %}">Edit indicator</a></p>
     {% endif %}
+    <p><a href="{% url 'nbms_app:indicator_alignments' indicator.uuid %}">Manage framework alignments</a></p>
+    <p><a href="{% url 'nbms_app:indicator_methodologies' indicator.uuid %}">Manage methodology versions</a></p>
   </div>
   <h2>Indicator Readiness</h2>
   {% for card in readiness_cards %}

@@ -1,19 +1,21 @@
 {% extends "nbms_app/base.html" %}
-{% block title %}Datasets{% endblock %}
+{% block title %}Catalog Datasets{% endblock %}
 {% block content %}
-  <h1>Datasets</h1>
+  <h1>Catalog Datasets</h1>
   {% if user.is_authenticated %}
-    <p><a href="{% url 'nbms_app:dataset_create' %}">Create dataset</a></p>
+    <p><a href="{% url 'nbms_app:dataset_create' %}">Create catalog dataset</a></p>
   {% endif %}
   <div class="card">
     <ul>
       {% for dataset in datasets %}
         <li>
-          <a href="{% url 'nbms_app:dataset_detail' dataset.uuid %}">{{ dataset.title }}</a>
-          ({{ dataset.status }})
+          <a href="{% url 'nbms_app:dataset_detail' dataset.uuid %}">
+            {{ dataset.dataset_code }} - {{ dataset.title }}
+          </a>
+          ({{ dataset.access_level }})
         </li>
       {% empty %}
-        <li>No datasets available.</li>
+        <li>No catalog datasets available.</li>
       {% endfor %}
     </ul>
   </div>

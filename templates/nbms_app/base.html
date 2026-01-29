@@ -30,14 +30,38 @@
     <header>
       <nav>
         <a href="{% url 'nbms_app:home' %}">Home</a>
-        <a href="{% url 'nbms_app:indicator_list' %}">Indicators</a>
-        <a href="{% url 'nbms_app:national_target_list' %}">National Targets</a>
-        <a href="{% url 'nbms_app:evidence_list' %}">Evidence</a>
-        <a href="{% url 'nbms_app:dataset_list' %}">Datasets</a>
-        <a href="{% url 'nbms_app:export_package_list' %}">Exports</a>
+        <div class="dropdown">
+          <span>Reporting</span>
+          <div class="dropdown-content">
+            <a href="{% url 'nbms_app:indicator_list' %}">Indicators</a>
+            <a href="{% url 'nbms_app:national_target_list' %}">National Targets</a>
+            <a href="{% url 'nbms_app:evidence_list' %}">Evidence</a>
+            <a href="{% url 'nbms_app:export_package_list' %}">Exports</a>
+          </div>
+        </div>
+        <div class="dropdown">
+          <span>Catalog</span>
+          <div class="dropdown-content">
+            <a href="{% url 'nbms_app:dataset_list' %}">Datasets</a>
+            <a href="{% url 'nbms_app:monitoring_programme_list' %}">Monitoring Programmes</a>
+            <a href="{% url 'nbms_app:methodology_list' %}">Methodologies</a>
+            <a href="{% url 'nbms_app:methodology_version_list' %}">Methodology Versions</a>
+            <a href="{% url 'nbms_app:data_agreement_list' %}">Data Agreements</a>
+            <a href="{% url 'nbms_app:sensitivity_class_list' %}">Sensitivity Classes</a>
+          </div>
+        </div>
+        <div class="dropdown">
+          <span>Frameworks</span>
+          <div class="dropdown-content">
+            <a href="{% url 'nbms_app:framework_list' %}">Frameworks</a>
+            <a href="{% url 'nbms_app:framework_goal_list' %}">Goals</a>
+            <a href="{% url 'nbms_app:framework_target_list' %}">Targets</a>
+            <a href="{% url 'nbms_app:framework_indicator_list' %}">Indicators</a>
+          </div>
+        </div>
         <a href="{% url 'nbms_app:notification_list' %}">Notifications</a>
         <span class="nav-spacer"></span>
-        {% if user.is_staff %}
+        {% if user.is_staff or user.is_superuser %}
           <div class="dropdown">
             <span>
               Instance
@@ -63,6 +87,7 @@
             <div class="dropdown-content">
               <a href="{% url 'nbms_app:manage_organisation_list' %}">Manage Orgs</a>
               <a href="{% url 'nbms_app:manage_user_list' %}">Manage Users</a>
+              <a href="/admin/">Admin</a>
               <a href="{% url 'nbms_app:reporting_cycle_list' %}">Reporting</a>
               <a href="{% url 'nbms_app:review_queue' %}">Review Queue</a>
               <a href="{% url 'nbms_app:audit_event_list' %}">Audit Events</a>
