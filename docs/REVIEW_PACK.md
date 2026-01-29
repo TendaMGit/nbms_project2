@@ -37,3 +37,8 @@
 - `docs/AUDIT_EVENTS.md` (audit taxonomy + metadata)
 - `docs/AUDIT_QUERIES.md` (example audit queries)
 - `docs/MIGRATION_VERIFICATION.md` (migration verification log)
+
+## Addendum: Post-merge hardening
+- Merged internal review dashboard branch with main to resolve compatibility drift.
+- Added AuditEvent indexes and purge command for operational safety.
+- Cleaned deprecation warnings (CheckConstraint and URLField scheme).

@@ -642,8 +642,24 @@ class ExportPackageAdmin(admin.ModelAdmin):
 @admin.register(AuditEvent)
 class AuditEventAdmin(admin.ModelAdmin):
     list_display = ("event_type", "object_type", "object_uuid", "actor", "created_at")
-    list_filter = ("event_type", "object_type", "request_method")
-    search_fields = ("object_uuid", "action", "event_type", "request_path", "request_id")
+    list_filter = (
+        "event_type",
+        "object_type",
+        "request_method",
+        "actor",
+        ("created_at", admin.DateFieldListFilter),
+    )
+    search_fields = (
+        "object_uuid",
+        "object_id",
+        "action",
+        "event_type",
+        "request_path",
+        "request_id",
+        "actor__username",
+        "actor__email",
+    )
+    date_hierarchy = "created_at"
     readonly_fields = (
         "action",
         "event_type",

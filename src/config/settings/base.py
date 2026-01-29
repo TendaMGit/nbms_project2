@@ -120,6 +120,9 @@ if not ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.contrib.
 
 AUTH_USER_MODEL = "nbms_app.User"
 SITE_ID = 1
+
+# Silence Django 6.0 URLField scheme warnings by opting into https defaults.
+FORMS_URLFIELD_ASSUME_HTTPS = True
 AUTHENTICATION_BACKENDS = (
     "django.contrib.auth.backends.ModelBackend",
     "guardian.backends.ObjectPermissionBackend",

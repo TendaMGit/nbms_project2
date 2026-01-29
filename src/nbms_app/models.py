@@ -1429,7 +1429,7 @@ class IndicatorDataSeries(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(framework_indicator__isnull=False, indicator__isnull=True)
                     | models.Q(framework_indicator__isnull=True, indicator__isnull=False)
                 ),
@@ -1489,7 +1489,7 @@ class IndicatorDataPoint(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=models.Q(value_numeric__isnull=False) | models.Q(value_text__isnull=False),
+                condition=models.Q(value_numeric__isnull=False) | models.Q(value_text__isnull=False),
                 name="ck_indicator_data_point_value_present",
             )
         ]
@@ -1754,6 +1754,14 @@ class AuditEvent(TimeStampedModel):
     def __str__(self):
         label = self.event_type or self.action
         return f"{label} {self.object_type or '-'} {self.object_uuid or ''}".strip()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_at"], name="idx_audit_created_at"),
+            models.Index(fields=["event_type", "created_at"], name="idx_audit_event_type_created"),
+            models.Index(fields=["actor", "created_at"], name="idx_audit_actor_created"),
+            models.Index(fields=["content_type", "object_id"], name="idx_audit_content_object"),
+        ]
 
 
 class Notification(TimeStampedModel):
