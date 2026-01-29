@@ -6,7 +6,9 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not (Test-Path $EnvFile)) {
-    Write-Error "Missing .env file. Run: copy .env.example .env"
+    Write-Error "Missing .env file."
+    Write-Error "Windows: copy .env.local.example .env"
+    Write-Error "Linux/macOS: cp .env.local.example .env"
     exit 2
 }
 

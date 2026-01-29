@@ -2,7 +2,7 @@
 set -euo pipefail
 
 VOLUMES=false
-if [ "${1:-}" = "--volumes" ]; then
+if [ "${1:-}" = "--reset-volumes" ]; then
   VOLUMES=true
 fi
 

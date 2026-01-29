@@ -5,7 +5,9 @@ ENV_FILE=${1:-.env}
 COMPOSE_FILE=${2:-docker/docker-compose.yml}
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "Missing .env file. Run: copy .env.example .env" >&2
+  echo "Missing .env file." >&2
+  echo "Windows: copy .env.local.example .env" >&2
+  echo "Linux/macOS: cp .env.local.example .env" >&2
   exit 2
 fi
 

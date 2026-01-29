@@ -1,5 +1,5 @@
 param(
-    [switch]$GeoServer
+    [switch]$IncludeGeoServer
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +17,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $services = @("postgis", "redis", "minio", "minio-init")
-if ($GeoServer) { $services += "geoserver" }
+if ($IncludeGeoServer) { $services += "geoserver" }
 
 Write-Host "Starting infrastructure services: $($services -join ', ')"
 

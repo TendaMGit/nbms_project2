@@ -13,6 +13,7 @@ venv/
 
 # Django
 .env
+.env.local
 .env.verify
 *.sqlite3
 staticfiles/

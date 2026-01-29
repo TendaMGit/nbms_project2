@@ -33,23 +33,24 @@ including governance, consent checks, and instance-scoped approvals.
 1) Copy the environment file and fill in credentials:
 
 ```
-copy .env.example .env
+copy .env.local.example .env
 ```
 
 Note: docker-compose will fail fast if required values in `.env` are missing (this is intentional).
+`.env.example` uses safe placeholders; `.env.local.example` includes the local defaults requested by the project lead.
 
 2) Start infra services (choose a mode):
 
 A) Minimal stack (PostGIS + Redis + MinIO):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init
+scripts\infra_up.ps1
 ```
 
 B) Full stack (includes GeoServer):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init geoserver
+scripts\infra_up.ps1 -IncludeGeoServer
 ```
 
 3) Bootstrap the app (installs deps + migrate):
@@ -61,7 +62,10 @@ scripts/bootstrap.sh
 4) Reset databases (only when you need a clean slate):
 
 ```
-CONFIRM_DROP=YES scripts/reset_db.sh
+scripts\infra_down.ps1 -ResetVolumes
+scripts\infra_up.ps1
+python manage.py migrate
+python manage.py seed_reporting_defaults
 ```
 
 Use `USE_DOCKER=0` to run the reset against a local Postgres (requires `psql`).
@@ -85,7 +89,7 @@ python -m pip install -r requirements.txt
 2) Create your `.env` file from the example and fill in credentials:
 
 ```
-copy .env.example .env
+copy .env.local.example .env
 ```
 
 3) Run migrations and start the server:
@@ -264,6 +268,7 @@ intentionally want multiple active configurations.
 ### Start infra (Windows)
 
 ```
+copy .env.local.example .env
 scripts\verify_env.ps1
 scripts\infra_up.ps1
 ```
@@ -271,7 +276,7 @@ scripts\infra_up.ps1
 Include GeoServer if needed:
 
 ```
-scripts\infra_up.ps1 -GeoServer
+scripts\infra_up.ps1 -IncludeGeoServer
 ```
 
 ### Stop infra (Windows)
@@ -283,12 +288,13 @@ scripts\infra_down.ps1
 Clean slate (drops volumes):
 
 ```
-scripts\infra_down.ps1 -Volumes
+scripts\infra_down.ps1 -ResetVolumes
 ```
 
 ### Start/stop infra (Linux/macOS)
 
 ```
+cp .env.local.example .env
 ./scripts/verify_env.sh .env docker/docker-compose.yml
 ./scripts/infra_up.sh
 ./scripts/infra_down.sh
@@ -297,7 +303,7 @@ scripts\infra_down.ps1 -Volumes
 Clean slate (drops volumes):
 
 ```
-./scripts/infra_down.sh --volumes
+./scripts/infra_down.sh --reset-volumes
 ```
 
 ### Missing column / schema drift
@@ -311,7 +317,7 @@ python manage.py db_doctor
 Follow the printed recovery steps. In most Docker cases:
 
 ```
-scripts\infra_down.ps1 -Volumes
+scripts\infra_down.ps1 -ResetVolumes
 scripts\infra_up.ps1
 python manage.py migrate
 python manage.py seed_reporting_defaults

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 GEO=false
-if [ "${1:-}" = "--geoserver" ]; then
+if [ "${1:-}" = "--include-geoserver" ]; then
   GEO=true
 fi
 

@@ -6,9 +6,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
-      NBMS_DB_NAME: ${NBMS_DB_NAME:-nbms_project_db2}
-      NBMS_TEST_DB_NAME: ${NBMS_TEST_DB_NAME:-test_nbms_project_db2}
-      NBMS_DB_USER: ${NBMS_DB_USER:-nbms_user}
+      NBMS_DB_NAME: ${NBMS_DB_NAME:-nbms_project_db}
+      NBMS_TEST_DB_NAME: ${NBMS_TEST_DB_NAME:-test_nbms_project_db}
+      NBMS_DB_USER: ${NBMS_DB_USER:-postgres}
       NBMS_DB_PASSWORD: ${NBMS_DB_PASSWORD:?NBMS_DB_PASSWORD is required}
     ports:
       - "5432:5432"

@@ -30,7 +30,9 @@ def main():
 
     env_path = Path(args.env_file)
     if not env_path.exists():
-        print("Missing .env file. Run: copy .env.example .env", file=sys.stderr)
+        print("Missing .env file.", file=sys.stderr)
+        print("Windows: copy .env.local.example .env", file=sys.stderr)
+        print("Linux/macOS: cp .env.local.example .env", file=sys.stderr)
         return 2
 
     compose_path = Path(args.compose)
@@ -40,6 +42,16 @@ def main():
 
     compose_text = compose_path.read_text(encoding="utf-8")
     required_vars = extract_required_vars(compose_text)
+    required_vars.extend(
+        [
+            "NBMS_DB_NAME",
+            "NBMS_DB_PASSWORD",
+            "POSTGRES_PASSWORD",
+            "S3_ACCESS_KEY",
+            "S3_SECRET_KEY",
+        ]
+    )
+    required_vars = sorted(set(required_vars))
     env = load_env_file(env_path)
 
     missing = []

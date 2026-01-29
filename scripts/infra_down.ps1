@@ -1,5 +1,5 @@
 param(
-    [switch]$Volumes
+    [switch]$ResetVolumes
 )
 
 $ErrorActionPreference = "Stop"
@@ -17,7 +17,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "Stopping infrastructure services..."
-if ($Volumes) {
+if ($ResetVolumes) {
     docker compose -f docker/docker-compose.yml --env-file .env down -v
 } else {
     docker compose -f docker/docker-compose.yml --env-file .env down
