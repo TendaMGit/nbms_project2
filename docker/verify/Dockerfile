@@ -16,7 +16,8 @@ RUN apt-get update \
 WORKDIR /app
 
 COPY requirements.txt /app/requirements.txt
+COPY requirements-dev.txt /app/requirements-dev.txt
 RUN python -m pip install --upgrade pip \
-    && pip install -r /app/requirements.txt
+    && pip install -r /app/requirements-dev.txt
 
 ENV PYTHONPATH=/app/src
