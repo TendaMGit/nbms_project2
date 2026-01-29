@@ -36,6 +36,8 @@ including governance, consent checks, and instance-scoped approvals.
 copy .env.example .env
 ```
 
+Note: docker-compose will fail fast if required values in `.env` are missing (this is intentional).
+
 2) Start infra services (choose a mode):
 
 A) Minimal stack (PostGIS + Redis + MinIO):
@@ -257,3 +259,60 @@ intentionally want multiple active configurations.
 - Report pack is HTML only; use print-to-PDF for now.
 - Background jobs (Celery) are not wired yet.
 - ORT mapping is a stub and not a full 7NR export.
+## Windows-first onboarding and recovery
+
+### Start infra (Windows)
+
+```
+scripts\verify_env.ps1
+scripts\infra_up.ps1
+```
+
+Include GeoServer if needed:
+
+```
+scripts\infra_up.ps1 -GeoServer
+```
+
+### Stop infra (Windows)
+
+```
+scripts\infra_down.ps1
+```
+
+Clean slate (drops volumes):
+
+```
+scripts\infra_down.ps1 -Volumes
+```
+
+### Start/stop infra (Linux/macOS)
+
+```
+./scripts/verify_env.sh .env docker/docker-compose.yml
+./scripts/infra_up.sh
+./scripts/infra_down.sh
+```
+
+Clean slate (drops volumes):
+
+```
+./scripts/infra_down.sh --volumes
+```
+
+### Missing column / schema drift
+
+If you see errors like "column ... does not exist":
+
+```
+python manage.py db_doctor
+```
+
+Follow the printed recovery steps. In most Docker cases:
+
+```
+scripts\infra_down.ps1 -Volumes
+scripts\infra_up.ps1
+python manage.py migrate
+python manage.py seed_reporting_defaults
+```
