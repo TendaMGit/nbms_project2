@@ -29,6 +29,7 @@ from nbms_app.models import (
     IndicatorDataPoint,
     IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
+    IndicatorMethodologyVersionLink,
     Indicator,
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
@@ -53,7 +54,8 @@ from nbms_app.models import (
     User,
     ValidationRuleSet,
 )
-from nbms_app.services.authorization import ROLE_ADMIN, user_has_role
+from nbms_app.services.authorization import ROLE_ADMIN, is_system_admin, user_has_role
+from nbms_app.services.lifecycle_service import archive_object
 from nbms_app.services.readiness import compute_reporting_readiness
 
 
@@ -61,7 +63,7 @@ class CatalogArchiveAdminMixin(admin.ModelAdmin):
     archive_field = "status"
 
     def _is_catalog_manager(self, user):
-        return bool(user and (getattr(user, "is_superuser", False) or user_has_role(user, ROLE_ADMIN)))
+        return bool(user and (is_system_admin(user) or user_has_role(user, ROLE_ADMIN)))
 
     def has_view_permission(self, request, obj=None):
         return self._is_catalog_manager(request.user)
@@ -93,10 +95,8 @@ class CatalogArchiveAdminMixin(admin.ModelAdmin):
     def archive_selected(self, request, queryset):
         if not self._is_catalog_manager(request.user):
             return
-        if self.archive_field == "is_active":
-            queryset.update(is_active=False)
-        else:
-            queryset.update(status=LifecycleStatus.ARCHIVED)
+        for obj in queryset:
+            archive_object(request.user, obj, request=request)
 
     archive_selected.short_description = "Archive selected"
 
@@ -134,15 +134,26 @@ class NationalTargetAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj and obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED}:
-            if not (request.user.is_superuser or user_has_role(request.user, ROLE_ADMIN)):
+            if not (is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN)):
                 readonly += [
                     "code",
                     "title",
                     "description",
+                    "responsible_org",
+                    "qa_status",
+                    "reporting_cadence",
+                    "source_document",
+                    "license",
+                    "provenance_notes",
+                    "spatial_coverage",
+                    "temporal_coverage",
                     "organisation",
                     "sensitivity",
                     "status",
+                    "source_system",
+                    "source_ref",
                 ]
+        readonly.append("export_approved")
         return readonly
 
     def save_model(self, request, obj, form, change):
@@ -171,15 +182,30 @@ class IndicatorAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj and obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED}:
-            if not (request.user.is_superuser or user_has_role(request.user, ROLE_ADMIN)):
+            if not (is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN)):
                 readonly += [
                     "code",
                     "title",
                     "national_target",
+                    "indicator_type",
+                    "reporting_cadence",
+                    "qa_status",
+                    "responsible_org",
+                    "data_steward",
+                    "indicator_lead",
+                    "source_document",
+                    "license",
+                    "computation_notes",
+                    "limitations",
+                    "spatial_coverage",
+                    "temporal_coverage",
                     "organisation",
                     "sensitivity",
                     "status",
+                    "source_system",
+                    "source_ref",
                 ]
+        readonly.append("export_approved")
         return readonly
 
     def save_model(self, request, obj, form, change):
@@ -204,11 +230,10 @@ class FrameworkAdmin(CatalogArchiveAdminMixin):
 class FrameworkGoalAdmin(CatalogArchiveAdminMixin):
     form = FrameworkGoalCatalogForm
     readonly_fields = FRAMEWORK_GOAL_READONLY_FIELDS
-    archive_field = "is_active"
     actions = ("archive_selected",)
-    list_display = ("code", "title", "framework", "is_active", "sort_order", "created_at")
+    list_display = ("code", "title", "framework", "status", "sensitivity", "sort_order", "created_at")
     search_fields = ("code", "title", "framework__code")
-    list_filter = ("framework", "is_active")
+    list_filter = ("framework", "status", "sensitivity")
 
 
 @admin.register(FrameworkTarget)
@@ -243,16 +268,16 @@ class FrameworkIndicatorAdmin(CatalogArchiveAdminMixin):
 
 @admin.register(NationalTargetFrameworkTargetLink)
 class NationalTargetFrameworkTargetLinkAdmin(admin.ModelAdmin):
-    list_display = ("national_target", "framework_target", "relation_type", "confidence", "created_at")
+    list_display = ("national_target", "framework_target", "relation_type", "confidence", "is_active", "created_at")
     search_fields = ("national_target__code", "framework_target__code")
-    list_filter = ("relation_type", "framework_target__framework")
+    list_filter = ("relation_type", "framework_target__framework", "is_active")
 
 
 @admin.register(IndicatorFrameworkIndicatorLink)
 class IndicatorFrameworkIndicatorLinkAdmin(admin.ModelAdmin):
-    list_display = ("indicator", "framework_indicator", "relation_type", "confidence", "created_at")
+    list_display = ("indicator", "framework_indicator", "relation_type", "confidence", "is_active", "created_at")
     search_fields = ("indicator__code", "framework_indicator__code")
-    list_filter = ("relation_type", "framework_indicator__framework")
+    list_filter = ("relation_type", "framework_indicator__framework", "is_active")
 
 
 @admin.register(Evidence)
@@ -264,7 +289,7 @@ class EvidenceAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj and obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED}:
-            if not (request.user.is_superuser or user_has_role(request.user, ROLE_ADMIN)):
+            if not (is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN)):
                 readonly += [
                     "title",
                     "evidence_type",
@@ -275,6 +300,7 @@ class EvidenceAdmin(admin.ModelAdmin):
                     "sensitivity",
                     "status",
                 ]
+        readonly.append("export_approved")
         return readonly
 
     def save_model(self, request, obj, form, change):
@@ -294,7 +320,7 @@ class DatasetAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj and obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED}:
-            if not (request.user.is_superuser or user_has_role(request.user, ROLE_ADMIN)):
+            if not (is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN)):
                 readonly += [
                     "title",
                     "description",
@@ -304,6 +330,7 @@ class DatasetAdmin(admin.ModelAdmin):
                     "sensitivity",
                     "status",
                 ]
+        readonly.append("export_approved")
         return readonly
 
     def save_model(self, request, obj, form, change):
@@ -430,6 +457,13 @@ class MethodologyIndicatorLinkAdmin(admin.ModelAdmin):
     list_filter = ("relationship_type", "is_active")
 
 
+@admin.register(IndicatorMethodologyVersionLink)
+class IndicatorMethodologyVersionLinkAdmin(admin.ModelAdmin):
+    list_display = ("indicator", "methodology_version", "is_primary", "is_active", "created_at")
+    search_fields = ("indicator__code", "methodology_version__version", "methodology_version__methodology__methodology_code")
+    list_filter = ("is_primary", "is_active")
+
+
 @admin.register(DatasetCatalogIndicatorLink)
 class DatasetCatalogIndicatorLinkAdmin(admin.ModelAdmin):
     list_display = ("dataset", "indicator", "relationship_type", "role", "is_active")
@@ -446,7 +480,7 @@ class DatasetReleaseAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(super().get_readonly_fields(request, obj))
         if obj and obj.status in {LifecycleStatus.PENDING_REVIEW, LifecycleStatus.PUBLISHED}:
-            if not (request.user.is_superuser or user_has_role(request.user, ROLE_ADMIN)):
+            if not (is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN)):
                 readonly += [
                     "dataset",
                     "version",
@@ -458,6 +492,7 @@ class DatasetReleaseAdmin(admin.ModelAdmin):
                     "sensitivity",
                     "status",
                 ]
+        readonly.append("export_approved")
         return readonly
 
     def save_model(self, request, obj, form, change):
@@ -606,8 +641,31 @@ class ExportPackageAdmin(admin.ModelAdmin):
 
 @admin.register(AuditEvent)
 class AuditEventAdmin(admin.ModelAdmin):
-    list_display = ("action", "object_type", "object_uuid", "actor", "created_at")
-    list_filter = ("action", "object_type")
-    search_fields = ("object_uuid", "action")
-    readonly_fields = ("action", "object_type", "object_uuid", "actor", "metadata", "created_at", "updated_at")
+    list_display = ("event_type", "object_type", "object_uuid", "actor", "created_at")
+    list_filter = ("event_type", "object_type", "request_method")
+    search_fields = ("object_uuid", "action", "event_type", "request_path", "request_id")
+    readonly_fields = (
+        "action",
+        "event_type",
+        "content_type",
+        "object_type",
+        "object_id",
+        "object_uuid",
+        "actor",
+        "metadata",
+        "request_path",
+        "request_method",
+        "ip_address",
+        "user_agent",
+        "session_key",
+        "request_id",
+        "created_at",
+        "updated_at",
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 

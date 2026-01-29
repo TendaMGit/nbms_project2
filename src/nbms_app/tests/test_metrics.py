@@ -1,7 +1,9 @@
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
 from nbms_app.models import Organisation, User
+from nbms_app.services.authorization import ROLE_SYSTEM_ADMIN
 
 
 class MetricsAccessTests(TestCase):
@@ -13,6 +15,8 @@ class MetricsAccessTests(TestCase):
             is_staff=True,
             organisation=self.org,
         )
+        system_group, _ = Group.objects.get_or_create(name=ROLE_SYSTEM_ADMIN)
+        self.staff_user.groups.add(system_group)
 
     def test_anonymous_blocked(self):
         resp = self.client.get(reverse("nbms_app:metrics"))

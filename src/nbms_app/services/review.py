@@ -16,7 +16,7 @@ from nbms_app.services.alignment import (
     filter_indicator_framework_links_for_user,
     filter_target_framework_links_for_user,
 )
-from nbms_app.services.authorization import filter_queryset_for_user
+from nbms_app.services.authorization import filter_queryset_for_user, is_system_admin
 from nbms_app.services.consent import consent_is_granted, requires_consent
 from nbms_app.services.indicator_data import (
     binary_indicator_responses_for_user,
@@ -40,6 +40,8 @@ class _StrictUserProxy:
 
 def _strict_user(user):
     if not user:
+        return user
+    if is_system_admin(user):
         return user
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return _StrictUserProxy(user)

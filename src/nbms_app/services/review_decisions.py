@@ -7,6 +7,7 @@ from nbms_app.models import (
     ReviewDecisionStatus,
     ReportingSnapshot,
 )
+from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.section_progress import scoped_national_targets
 
 
@@ -25,6 +26,8 @@ class _StrictUserProxy:
 
 def _strict_user(user):
     if not user:
+        return user
+    if is_system_admin(user):
         return user
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return _StrictUserProxy(user)

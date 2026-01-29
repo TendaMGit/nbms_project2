@@ -22,6 +22,7 @@ from nbms_app.models import (
     IndicatorDataPoint,
     IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
+    IndicatorMethodologyVersionLink,
     InstanceExportApproval,
     LifecycleStatus,
     Methodology,
@@ -39,9 +40,8 @@ from nbms_app.models import (
     ValidationRuleSet,
     ValidationScope,
     MethodologyDatasetLink,
-    MethodologyIndicatorLink,
 )
-from nbms_app.services.authorization import ROLE_ADMIN, ROLE_SECURITY_OFFICER, filter_queryset_for_user, user_has_role
+from nbms_app.services.authorization import filter_queryset_for_user, is_system_admin, user_has_role
 from nbms_app.services.consent import consent_is_granted, consent_status_for_instance, requires_consent
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 
@@ -783,10 +783,13 @@ def get_indicator_readiness(indicator, user, instance=None):
     evidence_qs = filter_queryset_for_user(evidence_qs, user)
     dataset_qs = Dataset.objects.filter(indicator_links__indicator=indicator).distinct()
     dataset_qs = filter_queryset_for_user(dataset_qs, user)
+    methodology_versions = _linked_methodology_versions(indicator)
     if evidence_qs.count() == 0:
         warnings.append(_warning("missing_evidence", "No linked evidence."))
     if dataset_qs.count() == 0:
         warnings.append(_warning("missing_dataset", "No linked datasets."))
+    if not methodology_versions.exists():
+        warnings.append(_warning("missing_methodology_version", "No linked methodology version."))
 
     checks.append(
         _check("status", "Status", "ok" if indicator.status == LifecycleStatus.PUBLISHED else "incomplete")
@@ -796,6 +799,13 @@ def get_indicator_readiness(indicator, user, instance=None):
     )
     checks.append(
         _check("dataset_links", "Dataset links", "ok" if dataset_qs.exists() else "missing")
+    )
+    checks.append(
+        _check(
+            "methodology_version_links",
+            "Methodology versions",
+            "ok" if methodology_versions.exists() else "missing",
+        )
     )
 
     approval_status = _approval_status(instance, indicator) if instance else None
@@ -818,12 +828,17 @@ def get_indicator_readiness(indicator, user, instance=None):
         "review_note": indicator.review_note,
         "evidence_count": evidence_qs.count(),
         "dataset_count": dataset_qs.count(),
+        "methodology_version_count": methodology_versions.count(),
         "approval_status": approval_status,
         "consent_status": consent_status,
         "consent_required": requires_consent(indicator),
         "eligible_for_export": eligible,
     }
-    counts = {"evidence": evidence_qs.count(), "datasets": dataset_qs.count()}
+    counts = {
+        "evidence": evidence_qs.count(),
+        "datasets": dataset_qs.count(),
+        "methodology_versions": methodology_versions.count(),
+    }
     return _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
 
 
@@ -1167,8 +1182,11 @@ def _linked_programmes(indicator):
     return MonitoringProgramme.objects.filter(indicator_links__indicator=indicator).distinct()
 
 
-def _linked_methodologies(indicator):
-    return Methodology.objects.filter(indicator_links__indicator=indicator).distinct()
+def _linked_methodology_versions(indicator):
+    return MethodologyVersion.objects.filter(
+        indicator_links__indicator=indicator,
+        is_active=True,
+    ).select_related("methodology")
 
 
 def _linked_datasets(programmes, methodologies):
@@ -1177,16 +1195,14 @@ def _linked_datasets(programmes, methodologies):
     return (datasets_from_programmes | datasets_from_methodologies).distinct()
 
 
-def _has_methodology_version(methodologies):
-    return MethodologyVersion.objects.filter(methodology__in=methodologies, is_active=True).exists()
+def _has_methodology_version(methodology_versions):
+    return methodology_versions.filter(is_active=True).exists()
 
 
 def _user_is_privileged(user):
     if not user:
         return False
-    if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
-        return True
-    return user_has_role(user, ROLE_ADMIN, ROLE_SECURITY_OFFICER)
+    return is_system_admin(user)
 
 
 def _dataset_access_blocked(dataset, user):
@@ -1274,7 +1290,7 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
 
     indicator_ids = [indicator.id for indicator in indicators]
     programmes_by_indicator = defaultdict(list)
-    methodologies_by_indicator = defaultdict(list)
+    methodology_versions_by_indicator = defaultdict(list)
     programme_ids = set()
     methodology_ids = set()
 
@@ -1288,12 +1304,14 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
             programmes_by_indicator[link.indicator_id].append(link.programme)
             programme_ids.add(link.programme_id)
 
-        methodology_links = MethodologyIndicatorLink.objects.filter(indicator_id__in=indicator_ids).select_related(
-            "methodology"
-        )
+        methodology_links = IndicatorMethodologyVersionLink.objects.filter(
+            indicator_id__in=indicator_ids,
+            is_active=True,
+        ).select_related("methodology_version", "methodology_version__methodology")
         for link in methodology_links:
-            methodologies_by_indicator[link.indicator_id].append(link.methodology)
-            methodology_ids.add(link.methodology_id)
+            version = link.methodology_version
+            methodology_versions_by_indicator[link.indicator_id].append(version)
+            methodology_ids.add(version.methodology_id)
 
     dataset_ids_by_programme = defaultdict(set)
     dataset_ids_by_methodology = defaultdict(set)
@@ -1327,9 +1345,10 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
             dataset_map[link.dataset_id] = link.dataset
 
     indicator_framework_map = set(
-        IndicatorFrameworkIndicatorLink.objects.filter(indicator_id__in=indicator_ids).values_list(
-            "indicator_id", flat=True
-        )
+        IndicatorFrameworkIndicatorLink.objects.filter(
+            indicator_id__in=indicator_ids,
+            is_active=True,
+        ).values_list("indicator_id", flat=True)
     )
 
     methodology_with_versions = set(
@@ -1384,17 +1403,19 @@ def _compute_reporting_readiness(instance_ref, scope="all", user=None, mode="aut
 
     for indicator in indicators:
         programmes = programmes_by_indicator.get(indicator.id, [])
-        methodologies = methodologies_by_indicator.get(indicator.id, [])
+        methodology_versions = methodology_versions_by_indicator.get(indicator.id, [])
 
         dataset_ids = set()
         dataset_ids.update(dataset_ids_by_indicator.get(indicator.id, set()))
         for programme in programmes:
             dataset_ids.update(dataset_ids_by_programme.get(programme.id, set()))
-        for methodology in methodologies:
-            dataset_ids.update(dataset_ids_by_methodology.get(methodology.id, set()))
+        for version in methodology_versions:
+            dataset_ids.update(dataset_ids_by_methodology.get(version.methodology_id, set()))
         datasets = [dataset_map[dataset_id] for dataset_id in dataset_ids if dataset_id in dataset_map]
 
-        has_method_version = any(methodology.id in methodology_with_versions for methodology in methodologies)
+        has_method_version = bool(methodology_versions) and any(
+            version.methodology_id in methodology_with_versions for version in methodology_versions
+        )
 
         flags = {
             "has_national_target": bool(indicator.national_target_id),

@@ -4,8 +4,8 @@ from django.test import TestCase
 from nbms_app.models import Indicator, LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
 from nbms_app.services.authorization import (
     ROLE_COMMUNITY_REPRESENTATIVE,
-    ROLE_SECURITY_OFFICER,
     ROLE_SECRETARIAT,
+    ROLE_SYSTEM_ADMIN,
     can_edit_object,
     can_view_object,
     filter_queryset_for_user,
@@ -28,12 +28,12 @@ class AuthorizationServiceTests(TestCase):
             organisation=self.org_b,
         )
 
-        self.security_officer = User.objects.create_user(
-            username="sec",
+        self.system_admin = User.objects.create_user(
+            username="sysadmin",
             password="pass1234",
             organisation=self.org_b,
         )
-        self.security_officer.groups.add(Group.objects.create(name=ROLE_SECURITY_OFFICER))
+        self.system_admin.groups.add(Group.objects.create(name=ROLE_SYSTEM_ADMIN))
 
         self.secretariat = User.objects.create_user(
             username="secretariat",
@@ -96,9 +96,9 @@ class AuthorizationServiceTests(TestCase):
     def test_user_can_view_own_org_internal_published(self):
         self.assertTrue(can_view_object(self.user_a, self.target_internal))
 
-    def test_security_officer_can_view_restricted_and_iplc(self):
-        self.assertTrue(can_view_object(self.security_officer, self.target_restricted))
-        self.assertTrue(can_view_object(self.security_officer, self.target_iplc))
+    def test_system_admin_can_view_restricted_and_iplc(self):
+        self.assertTrue(can_view_object(self.system_admin, self.target_restricted))
+        self.assertTrue(can_view_object(self.system_admin, self.target_iplc))
 
     def test_creator_can_view_own_draft(self):
         self.assertTrue(can_view_object(self.user_a, self.target_draft))

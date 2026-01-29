@@ -61,13 +61,17 @@ def _create_cycle_and_instance():
     return cycle, instance
 
 
-def _create_user(org, username, staff=False):
-    return User.objects.create_user(
+def _create_user(org, username, staff=False, steward=False):
+    user = User.objects.create_user(
         username=username,
         password="pass1234",
         organisation=org,
         is_staff=staff,
     )
+    if steward or staff:
+        group, _ = Group.objects.get_or_create(name=ROLE_DATA_STEWARD)
+        user.groups.add(group)
+    return user
 
 
 def _create_section_response(instance, user, code, content):
@@ -156,7 +160,7 @@ def test_review_dashboard_abac_no_leak_cross_org(client):
     user_a = _create_user(org_a, "user-a", staff=True)
     user_b = _create_user(org_b, "user-b", staff=True)
 
-    group = Group.objects.create(name=ROLE_DATA_STEWARD)
+    group, _ = Group.objects.get_or_create(name=ROLE_DATA_STEWARD)
     user_a.groups.add(group)
     user_b.groups.add(group)
 

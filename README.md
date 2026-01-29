@@ -111,6 +111,24 @@ Notes:
   Use this if `--keepdb` hits schema drift or test DB mismatch errors.
   The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
+## Migration verification (Docker)
+
+Windows (Docker Desktop):
+
+```
+copy .env.verify.example .env.verify
+scripts\\verify_migrations.ps1
+```
+
+Linux/macOS:
+
+```
+cp .env.verify.example .env.verify
+docker compose -f docker-compose.verify.yml --env-file .env.verify run --rm app ./scripts/verify_migrations.sh
+```
+
+This path provides PostGIS + GDAL and runs migrations, checks, tests, and post-migration assertions.
+
 ## Manual smoke pass
 
 Setup order:

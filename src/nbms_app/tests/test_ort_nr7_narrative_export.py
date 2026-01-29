@@ -21,7 +21,7 @@ from nbms_app.models import (
     SensitivityLevel,
     User,
 )
-from nbms_app.services.authorization import ROLE_DATA_STEWARD
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD
 from nbms_app.services.instance_approvals import approve_for_instance
 
 
@@ -50,13 +50,20 @@ def _create_cycle_and_instance(*, cycle_uuid, instance_uuid):
     return cycle, instance
 
 
-def _create_user(org, username, staff=False):
-    return User.objects.create_user(
+def _create_user(org, username, staff=False, steward=False, admin=False):
+    user = User.objects.create_user(
         username=username,
         password="pass1234",
         organisation=org,
         is_staff=staff,
     )
+    if steward:
+        group, _ = Group.objects.get_or_create(name=ROLE_DATA_STEWARD)
+        user.groups.add(group)
+    if admin:
+        group, _ = Group.objects.get_or_create(name=ROLE_ADMIN)
+        user.groups.add(group)
+    return user
 
 
 def _create_section_response(instance, user, code, content):
@@ -129,7 +136,7 @@ def test_ort_nr7_narrative_export_blocks_missing_required_section():
 def test_ort_nr7_narrative_export_blocks_missing_consent_for_sensitive_approved_item():
     _seed_templates_and_rules()
     org = Organisation.objects.create(name="Org A")
-    admin = _create_user(org, "admin", staff=True)
+    admin = _create_user(org, "admin", staff=True, admin=True)
     _, instance = _create_cycle_and_instance(
         cycle_uuid=uuid.UUID("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaac"),
         instance_uuid=uuid.UUID("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbd"),

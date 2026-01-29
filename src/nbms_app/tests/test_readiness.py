@@ -23,7 +23,7 @@ from nbms_app.models import (
     ValidationRuleSet,
     ValidationScope,
 )
-from nbms_app.services.authorization import ROLE_DATA_STEWARD
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD
 from nbms_app.services.consent import set_consent_status
 from nbms_app.services.instance_approvals import approve_for_instance
 from nbms_app.services.readiness import (
@@ -45,6 +45,8 @@ class ReadinessTests(TestCase):
             organisation=self.org,
             is_staff=True,
         )
+        admin_group, _ = Group.objects.get_or_create(name=ROLE_ADMIN)
+        self.staff.groups.add(admin_group)
         self.reviewer = User.objects.create_user(
             username="reviewer",
             password="pass1234",

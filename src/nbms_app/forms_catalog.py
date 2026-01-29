@@ -5,6 +5,7 @@ from nbms_app.models import (
     FrameworkGoal,
     FrameworkIndicator,
     FrameworkTarget,
+    LifecycleStatus,
     Organisation,
 )
 from nbms_app.services.authorization import filter_queryset_for_user
@@ -12,7 +13,7 @@ from nbms_app.services.catalog_access import filter_organisations_for_user
 
 
 FRAMEWORK_READONLY_FIELDS = ("uuid", "created_by", "created_at", "updated_at")
-FRAMEWORK_GOAL_READONLY_FIELDS = ("uuid", "created_at", "updated_at")
+FRAMEWORK_GOAL_READONLY_FIELDS = ("uuid", "created_by", "created_at", "updated_at")
 FRAMEWORK_TARGET_READONLY_FIELDS = ("uuid", "created_by", "created_at", "updated_at")
 FRAMEWORK_INDICATOR_READONLY_FIELDS = ("uuid", "created_by", "created_at", "updated_at")
 
@@ -78,7 +79,10 @@ class FrameworkGoalCatalogForm(forms.ModelForm):
             "official_text",
             "description",
             "sort_order",
-            "is_active",
+            "organisation",
+            "status",
+            "sensitivity",
+            "review_note",
             "source_system",
             "source_ref",
         ]
@@ -89,6 +93,9 @@ class FrameworkGoalCatalogForm(forms.ModelForm):
             Framework.objects.order_by("code"),
             user,
             perm="nbms_app.view_framework",
+        )
+        self.fields["organisation"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
         )
 
 
@@ -121,7 +128,9 @@ class FrameworkTargetCatalogForm(forms.ModelForm):
         self.fields["organisation"].queryset = filter_organisations_for_user(
             Organisation.objects.order_by("name"), user
         )
-        goal_qs = FrameworkGoal.objects.filter(framework_id__in=framework_ids, is_active=True)
+        goal_qs = FrameworkGoal.objects.filter(framework_id__in=framework_ids).exclude(
+            status=LifecycleStatus.ARCHIVED
+        )
         framework_id = self.data.get("framework") or getattr(self.instance, "framework_id", None)
         if framework_id:
             goal_qs = goal_qs.filter(framework_id=framework_id)

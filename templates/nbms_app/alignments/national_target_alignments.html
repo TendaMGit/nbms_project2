@@ -1,0 +1,55 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Target Alignments{% endblock %}
+{% block content %}
+  <h1>Framework alignments for {{ target.code }}</h1>
+  <p>{{ target.title }}</p>
+
+  <form method="get" class="card">
+    <label for="framework-filter">Filter by framework</label>
+    <select id="framework-filter" name="framework">
+      <option value="">All frameworks</option>
+      {% for fw in frameworks %}
+        <option value="{{ fw.uuid }}" {% if selected_framework and selected_framework.uuid == fw.uuid %}selected{% endif %}>
+          {{ fw.code }} - {{ fw.title }}
+        </option>
+      {% endfor %}
+    </select>
+    <button type="submit">Apply</button>
+  </form>
+
+  <div class="card">
+    <h2>Current alignments</h2>
+    <ul>
+      {% for link in links %}
+        <li>
+          {{ link.framework_target.framework.code }} {{ link.framework_target.code }}
+          ({{ link.relation_type }})
+          {% if link.confidence %}- {{ link.confidence }}%{% endif %}
+          {% if link.notes %}<div class="muted">{{ link.notes }}</div>{% endif %}
+          {% if link.source %}<div class="muted">{{ link.source }}</div>{% endif %}
+          {% if can_manage %}
+            <form method="post" action="{% url 'nbms_app:national_target_alignment_archive' link.id %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit">Archive</button>
+            </form>
+          {% endif %}
+        </li>
+      {% empty %}
+        <li>No alignments yet.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if can_manage %}
+    <div class="card">
+      <h2>Add alignment</h2>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Save alignment</button>
+      </form>
+    </div>
+  {% endif %}
+
+  <p><a href="{% url 'nbms_app:national_target_detail' target.uuid %}">Back to target</a></p>
+{% endblock %}

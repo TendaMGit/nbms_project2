@@ -2,7 +2,16 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from django.urls import reverse
 
-from nbms_app.models import Indicator, LifecycleStatus, NationalTarget, Organisation, SensitivityLevel, User
+from nbms_app.models import (
+    Indicator,
+    LifecycleStatus,
+    NationalIndicatorType,
+    NationalTarget,
+    Organisation,
+    QaStatus,
+    SensitivityLevel,
+    User,
+)
 from nbms_app.services.authorization import ROLE_CONTRIBUTOR
 
 
@@ -37,6 +46,8 @@ class IndicatorUiTests(TestCase):
                 "code": "IND1",
                 "title": "Indicator 1",
                 "national_target": self.target.id,
+                "indicator_type": NationalIndicatorType.OTHER,
+                "qa_status": QaStatus.DRAFT,
                 "sensitivity": SensitivityLevel.INTERNAL,
             },
         )

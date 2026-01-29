@@ -75,7 +75,7 @@ class ReportPackTests(TestCase):
         self.client.force_login(self.viewer)
         url = reverse("nbms_app:reporting_instance_report_pack", args=[self.instance.uuid])
         response = self.client.get(url)
-        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.status_code, 302)
 
     def test_report_pack_applies_abac_filtering(self):
         target_a = NationalTarget.objects.create(

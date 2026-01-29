@@ -2,7 +2,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.utils import timezone
 
 from nbms_app.models import ConsentRecord, ConsentStatus, SensitivityLevel
-from nbms_app.services.audit import record_audit_event
+from nbms_app.services.audit import record_audit_event, suppress_audit_events
 from nbms_app.services.notifications import create_notification
 
 
@@ -46,18 +46,19 @@ def consent_status_for_instance(instance, obj):
 
 def set_consent_status(instance, obj, user, status, note="", document=None):
     content_type = ContentType.objects.get_for_model(obj.__class__)
-    record, _ = ConsentRecord.objects.update_or_create(
-        content_type=content_type,
-        object_uuid=obj.uuid,
-        reporting_instance=instance,
-        defaults={
-            "status": status,
-            "granted_by": user,
-            "granted_at": timezone.now(),
-            "notes": note or "",
-            "consent_document": document,
-        },
-    )
+    with suppress_audit_events():
+        record, _ = ConsentRecord.objects.update_or_create(
+            content_type=content_type,
+            object_uuid=obj.uuid,
+            reporting_instance=instance,
+            defaults={
+                "status": status,
+                "granted_by": user,
+                "granted_at": timezone.now(),
+                "notes": note or "",
+                "consent_document": document,
+            },
+        )
     record_audit_event(
         user,
         f"consent_{status}",

@@ -12,10 +12,10 @@ from nbms_app.models import (
     FrameworkIndicator,
     FrameworkTarget,
     Indicator,
+    IndicatorMethodologyVersionLink,
     LifecycleStatus,
     Methodology,
     MethodologyDatasetLink,
-    MethodologyIndicatorLink,
     MethodologyVersion,
     MonitoringProgramme,
     Organisation,
@@ -208,6 +208,8 @@ ENTITY_HEADERS = {
     "methodology_indicator_link": [
         "methodology_code",
         "methodology_uuid",
+        "methodology_version",
+        "methodology_version_uuid",
         "indicator_code",
         "indicator_uuid",
         "relationship_type",
@@ -540,20 +542,30 @@ def _export_methodology_dataset_link(writer):
 
 
 def _export_methodology_indicator_link(writer):
-    links = MethodologyIndicatorLink.objects.select_related("methodology", "indicator").order_by("methodology__methodology_code")
+    links = (
+        IndicatorMethodologyVersionLink.objects.select_related(
+            "methodology_version",
+            "methodology_version__methodology",
+            "indicator",
+        )
+        .order_by("methodology_version__methodology__methodology_code", "methodology_version__version")
+    )
     for link in links:
+        methodology = link.methodology_version.methodology
         writer.writerow(
             {
-                "methodology_code": link.methodology.methodology_code or "",
-                "methodology_uuid": str(link.methodology.uuid),
+                "methodology_code": methodology.methodology_code or "",
+                "methodology_uuid": str(methodology.uuid),
+                "methodology_version": link.methodology_version.version or "",
+                "methodology_version_uuid": str(link.methodology_version.uuid),
                 "indicator_code": link.indicator.code,
                 "indicator_uuid": str(link.indicator.uuid),
-                "relationship_type": link.relationship_type or "",
-                "role": link.role or "",
+                "relationship_type": "",
+                "role": "",
                 "notes": link.notes or "",
                 "is_active": str(link.is_active),
-                "source_system": link.source_system or "",
-                "source_ref": link.source_ref or "",
+                "source_system": "",
+                "source_ref": link.source or "",
             }
         )
 

@@ -1,5 +1,6 @@
 from datetime import date
 
+from django.contrib.auth.models import Group
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
@@ -13,6 +14,7 @@ from nbms_app.models import (
     SensitivityLevel,
     User,
 )
+from nbms_app.services.authorization import ROLE_ADMIN
 from nbms_app.services.instance_approvals import approve_for_instance
 
 
@@ -25,6 +27,8 @@ class ReportingReadinessPanelTests(TestCase):
             organisation=self.org,
             is_staff=True,
         )
+        admin_group, _ = Group.objects.get_or_create(name=ROLE_ADMIN)
+        self.staff.groups.add(admin_group)
         self.cycle = ReportingCycle.objects.create(
             code="CYCLE-READINESS",
             title="Cycle Readiness",

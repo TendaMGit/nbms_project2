@@ -3,14 +3,14 @@ from django.core.exceptions import PermissionDenied
 from django.utils import timezone
 
 from nbms_app.models import ApprovalDecision, InstanceExportApproval
-from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, user_has_role
-from nbms_app.services.audit import record_audit_event
+from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, is_system_admin, user_has_role
+from nbms_app.services.audit import record_audit_event, suppress_audit_events
 from nbms_app.services.consent import consent_is_granted, requires_consent
 from nbms_app.services.notifications import create_notification
 
 
 def _is_admin(user):
-    return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False) or user_has_role(user, ROLE_ADMIN)))
+    return bool(user and (is_system_admin(user) or user_has_role(user, ROLE_ADMIN)))
 
 
 def can_approve_instance(user):
@@ -41,16 +41,28 @@ def approve_for_instance(instance, obj, user, note="", scope="export", admin_ove
         raise PermissionDenied("Consent required before export approval.")
 
     content_type = ContentType.objects.get_for_model(obj.__class__)
-    approval, _ = InstanceExportApproval.objects.update_or_create(
-        reporting_instance=instance,
-        content_type=content_type,
-        object_uuid=obj.uuid,
-        approval_scope=scope,
-        defaults={
+    with suppress_audit_events():
+        approval, _ = InstanceExportApproval.objects.update_or_create(
+            reporting_instance=instance,
+            content_type=content_type,
+            object_uuid=obj.uuid,
+            approval_scope=scope,
+            defaults={
+                "decision": ApprovalDecision.APPROVED,
+                "approved_by": user,
+                "approved_at": timezone.now(),
+                "decision_note": note or "",
+            },
+        )
+    record_audit_event(
+        user,
+        "instance_export_approve",
+        obj,
+        metadata={
+            "instance_uuid": str(instance.uuid),
             "decision": ApprovalDecision.APPROVED,
-            "approved_by": user,
-            "approved_at": timezone.now(),
-            "decision_note": note or "",
+            "scope": scope,
+            "admin_override": bool(admin_override),
         },
     )
     return approval
@@ -91,16 +103,28 @@ def revoke_for_instance(instance, obj, user, note="", scope="export", admin_over
         raise PermissionDenied("Reporting instance is frozen.")
 
     content_type = ContentType.objects.get_for_model(obj.__class__)
-    approval, _ = InstanceExportApproval.objects.update_or_create(
-        reporting_instance=instance,
-        content_type=content_type,
-        object_uuid=obj.uuid,
-        approval_scope=scope,
-        defaults={
+    with suppress_audit_events():
+        approval, _ = InstanceExportApproval.objects.update_or_create(
+            reporting_instance=instance,
+            content_type=content_type,
+            object_uuid=obj.uuid,
+            approval_scope=scope,
+            defaults={
+                "decision": ApprovalDecision.REVOKED,
+                "approved_by": user,
+                "approved_at": timezone.now(),
+                "decision_note": note or "",
+            },
+        )
+    record_audit_event(
+        user,
+        "instance_export_revoke",
+        obj,
+        metadata={
+            "instance_uuid": str(instance.uuid),
             "decision": ApprovalDecision.REVOKED,
-            "approved_by": user,
-            "approved_at": timezone.now(),
-            "decision_note": note or "",
+            "scope": scope,
+            "admin_override": bool(admin_override),
         },
     )
     return approval
