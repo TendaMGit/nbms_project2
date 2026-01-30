@@ -15,8 +15,13 @@ including governance, consent checks, and instance-scoped approvals.
 - Reporting cycles and instances with freeze and approvals
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
+- ORT NR7 v2 export (gated) at `/exports/instances/<uuid>/ort-nr7-v2.json`
 - Manager report pack preview (HTML)
 - Reference catalog UI for programmes, datasets, methodologies, agreements, and sensitivity classes
+
+## Authoritative runbook
+
+See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook, posture, and repo state.
 
 ## Demo flow
 
@@ -28,7 +33,74 @@ including governance, consent checks, and instance-scoped approvals.
 6) Review the manager report pack preview.
 7) Release an export package once blockers are cleared.
 
-## Clean slate on the same server (Docker)
+## Quickstart (local, no Docker) - Primary (Windows local Postgres, ENABLE_GIS=false)
+
+1) Create a virtual environment and install deps:
+
+```
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+```
+
+2) Create your `.env` file from the example and fill in credentials:
+
+```
+copy .env.example .env
+```
+
+3) Set Windows-first environment variables (PowerShell):
+
+```
+$env:DJANGO_SETTINGS_MODULE='config.settings.dev'
+$env:DJANGO_DEBUG='true'
+$env:ENABLE_GIS='false'
+$env:DATABASE_URL='postgresql://nbms_user:YOUR_PASSWORD@localhost:5432/nbms_project2_db'
+$env:USE_S3='0'
+```
+
+`ENABLE_GIS=false` avoids the GDAL/GEOS dependency on Windows.
+
+4) Run migrations and start the server:
+
+```
+python manage.py migrate
+python manage.py bootstrap_roles
+python manage.py seed_report_templates
+python manage.py seed_validation_rules
+# or run both at once:
+python manage.py seed_reporting_defaults
+python manage.py runserver
+```
+
+5) Smoke check (PowerShell):
+
+```
+Invoke-WebRequest http://127.0.0.1:8000/health/ | Select-Object -Expand Content
+Invoke-WebRequest http://127.0.0.1:8000/health/storage/ | Select-Object -Expand Content
+```
+
+Expected responses (with `USE_S3=0`):
+- `/health/` -> `{ "status": "ok" }`
+- `/health/storage/` -> `{ "status": "disabled", "detail": "USE_S3=0" }`
+
+6) Run tests (PowerShell):
+
+```
+$env:DJANGO_SETTINGS_MODULE='config.settings.test'
+$env:PYTHONPATH="$PWD\src"
+pytest -q
+```
+
+Notes:
+- Default test script (`scripts/test.sh`, bash) uses `--keepdb` to avoid prompts on re-runs.
+- For CI, set `CI=1` (uses `--noinput`).
+- PowerShell users should prefer the `pytest -q` command above.
+- To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
+  Use this if `--keepdb` hits schema drift or test DB mismatch errors.
+The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
+
+## Optional: Docker infra (PostGIS/Redis/MinIO/optional GeoServer)
 
 1) Copy the environment file and fill in credentials:
 
@@ -69,47 +141,6 @@ Use `USE_DOCKER=0` to run the reset against a local Postgres (requires `psql`).
 ```
 python manage.py runserver
 ```
-
-## Quickstart (local, no Docker)
-
-1) Create a virtual environment and install deps:
-
-```
-python -m venv .venv
-.\.venv\Scripts\activate
-python -m pip install -r requirements.txt
-```
-
-2) Create your `.env` file from the example and fill in credentials:
-
-```
-copy .env.example .env
-```
-
-3) Run migrations and start the server:
-
-```
-python manage.py migrate
-python manage.py bootstrap_roles
-python manage.py seed_report_templates
-python manage.py seed_validation_rules
-# or run both at once:
-python manage.py seed_reporting_defaults
-python manage.py runserver
-```
-
-4) Run tests (non-interactive):
-
-```
-scripts/test.sh
-```
-
-Notes:
-- Default test script uses `--keepdb` to avoid prompts on re-runs.
-- For CI, set `CI=1` (uses `--noinput`).
-- To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
-  Use this if `--keepdb` hits schema drift or test DB mismatch errors.
-  The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
 ## Migration verification (Docker)
 
@@ -220,6 +251,11 @@ Security and monitoring:
 - Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
 - Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
 
+## Exports
+
+- ORT NR7 v2 (gated): `/exports/instances/<uuid>/ort-nr7-v2.json`
+- Gating: readiness + instance approvals + consent checks (IPLC-sensitive content)
+
 ## Reference catalog UI
 
 Catalog-first workflows now live in the non-admin UI:
@@ -256,4 +292,3 @@ intentionally want multiple active configurations.
 
 - Report pack is HTML only; use print-to-PDF for now.
 - Background jobs (Celery) are not wired yet.
-- ORT mapping is a stub and not a full 7NR export.
