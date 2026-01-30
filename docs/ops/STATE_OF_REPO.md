@@ -1,6 +1,12 @@
 # STATE OF REPO - NBMS Project 2
 
-Captured: 2026-01-30 (local)
+## Snapshot scope
+- Audited commit (main): `d4efd3f8d7cf6b9a7fea98586c40ee54f44e9559`
+- Captured at: 2026-01-30 10:17 (local) before docs branch `feat/docs-repo-state`
+- Verified: `git log -1 main` matched the audited commit at capture time
+- Included: code and docs on `main` at the audited commit
+- Excluded: docs-only edits on this branch, unmerged feature branches, and local stashes
+- Authoritative docs note: This file is the authoritative Windows-first runbook unless superseded
 
 ## A. Repo metadata
 - Repo root: `C:\Users\T.Munyai\OneDrive\Apps\NMSI\About GBF development_Draft for prep\nbms_project2`
@@ -62,13 +68,25 @@ Captured: 2026-01-30 (local)
 - Consent/IPLC gating: `requires_consent` + `ConsentRecord` (instance-specific or global) enforce IPLC-sensitive visibility; approvals and exports block without consent; indicator data filters apply consent gating (`src/nbms_app/services/consent.py`, `src/nbms_app/services/indicator_data.py`).
 - Export gating: `assert_instance_exportable` enforces readiness + approvals; ORT NR7 v2 export also enforces referential integrity across referenced series/evidence/releases; `EXPORT_REQUIRE_SECTIONS` and `EXPORT_REQUIRE_READINESS` can hard-block exports (`src/nbms_app/services/exports.py`, `src/nbms_app/exports/ort_nr7_v2.py`).
 
-## E. Local development runbook (Windows, no Docker)
+## E. Local development runbook (Windows, no Docker, ENABLE_GIS=false)
 Assumptions:
 - Postgres is running locally.
 - `DATABASE_URL` points to `nbms_project2_db` (or set NBMS_* vars instead).
 - GIS disabled: `ENABLE_GIS=false` (avoids GDAL/GEOS on Windows).
 
-PowerShell (example):
+### 1) Postgres provisioning (psql)
+Run once as a Postgres superuser:
+```
+# Update these values for your environment
+$env:PGHOST='localhost'
+$env:PGPORT='5432'
+$env:PGUSER='postgres'
+
+psql -d postgres -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname='nbms_user') THEN CREATE ROLE nbms_user LOGIN PASSWORD 'YOUR_PASSWORD'; END IF; END $$;"
+psql -d postgres -c "DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_database WHERE datname='nbms_project2_db') THEN CREATE DATABASE nbms_project2_db OWNER nbms_user; END IF; END $$;"
+```
+
+### 2) App setup and run (PowerShell)
 ```
 # from repo root
 python -m venv .venv
@@ -89,6 +107,26 @@ python manage.py bootstrap_roles
 python manage.py seed_reporting_defaults
 python manage.py runserver
 ```
+
+### 3) Known-good smoke verification
+Start the server (if not already running):
+```
+python manage.py runserver
+```
+
+In a second PowerShell:
+```
+Invoke-WebRequest http://127.0.0.1:8000/health/ | Select-Object -Expand Content
+Invoke-WebRequest http://127.0.0.1:8000/health/storage/ | Select-Object -Expand Content
+```
+Expected responses:
+- `/health/` -> `{ "status": "ok" }` (DB reachable)
+- `/health/storage/` with `USE_S3=0` -> `{ "status": "disabled", "detail": "USE_S3=0" }`
+
+### Troubleshooting
+- OneDrive file locks: symptoms include sporadic migration failures or file-in-use errors. Move the repo to `C:\dev\nbms_project2` to avoid sync locks.
+- psycopg2 connection errors: verify `DATABASE_URL` or `NBMS_DB_NAME`, `NBMS_DB_USER`, `NBMS_DB_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT`. Ensure `ENABLE_GIS=false` and no GIS-only engine is forced.
+- Migrations/roles missing: run `python manage.py migrate` and `python manage.py bootstrap_roles` before first login.
 
 GIS dependency note:
 - `ENABLE_GIS` controls whether `django.contrib.gis` is installed and whether a GIS engine is used (`src/config/settings/base.py`).
@@ -114,7 +152,7 @@ pytest -q src/nbms_app/tests/test_section_progress.py
 
 ## G. Branch/PR status & pending work
 - Local branches (merged into main): `feat/alignment-mapping-tables`, `feat/catalog-admin-parity`, `feat/catalog-vocab-provenance`, `feat/framework-registry-crud`, `feat/gbf-preload-alignment`, `feat/indicator-and-binary-data-models`, `feat/ort-export-v1-narrative`, `feat/ort-nr7-export-v2`, `feat/phase6-domain-exports`, `feat/reporting-snapshots-diff`, `feat/review-signoff-decisions`, `feat/section-iii-iv-structured-storage`, `feat/security-governance-integrity-pack`.
-- Local branches not merged (potentially relevant): `feat/alignment-integration-ui`, `feat/db-schema-docs`, `feat/framework-goals`, `feat/internal-review-dashboard`, `feat/ort-export-v1`, `feat/ort-template-conformance`, `feat/post-merge-hardening`, `feat/windows-infra-doctor`, `pr-1-reference-catalog-inventory`, `pr-2-reference-catalog-registry`, `pr-3-readiness-diagnostics`, `pr-4-demo-seed-walkthrough`, `pr-5-readiness-gating-snapshots`, `pr-6-readiness-governance-hardening`, `pr-7-catalog-ui-governance`, `rescue/local-state-20260115`.
+- Local branches not merged (as of 2026-01-30): `feat/alignment-integration-ui`, `feat/db-schema-docs`, `feat/docs-repo-state`, `feat/docs-repo-state-polish`, `feat/framework-goals`, `feat/internal-review-dashboard`, `feat/ort-export-v1`, `feat/ort-template-conformance`, `feat/post-merge-hardening`, `feat/windows-infra-doctor`, `rescue/local-state-20260115`.
 - Phase 6A snapshots/diff: merged into `main` (branch `feat/reporting-snapshots-diff` is in merged list).
 - Stashes (names only):
   - `stash@{0}`: WIP before switching to main (file lock fix)
@@ -122,8 +160,29 @@ pytest -q src/nbms_app/tests/test_section_progress.py
   - `stash@{2}`: phase5-review
   - `stash@{3}`: phase4c+phase5
 
+### Unmerged branches triage
+Merge status is from a dry-run `git merge --no-commit --no-ff main` into each branch on 2026-01-30 (no commits).
+
+| Branch name | Last commit date | Touches migrations? | Touches auth/ABAC/consent/export gating? | Touches templates/UI only? | Merge status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `feat/alignment-integration-ui` | 2026-01-27 | Y | Y | N | Conflicts | Large cross-cutting alignment UI + governance changes; conflicts in models/views/templates. |
+| `feat/db-schema-docs` | 2026-01-28 | Y | Y | N | Clean | Docs-heavy branch with governance changes; verify before merge. |
+| `feat/docs-repo-state` | 2026-01-30 | N | N | N | Clean | Docs-only repo state capture (superseded by polish branch). |
+| `feat/docs-repo-state-polish` | 2026-01-30 | N | N | N | Clean | Docs-only polish (current work). |
+| `feat/framework-goals` | 2026-01-27 | Y | Y | N | Conflicts | FrameworkGoal lifecycle/index migration plus governance touches. |
+| `feat/internal-review-dashboard` | 2026-01-29 | N | N | N | Clean | No diff vs main; candidate for cleanup. |
+| `feat/ort-export-v1` | 2026-01-16 | Y | Y | N | Conflicts | Legacy ORT export + catalog work; heavy overlap with main. |
+| `feat/ort-template-conformance` | 2026-01-20 | Y | Y | N | Conflicts | ORT conformance/docs + code changes; conflicts in core files. |
+| `feat/post-merge-hardening` | 2026-01-29 | Y | Y | N | Clean | Audit hardening + migration 0027; review scope before merge. |
+| `feat/windows-infra-doctor` | 2026-01-29 | Y | Y | N | Clean | Windows infra doctor scripts + migration 0027; review scope. |
+| `rescue/local-state-20260115` | 2026-01-15 | Y | Y | N | Conflicts | Rescue snapshot; not intended for merge. |
+
+Notes:
+- "Touches auth/ABAC/consent/export gating" is flagged when a branch changes `src/nbms_app/exports/*`, `services/authorization.py`, `services/consent.py`, `services/exports.py`, `services/instance_approvals.py`, or `models.py`.
+- "Touches templates/UI only" is true only when all changes are under `templates/` or `static/`.
+
 ## H. Known risks / tech debt
 - OneDrive file locks: repo lives under OneDrive; sync can lock SQLite or migration files. Recommended dev location: `C:\dev\nbms_project2` (avoid sync, reduce file lock and path-length issues).
 - GIS/GDAL portability: enabling GIS on Windows requires GDAL/GEOS paths; keep `ENABLE_GIS=false` unless GIS is required.
-- Docs drift: `README.md` still says "ORT mapping is a stub and not a full 7NR export," but ORT NR7 v2 is implemented in code; update docs when ready.
+- Keep README and `docs/ops/STATE_OF_REPO.md` in sync; treat this file as the authoritative runbook.
 - Local `.env` exists but is ignored by git; keep secrets out of the repo and rotate if ever committed.

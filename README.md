@@ -15,8 +15,13 @@ including governance, consent checks, and instance-scoped approvals.
 - Reporting cycles and instances with freeze and approvals
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
+- ORT NR7 v2 export (gated) at `/exports/instances/<uuid>/ort-nr7-v2.json`
 - Manager report pack preview (HTML)
 - Reference catalog UI for programmes, datasets, methodologies, agreements, and sensitivity classes
+
+## Authoritative runbook
+
+See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook and repo state.
 
 ## Demo flow
 
@@ -256,4 +261,3 @@ intentionally want multiple active configurations.
 
 - Report pack is HTML only; use print-to-PDF for now.
 - Background jobs (Celery) are not wired yet.
-- ORT mapping is a stub and not a full 7NR export.
