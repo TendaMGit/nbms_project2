@@ -34,6 +34,7 @@ from nbms_app.models import (
     QaStatus,
     RelationshipType,
     SensitivityClass,
+    SensitivityLevel,
     UpdateFrequency,
 )
 
@@ -87,6 +88,16 @@ ENTITY_HEADERS = {
         "is_active",
         "source_system",
         "source_ref",
+    ],
+    "framework": [
+        "framework_uuid",
+        "framework_code",
+        "title",
+        "description",
+        "organisation_code",
+        "status",
+        "sensitivity",
+        "review_note",
     ],
     "monitoring_programme": [
         "programme_uuid",
@@ -264,6 +275,10 @@ ENTITY_HEADERS = {
     ],
 }
 
+ENTITY_HEADERS["framework_goal"] = ENTITY_HEADERS["gbf_goals"]
+ENTITY_HEADERS["framework_target"] = ENTITY_HEADERS["gbf_targets"]
+ENTITY_HEADERS["framework_indicator"] = ENTITY_HEADERS["gbf_indicators"]
+
 CONTROLLED_VOCABS = {
     "access_level": {choice.value for choice in AccessLevel},
     "update_frequency": {choice.value for choice in UpdateFrequency},
@@ -273,6 +288,8 @@ CONTROLLED_VOCABS = {
     "relationship_type": {choice.value for choice in RelationshipType},
     "methodology_status": {choice.value for choice in MethodologyStatus},
     "framework_indicator_type": {choice.value for choice in FrameworkIndicatorType},
+    "lifecycle_status": {choice.value for choice in LifecycleStatus},
+    "sensitivity_level": {choice.value for choice in SensitivityLevel},
     "licence_type": {"CC-BY", "CC-BY-SA", "CC0", "custom", "restricted"},
 }
 
@@ -615,6 +632,56 @@ def _import_data_agreement(row, mode, row_number):
     agreement.parties.set(parties)
     return created, updated
 
+
+def _import_framework(row, mode, row_number):
+    uuid_value = _parse_uuid(row.get("framework_uuid"), "framework_uuid", row_number)
+    code = _clean(row.get("framework_code"))
+    title = _clean(row.get("title"))
+    if not code or not title:
+        raise CommandError("framework_code and title are required.")
+    _check_uuid_conflict(Framework, uuid_value, "code", code, row_number, "Framework")
+
+    organisation = _resolve_by_code(
+        Organisation,
+        "org_code",
+        row.get("organisation_code"),
+        row_number,
+        "Organisation",
+    )
+    status = _normalize_choice(
+        row.get("status"),
+        CONTROLLED_VOCABS["lifecycle_status"],
+        "status",
+        row_number,
+        default=LifecycleStatus.PUBLISHED,
+    )
+    sensitivity = _normalize_choice(
+        row.get("sensitivity"),
+        CONTROLLED_VOCABS["sensitivity_level"],
+        "sensitivity",
+        row_number,
+        default=SensitivityLevel.PUBLIC,
+    )
+
+    defaults = {
+        "code": code,
+        "title": title,
+        "description": _clean(row.get("description")),
+        "organisation": organisation,
+        "status": status,
+        "sensitivity": sensitivity,
+        "review_note": _clean(row.get("review_note")),
+    }
+    lookup = {"uuid": uuid_value} if uuid_value else {"code": code}
+    _, created, updated = _upsert_model(
+        Framework,
+        lookup,
+        defaults,
+        mode,
+        row_number,
+        "Framework",
+    )
+    return created, updated
 
 
 def _import_monitoring_programme(row, mode, row_number):
@@ -1240,6 +1307,7 @@ _IMPORTERS = {
     "organisation": _import_organisation,
     "sensitivity_class": _import_sensitivity_class,
     "data_agreement": _import_data_agreement,
+    "framework": _import_framework,
     "monitoring_programme": _import_monitoring_programme,
     "dataset_catalog": _import_dataset_catalog,
     "methodology": _import_methodology,
@@ -1251,4 +1319,7 @@ _IMPORTERS = {
     "gbf_goals": _import_gbf_goal,
     "gbf_targets": _import_gbf_target,
     "gbf_indicators": _import_gbf_indicator,
+    "framework_goal": _import_gbf_goal,
+    "framework_target": _import_gbf_target,
+    "framework_indicator": _import_gbf_indicator,
 }

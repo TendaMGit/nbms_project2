@@ -1,0 +1,2 @@
+methodology_version_uuid,methodology_code,version,status,effective_date,deprecated_date,change_log,protocol_url,computational_script_url,parameters_json,qa_steps_summary,peer_reviewed,approval_body,approval_reference,is_active,source_system,source_ref
+,METH-1,1.0,draft,,,,,,{},,false,,,true,,

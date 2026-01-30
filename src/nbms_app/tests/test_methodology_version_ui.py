@@ -64,3 +64,9 @@ class MethodologyVersionUiTests(TestCase):
         self.client.force_login(self.other)
         resp = self.client.get(reverse("nbms_app:methodology_version_edit", args=[self.shared_version.uuid]))
         self.assertEqual(resp.status_code, 403)
+
+    def test_list_filters_by_methodology_access(self):
+        self.client.force_login(self.other)
+        resp = self.client.get(reverse("nbms_app:methodology_version_list"))
+        self.assertContains(resp, self.shared_methodology.methodology_code)
+        self.assertNotContains(resp, self.methodology.methodology_code)
