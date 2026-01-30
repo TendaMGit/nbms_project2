@@ -6,15 +6,23 @@ Purpose: provide a deterministic, ABAC- and consent-aware view of alignment cove
 
 Scopes:
 - selected (default)
-  - National targets come from `scoped_national_targets(instance, user)`.
-  - Indicators come from `approved_queryset(instance, Indicator)`.
+  - If Section III/IV progress exists:
+    - National targets come from Section III progress entries for the instance.
+    - Indicators come from indicator data series linked to Section III/IV progress entries.
+  - Else, if instance export approvals exist:
+    - National targets come from `approved_queryset(instance, NationalTarget)`.
+    - Indicators come from `approved_queryset(instance, Indicator)`.
+  - Else:
+    - Selected totals are **0** (no silent fallback to “all visible”).
 - all
   - Uses all published NationalTarget/Indicator objects visible to the requesting user.
 
 Notes:
 - Totals reflect ABAC + consent filters for the requesting user.
 - If a user cannot see an object, it is excluded from totals and lists.
-- Sorting is deterministic: targets/indicators are ordered by (code, title, uuid).
+- A link only counts as “mapped” if the user can see **both** ends and consent requirements are satisfied.
+- Sorting is deterministic and lexicographic by `(code, title, uuid)`.
+  - Example ordering: `T1`, `T10`, `T2` (lexicographic, not natural).
 
 ## CLI usage
 
@@ -48,3 +56,8 @@ Key fields:
 - `coverage_details`: mapped/unmapped status with linked framework items
 
 All lists are deterministically ordered to support stable downstream usage.
+
+## Performance notes
+
+- UI integrations should call `compute_alignment_coverage(..., include_details=False)` to avoid heavy detail payloads.
+- The service relies on `select_related` and filtered link queries to avoid N+1 access patterns.

@@ -13,6 +13,7 @@ from nbms_app.models import (
     FrameworkIndicator,
     FrameworkTarget,
     Indicator,
+    IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
     InstanceExportApproval,
     LifecycleStatus,
@@ -21,11 +22,12 @@ from nbms_app.models import (
     Organisation,
     ReportingCycle,
     ReportingInstance,
+    SectionIIINationalTargetProgress,
     SensitivityLevel,
     User,
 )
 from nbms_app.services.alignment_coverage import compute_alignment_coverage
-from nbms_app.services.authorization import ROLE_COMMUNITY_REPRESENTATIVE
+from nbms_app.services.authorization import ROLE_DATA_STEWARD
 
 
 pytestmark = pytest.mark.django_db
@@ -94,33 +96,43 @@ def test_alignment_coverage_deterministic_ordering():
     _approve(instance, indicator_a)
     _approve(instance, indicator_b)
 
-    fw_a = Framework.objects.create(code="GBF", title="GBF", status=LifecycleStatus.PUBLISHED)
-    fw_b = Framework.objects.create(code="SDG", title="SDG", status=LifecycleStatus.PUBLISHED)
-    fw_target_b = FrameworkTarget.objects.create(
-        framework=fw_b,
-        code="T2",
-        title="Target 2",
-        status=LifecycleStatus.PUBLISHED,
-        sensitivity=SensitivityLevel.PUBLIC,
-    )
-    fw_target_a = FrameworkTarget.objects.create(
-        framework=fw_a,
+    framework = Framework.objects.create(code="GBF", title="GBF", status=LifecycleStatus.PUBLISHED)
+    fw_target_1 = FrameworkTarget.objects.create(
+        framework=framework,
         code="T1",
         title="Target 1",
         status=LifecycleStatus.PUBLISHED,
         sensitivity=SensitivityLevel.PUBLIC,
     )
-    link_a = NationalTargetFrameworkTargetLink.objects.create(
-        national_target=target_a,
-        framework_target=fw_target_b,
+    fw_target_10 = FrameworkTarget.objects.create(
+        framework=framework,
+        code="T10",
+        title="Target 10",
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
     )
-    link_b = NationalTargetFrameworkTargetLink.objects.create(
+    fw_target_2 = FrameworkTarget.objects.create(
+        framework=framework,
+        code="T2",
+        title="Target 2",
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    NationalTargetFrameworkTargetLink.objects.create(
         national_target=target_a,
-        framework_target=fw_target_a,
+        framework_target=fw_target_2,
+    )
+    NationalTargetFrameworkTargetLink.objects.create(
+        national_target=target_a,
+        framework_target=fw_target_1,
+    )
+    NationalTargetFrameworkTargetLink.objects.create(
+        national_target=target_a,
+        framework_target=fw_target_10,
     )
 
     fw_indicator_a = FrameworkIndicator.objects.create(
-        framework=fw_a,
+        framework=framework,
         code="FI-1",
         title="Framework Indicator 1",
         status=LifecycleStatus.PUBLISHED,
@@ -136,10 +148,7 @@ def test_alignment_coverage_deterministic_ordering():
     assert [item["code"] for item in targets] == ["A", "B"]
 
     linked = targets[0]["linked_framework_targets"]
-    assert [(item["framework_code"], item["code"]) for item in linked] == [
-        ("GBF", "T1"),
-        ("SDG", "T2"),
-    ]
+    assert [item["code"] for item in linked] == ["T1", "T10", "T2"]
 
 
 def test_alignment_coverage_abac_excludes_other_org():
@@ -174,7 +183,7 @@ def test_alignment_coverage_abac_excludes_other_org():
 def test_alignment_coverage_consent_filter():
     org = Organisation.objects.create(name="Org A")
     user = User.objects.create_user(username="user", password="pass1234", organisation=org)
-    user.groups.add(Group.objects.create(name=ROLE_COMMUNITY_REPRESENTATIVE))
+    user.groups.add(Group.objects.create(name=ROLE_DATA_STEWARD))
     instance = _create_instance()
 
     sensitive_target = NationalTarget.objects.create(
@@ -225,6 +234,159 @@ def test_alignment_coverage_scope_selected_vs_all():
 
     assert selected["summary"]["national_targets"]["total"] == 1
     assert all_scope["summary"]["national_targets"]["total"] == 2
+
+
+def test_alignment_coverage_selected_progress_precedence():
+    org = Organisation.objects.create(name="Org A")
+    user = User.objects.create_user(username="user", password="pass1234", organisation=org)
+    instance = _create_instance()
+
+    progress_target = NationalTarget.objects.create(
+        code="PROG",
+        title="Progress Target",
+        organisation=org,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    approved_target = NationalTarget.objects.create(
+        code="APP",
+        title="Approved Target",
+        organisation=org,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    _approve(instance, approved_target)
+
+    indicator = Indicator.objects.create(
+        code="IND-P",
+        title="Indicator Progress",
+        national_target=progress_target,
+        organisation=org,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    series = IndicatorDataSeries.objects.create(
+        indicator=indicator,
+        title="Series",
+        unit="ha",
+        value_type="numeric",
+        methodology="Method",
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+        organisation=org,
+        created_by=user,
+    )
+    progress_entry = SectionIIINationalTargetProgress.objects.create(
+        reporting_instance=instance,
+        national_target=progress_target,
+        summary="Progress",
+    )
+    progress_entry.indicator_data_series.add(series)
+
+    coverage = compute_alignment_coverage(user=user, instance=instance, scope="selected")
+    assert coverage["summary"]["national_targets"]["total"] == 1
+    assert coverage["summary"]["national_targets"]["unmapped"] == 1
+    assert coverage["summary"]["indicators"]["total"] == 1
+    assert coverage["orphans"]["national_targets_unmapped"][0]["code"] == "PROG"
+
+
+def test_alignment_coverage_selected_no_progress_no_approvals():
+    org = Organisation.objects.create(name="Org A")
+    user = User.objects.create_user(username="user", password="pass1234", organisation=org)
+    instance = _create_instance()
+    NationalTarget.objects.create(
+        code="VISIBLE",
+        title="Visible target",
+        organisation=org,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    coverage = compute_alignment_coverage(user=user, instance=instance, scope="selected")
+    assert coverage["summary"]["national_targets"]["total"] == 0
+    assert coverage["summary"]["indicators"]["total"] == 0
+
+
+def test_alignment_coverage_hidden_framework_target_not_counted():
+    org_a = Organisation.objects.create(name="Org A")
+    org_b = Organisation.objects.create(name="Org B")
+    user = User.objects.create_user(username="user", password="pass1234", organisation=org_a)
+    instance = _create_instance()
+
+    target = NationalTarget.objects.create(
+        code="NT-1",
+        title="Target",
+        organisation=org_a,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    _approve(instance, target)
+
+    framework = Framework.objects.create(code="GBF", title="GBF", status=LifecycleStatus.PUBLISHED)
+    hidden_fw_target = FrameworkTarget.objects.create(
+        framework=framework,
+        code="T-HIDDEN",
+        title="Hidden Target",
+        organisation=org_b,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.INTERNAL,
+    )
+    NationalTargetFrameworkTargetLink.objects.create(
+        national_target=target,
+        framework_target=hidden_fw_target,
+    )
+
+    coverage = compute_alignment_coverage(user=user, instance=instance, scope="selected")
+    assert coverage["summary"]["national_targets"]["mapped"] == 0
+    assert coverage["orphans"]["national_targets_unmapped"][0]["code"] == "NT-1"
+    details = coverage["coverage_details"]["national_targets"][0]
+    assert details["mapped"] is False
+    assert details["linked_framework_targets"] == []
+
+
+def test_alignment_coverage_hidden_framework_indicator_not_counted():
+    org_a = Organisation.objects.create(name="Org A")
+    org_b = Organisation.objects.create(name="Org B")
+    user = User.objects.create_user(username="user", password="pass1234", organisation=org_a)
+    instance = _create_instance()
+
+    target = NationalTarget.objects.create(
+        code="NT-1",
+        title="Target",
+        organisation=org_a,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    indicator = Indicator.objects.create(
+        code="IND-1",
+        title="Indicator",
+        national_target=target,
+        organisation=org_a,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    _approve(instance, target)
+    _approve(instance, indicator)
+
+    framework = Framework.objects.create(code="GBF", title="GBF", status=LifecycleStatus.PUBLISHED)
+    hidden_fw_indicator = FrameworkIndicator.objects.create(
+        framework=framework,
+        code="FI-HIDDEN",
+        title="Hidden Indicator",
+        organisation=org_b,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.INTERNAL,
+    )
+    IndicatorFrameworkIndicatorLink.objects.create(
+        indicator=indicator,
+        framework_indicator=hidden_fw_indicator,
+    )
+
+    coverage = compute_alignment_coverage(user=user, instance=instance, scope="selected")
+    assert coverage["summary"]["indicators"]["mapped"] == 0
+    assert coverage["orphans"]["indicators_unmapped"][0]["code"] == "IND-1"
+    details = coverage["coverage_details"]["indicators"][0]
+    assert details["mapped"] is False
+    assert details["linked_framework_indicators"] == []
 
 
 def test_alignment_coverage_framework_breakdown():

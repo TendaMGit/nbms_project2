@@ -41,6 +41,7 @@ Acceptance criteria:
 Artifacts:
 - Alignment UI screens and coverage/readiness panels.
 - Commands or scripts to export mapping coverage (if needed).
+- `docs/ops/ALIGNMENT_COVERAGE.md` (coverage semantics + CLI usage).
 - Golden files or snapshot diffs showing deterministic ordering.
 
 Risks/Dependencies:

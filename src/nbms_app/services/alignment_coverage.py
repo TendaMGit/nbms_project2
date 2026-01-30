@@ -8,11 +8,16 @@ from django.utils import timezone
 from nbms_app.models import (
     ConsentRecord,
     ConsentStatus,
+    FrameworkIndicator,
+    FrameworkTarget,
     Indicator,
     IndicatorFrameworkIndicatorLink,
+    InstanceExportApproval,
     LifecycleStatus,
     NationalTarget,
     NationalTargetFrameworkTargetLink,
+    SectionIIINationalTargetProgress,
+    SectionIVFrameworkTargetProgress,
 )
 from nbms_app.services.alignment import (
     filter_indicator_framework_links_for_user,
@@ -21,7 +26,6 @@ from nbms_app.services.alignment import (
 from nbms_app.services.authorization import filter_queryset_for_user, is_system_admin
 from nbms_app.services.consent import requires_consent
 from nbms_app.services.instance_approvals import approved_queryset
-from nbms_app.services.section_progress import scoped_national_targets
 
 
 class _StrictUserProxy:
@@ -46,6 +50,17 @@ def _strict_user(user):
 
 def _sort_items(items):
     return sorted(items, key=lambda obj: (obj.code or "", obj.title or "", str(obj.uuid)))
+
+
+def _sort_dicts(items, *keys):
+    def sort_key(item):
+        return tuple(item.get(key) or "" for key in keys)
+
+    return sorted(items, key=sort_key)
+
+
+def _sort_framework_link_dicts(items):
+    return _sort_dicts(items, "framework_code", "code", "title", "uuid")
 
 
 def _consent_granted_uuids(instance, model):
@@ -88,8 +103,12 @@ def compute_alignment_coverage(
     Compute alignment coverage for a reporting instance.
 
     Scopes:
-    - selected: items currently selected for the instance (approvals/section progress),
-      aligned with export readiness expectations.
+    - selected: items currently selected for the instance.
+        a) If Section III/IV progress exists, selection is derived from those progress records.
+           - National targets come from Section III progress entries.
+           - Indicators come from indicator data series linked to Section III/IV progress entries.
+        b) Else, if instance export approvals exist, selection uses approved objects.
+        c) Else, selection totals are zero.
     - all: all visible registry items for the user (ABAC filtered).
 
     Notes:
@@ -105,11 +124,45 @@ def compute_alignment_coverage(
     framework_codes = [code for code in (framework_codes or []) if code]
     framework_filter = set(framework_codes) if framework_codes else None
 
+    selection_source = None
     if scope == "selected":
-        targets_qs = scoped_national_targets(instance, strict_user)
-        indicators_qs = approved_queryset(instance, Indicator).filter(status=LifecycleStatus.PUBLISHED)
+        progress_exists = (
+            SectionIIINationalTargetProgress.objects.filter(reporting_instance=instance).exists()
+            or SectionIVFrameworkTargetProgress.objects.filter(reporting_instance=instance).exists()
+        )
+        if progress_exists:
+            selection_source = "progress"
+            targets_qs = NationalTarget.objects.filter(
+                section_iii_progress_entries__reporting_instance=instance,
+                status=LifecycleStatus.PUBLISHED,
+            ).select_related("organisation", "created_by").distinct()
+            indicators_qs = Indicator.objects.filter(
+                Q(data_series__section_iii_progress_entries__reporting_instance=instance)
+                | Q(data_series__section_iv_progress_entries__reporting_instance=instance),
+                status=LifecycleStatus.PUBLISHED,
+            ).select_related("national_target", "organisation", "created_by").distinct()
+        else:
+            approvals_exist = InstanceExportApproval.objects.filter(reporting_instance=instance).exists()
+            if approvals_exist:
+                selection_source = "approvals"
+                targets_qs = approved_queryset(instance, NationalTarget).filter(
+                    status=LifecycleStatus.PUBLISHED
+                ).select_related("organisation", "created_by")
+                indicators_qs = approved_queryset(instance, Indicator).filter(
+                    status=LifecycleStatus.PUBLISHED
+                ).select_related("national_target", "organisation", "created_by")
+            else:
+                selection_source = "none"
+                targets_qs = NationalTarget.objects.none()
+                indicators_qs = Indicator.objects.none()
+
+        targets_qs = filter_queryset_for_user(
+            targets_qs,
+            user,
+            perm="nbms_app.view_nationaltarget",
+        )
         indicators_qs = filter_queryset_for_user(
-            indicators_qs.select_related("national_target", "organisation", "created_by"),
+            indicators_qs,
             user,
             perm="nbms_app.view_indicator",
         )
@@ -134,6 +187,8 @@ def compute_alignment_coverage(
 
     target_consent = _consent_granted_uuids(instance, NationalTarget)
     indicator_consent = _consent_granted_uuids(instance, Indicator)
+    framework_target_consent = _consent_granted_uuids(instance, FrameworkTarget)
+    framework_indicator_consent = _consent_granted_uuids(instance, FrameworkIndicator)
 
     targets = _apply_consent_filter(instance, targets, target_consent)
     indicators = _apply_consent_filter(instance, indicators, indicator_consent)
@@ -151,6 +206,12 @@ def compute_alignment_coverage(
         "framework_target__title",
         "framework_target__uuid",
     )
+    target_links = [
+        link
+        for link in target_links
+        if not requires_consent(link.framework_target)
+        or link.framework_target.uuid in framework_target_consent
+    ]
 
     indicator_links = IndicatorFrameworkIndicatorLink.objects.filter(
         indicator__in=indicators,
@@ -165,6 +226,12 @@ def compute_alignment_coverage(
         "framework_indicator__title",
         "framework_indicator__uuid",
     )
+    indicator_links = [
+        link
+        for link in indicator_links
+        if not requires_consent(link.framework_indicator)
+        or link.framework_indicator.uuid in framework_indicator_consent
+    ]
 
     target_links_map = defaultdict(list)
     for link in target_links:
@@ -198,6 +265,7 @@ def compute_alignment_coverage(
                 }
                 for link in links
             ]
+            linked_framework_targets = _sort_framework_link_dicts(linked_framework_targets)
             target_details.append(
                 {
                     "uuid": str(target.uuid),
@@ -224,6 +292,7 @@ def compute_alignment_coverage(
                 }
                 for link in links
             ]
+            linked_framework_indicators = _sort_framework_link_dicts(linked_framework_indicators)
             indicator_details.append(
                 {
                     "uuid": str(indicator.uuid),
@@ -281,12 +350,27 @@ def compute_alignment_coverage(
                 },
             }
         )
-    by_framework = sorted(by_framework, key=lambda item: (item["framework_code"], item["framework_title"]))
+    by_framework = _sort_dicts(by_framework, "framework_code", "framework_title")
 
     target_mapped = sum(1 for target in targets if target.id in mapped_target_ids)
     indicator_mapped = sum(1 for indicator in indicators if indicator.id in mapped_indicator_ids)
 
     generated_at = timezone.now().astimezone(dt_timezone.utc).isoformat()
+
+    if scope == "selected":
+        if selection_source == "progress":
+            selection_note = "Selected scope derived from Section III/IV progress entries."
+        elif selection_source == "approvals":
+            selection_note = "Selected scope derived from instance export approvals."
+        else:
+            selection_note = "No Section III/IV progress or export approvals; selected totals are 0."
+    else:
+        selection_note = None
+
+    orphans_targets = _sort_dicts(orphans_targets, "code", "title", "uuid")
+    orphans_indicators = _sort_dicts(orphans_indicators, "code", "title", "uuid")
+    target_details = _sort_dicts(target_details, "code", "title", "uuid")
+    indicator_details = _sort_dicts(indicator_details, "code", "title", "uuid")
 
     return {
         "instance_uuid": str(instance.uuid),
@@ -296,6 +380,7 @@ def compute_alignment_coverage(
         "notes": [
             "Metrics reflect your access permissions (ABAC/consent).",
             "Items you cannot access are excluded from totals.",
+            *( [selection_note] if selection_note else [] ),
         ],
         "summary": {
             "national_targets": {
