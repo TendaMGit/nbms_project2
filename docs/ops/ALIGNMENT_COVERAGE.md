@@ -61,3 +61,10 @@ All lists are deterministically ordered to support stable downstream usage.
 
 - UI integrations should call `compute_alignment_coverage(..., include_details=False)` to avoid heavy detail payloads.
 - The service relies on `select_related` and filtered link queries to avoid N+1 access patterns.
+
+## UI integration
+
+Alignment coverage is surfaced read-only in:
+- Reporting instance review dashboard (`/reporting/instances/<uuid>/review/`)
+- Reporting instance readiness page (`/reporting/instances/<uuid>/`)
+- Full coverage page (`/reporting/instances/<uuid>/alignment-coverage/`)

@@ -144,6 +144,7 @@ from nbms_app.services.readiness import (
     get_target_readiness,
 )
 from nbms_app.services.notifications import create_notification
+from nbms_app.services.alignment_coverage import compute_alignment_coverage
 from nbms_app.services.review import build_instance_review_summary, build_review_pack_context
 from nbms_app.services.review_decisions import (
     create_review_decision,
@@ -2465,6 +2466,12 @@ def reporting_instance_create(request):
 def reporting_instance_detail(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle", "frozen_by"), uuid=instance_uuid)
     readiness = get_instance_readiness(instance, request.user)
+    alignment_coverage = compute_alignment_coverage(
+        user=request.user,
+        instance=instance,
+        scope="selected",
+        include_details=False,
+    )
     section_items = readiness["details"]["sections"]["sections"]
     for item in section_items:
         item["edit_url"] = reverse(
@@ -2616,6 +2623,7 @@ def reporting_instance_detail(request, instance_uuid):
             "instance": instance,
             "is_admin": _is_admin_user(request.user),
             "readiness": readiness,
+            "alignment_coverage": alignment_coverage,
             "approvals_url": approvals_base,
             "approvals_links": approvals_links,
             "consent_url": reverse("nbms_app:reporting_instance_consent", kwargs={"instance_uuid": instance.uuid}),
@@ -2823,6 +2831,12 @@ def reporting_instance_review(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
     _require_section_progress_access(instance, request.user)
     summary = build_instance_review_summary(instance, request.user)
+    alignment_coverage = compute_alignment_coverage(
+        user=request.user,
+        instance=instance,
+        scope="selected",
+        include_details=False,
+    )
     export_url = reverse("nbms_app:export_ort_nr7_v2_instance", kwargs={"instance_uuid": instance.uuid})
     export_download_url = f"{export_url}?download=1"
     snapshots_qs = ReportingSnapshot.objects.filter(reporting_instance=instance).order_by("-created_at")
@@ -2838,6 +2852,7 @@ def reporting_instance_review(request, instance_uuid):
     context = {
         "instance": instance,
         "summary": summary,
+        "alignment_coverage": alignment_coverage,
         "export_url": export_url,
         "export_download_url": export_download_url,
         "snapshots": snapshots_qs,
@@ -2848,6 +2863,23 @@ def reporting_instance_review(request, instance_uuid):
         "can_manage_decisions": can_manage_decisions,
     }
     return render(request, "nbms_app/reporting/review_dashboard.html", context)
+
+
+@staff_or_system_admin_required
+def reporting_instance_alignment_coverage(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    coverage = compute_alignment_coverage(
+        user=request.user,
+        instance=instance,
+        scope="selected",
+        include_details=False,
+    )
+    return render(
+        request,
+        "nbms_app/alignment/coverage_detail.html",
+        {"instance": instance, "coverage": coverage},
+    )
 
 
 @staff_or_system_admin_required

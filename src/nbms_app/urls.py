@@ -278,6 +278,11 @@ urlpatterns = [
         name="reporting_instance_review",
     ),
     path(
+        "reporting/instances/<uuid:instance_uuid>/alignment-coverage/",
+        views.reporting_instance_alignment_coverage,
+        name="reporting_instance_alignment_coverage",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/review-pack-v2/",
         views.reporting_instance_review_pack_v2,
         name="reporting_instance_review_pack_v2",

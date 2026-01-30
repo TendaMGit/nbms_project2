@@ -17,6 +17,7 @@
   {% for card in readiness_cards %}
     {% include "nbms_app/includes/readiness_card.html" with card=card %}
   {% endfor %}
+  {% include "nbms_app/partials/_alignment_coverage_panel.html" with alignment_coverage=alignment_coverage %}
   <div class="card">
     {% if instance.frozen_at %}
       <p>This instance is frozen. Approvals are locked unless an admin override is used.</p>
