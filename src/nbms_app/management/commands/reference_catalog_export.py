@@ -75,6 +75,16 @@ ENTITY_HEADERS = {
         "source_system",
         "source_ref",
     ],
+    "framework": [
+        "framework_uuid",
+        "framework_code",
+        "title",
+        "description",
+        "organisation_code",
+        "status",
+        "sensitivity",
+        "review_note",
+    ],
     "monitoring_programme": [
         "programme_uuid",
         "programme_code",
@@ -253,6 +263,127 @@ ENTITY_HEADERS = {
     ],
 }
 
+ENTITY_HEADERS["framework_goal"] = ENTITY_HEADERS["gbf_goals"]
+ENTITY_HEADERS["framework_target"] = ENTITY_HEADERS["gbf_targets"]
+ENTITY_HEADERS["framework_indicator"] = ENTITY_HEADERS["gbf_indicators"]
+
+EXAMPLE_ROWS = {
+    "organisation": {
+        "org_code": "ORG-1",
+        "org_name": "Org One",
+        "org_type": "Government",
+        "is_active": "true",
+    },
+    "sensitivity_class": {
+        "sensitivity_code": "PUB",
+        "sensitivity_name": "Public",
+        "access_level_default": "public",
+        "consent_required_default": "false",
+        "is_active": "true",
+    },
+    "data_agreement": {
+        "agreement_code": "AGR-1",
+        "title": "Agreement 1",
+        "agreement_type": "MOU",
+        "parties_org_codes": "ORG-1",
+        "is_active": "true",
+    },
+    "framework": {
+        "framework_code": "GBF",
+        "title": "Global Biodiversity Framework",
+        "description": "Framework overview.",
+        "status": "published",
+        "sensitivity": "public",
+    },
+    "monitoring_programme": {
+        "programme_code": "PROG-1",
+        "title": "Monitoring Programme 1",
+        "programme_type": "national",
+        "lead_org_code": "ORG-1",
+        "sensitivity_code": "PUB",
+        "update_frequency": "annual",
+        "is_active": "true",
+    },
+    "dataset_catalog": {
+        "dataset_code": "DS-1",
+        "title": "Dataset 1",
+        "custodian_org_code": "ORG-1",
+        "access_level": "public",
+        "sensitivity_code": "PUB",
+        "update_frequency": "annual",
+        "is_active": "true",
+    },
+    "methodology": {
+        "methodology_code": "METH-1",
+        "title": "Methodology 1",
+        "owner_org_code": "ORG-1",
+        "is_active": "true",
+    },
+    "methodology_version": {
+        "methodology_code": "METH-1",
+        "version": "1.0",
+        "status": "draft",
+        "parameters_json": "{}",
+        "is_active": "true",
+    },
+    "programme_dataset_link": {
+        "programme_code": "PROG-1",
+        "dataset_code": "DS-1",
+        "relationship_type": "lead",
+        "is_active": "true",
+    },
+    "programme_indicator_link": {
+        "programme_code": "PROG-1",
+        "indicator_code": "IND-1",
+        "relationship_type": "lead",
+        "is_active": "true",
+    },
+    "methodology_dataset_link": {
+        "methodology_code": "METH-1",
+        "dataset_code": "DS-1",
+        "relationship_type": "supporting",
+        "is_active": "true",
+    },
+    "methodology_indicator_link": {
+        "methodology_code": "METH-1",
+        "methodology_version": "1.0",
+        "indicator_code": "IND-1",
+        "relationship_type": "supporting",
+        "is_active": "true",
+    },
+    "gbf_goals": {
+        "framework_code": "GBF",
+        "goal_code": "A",
+        "goal_title": "Reduce threats to biodiversity",
+        "is_active": "true",
+    },
+    "gbf_targets": {
+        "framework_code": "GBF",
+        "target_code": "T1",
+        "goal_code": "A",
+        "target_title": "Target 1",
+        "is_active": "true",
+    },
+    "gbf_indicators": {
+        "framework_code": "GBF",
+        "framework_target_code": "T1",
+        "indicator_code": "IND-1",
+        "indicator_title": "Indicator 1",
+        "indicator_type": "other",
+        "is_active": "true",
+    },
+}
+
+EXAMPLE_ROWS["framework_goal"] = EXAMPLE_ROWS["gbf_goals"]
+EXAMPLE_ROWS["framework_target"] = EXAMPLE_ROWS["gbf_targets"]
+EXAMPLE_ROWS["framework_indicator"] = EXAMPLE_ROWS["gbf_indicators"]
+
+
+def _build_example_row(entity):
+    row = {name: "" for name in ENTITY_HEADERS[entity]}
+    row.update(EXAMPLE_ROWS.get(entity, {}))
+    return row
+
 
 class Command(BaseCommand):
     help = "Export reference catalog entities to CSV templates."
@@ -260,6 +391,11 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--entity", required=True, choices=sorted(ENTITY_HEADERS.keys()))
         parser.add_argument("--out", required=True, help="Output CSV path.")
+        parser.add_argument(
+            "--template",
+            action="store_true",
+            help="Write a CSV template with headers and an example row.",
+        )
 
     def handle(self, *args, **options):
         entity = options["entity"]
@@ -273,9 +409,16 @@ class Command(BaseCommand):
         with out_path.open("w", newline="", encoding="utf-8") as handle:
             writer = csv.DictWriter(handle, fieldnames=ENTITY_HEADERS[entity])
             writer.writeheader()
-            exporter(writer)
+            if options["template"]:
+                example = EXAMPLE_ROWS.get(entity)
+                if example is None:
+                    raise CommandError(f"No template example available for entity: {entity}")
+                writer.writerow(_build_example_row(entity))
+            else:
+                exporter(writer)
 
-        self.stdout.write(self.style.SUCCESS(f"Exported {entity} to {out_path}"))
+        label = "template" if options["template"] else "export"
+        self.stdout.write(self.style.SUCCESS(f"Wrote {entity} {label} to {out_path}"))
 
 
 
@@ -358,6 +501,22 @@ def _export_data_agreement(writer):
                 "is_active": str(agreement.is_active),
                 "source_system": agreement.source_system or "",
                 "source_ref": agreement.source_ref or "",
+            }
+        )
+
+
+def _export_framework(writer):
+    for framework in Framework.objects.order_by("code"):
+        writer.writerow(
+            {
+                "framework_uuid": str(framework.uuid),
+                "framework_code": framework.code,
+                "title": framework.title,
+                "description": framework.description or "",
+                "organisation_code": framework.organisation.org_code if framework.organisation else "",
+                "status": framework.status,
+                "sensitivity": framework.sensitivity,
+                "review_note": framework.review_note or "",
             }
         )
 
@@ -627,6 +786,7 @@ _EXPORTERS = {
     "organisation": _export_organisation,
     "sensitivity_class": _export_sensitivity_class,
     "data_agreement": _export_data_agreement,
+    "framework": _export_framework,
     "monitoring_programme": _export_monitoring_programme,
     "dataset_catalog": _export_dataset_catalog,
     "methodology": _export_methodology,
@@ -638,4 +798,7 @@ _EXPORTERS = {
     "gbf_goals": _export_gbf_goals,
     "gbf_targets": _export_gbf_targets,
     "gbf_indicators": _export_gbf_indicators,
+    "framework_goal": _export_gbf_goals,
+    "framework_target": _export_gbf_targets,
+    "framework_indicator": _export_gbf_indicators,
 }

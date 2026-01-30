@@ -2,7 +2,7 @@
 {% block title %}Catalog Datasets{% endblock %}
 {% block content %}
   <h1>Catalog Datasets</h1>
-  {% if user.is_authenticated %}
+  {% if can_create_dataset %}
     <p><a href="{% url 'nbms_app:dataset_create' %}">Create catalog dataset</a></p>
   {% endif %}
   <div class="card">

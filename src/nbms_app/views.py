@@ -1361,7 +1361,11 @@ def dataset_list(request):
         request.user,
     )
     datasets = audit_queryset_access(request, datasets, action="list")
-    return render(request, "nbms_app/datasets/dataset_list.html", {"datasets": datasets})
+    return render(
+        request,
+        "nbms_app/datasets/dataset_list.html",
+        {"datasets": datasets, "can_create_dataset": _can_create_data(request.user)},
+    )
 
 
 def dataset_detail(request, dataset_uuid):
