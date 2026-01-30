@@ -35,6 +35,7 @@ Risks/Dependencies:
 ## Phase 2: Alignment UI expansion + readiness/validation
 Status:
 - Phase 2.1 (coverage UI panels) delivered.
+- Phase 2.2 (bulk alignment) in progress.
 
 Acceptance criteria:
 - Alignment UI supports bulk add/remove, confidence, and source metadata.

@@ -63,5 +63,12 @@
     </section>
   {% endif %}
 
+  <section class="card">
+    <h2>Bulk alignment actions</h2>
+    <p><a href="{% url 'nbms_app:alignment_orphans_targets' instance.uuid %}">Resolve orphan national targets</a></p>
+    <p><a href="{% url 'nbms_app:alignment_orphans_indicators' instance.uuid %}">Resolve orphan indicators</a></p>
+    <p><a href="{% url 'nbms_app:alignment_mappings_manage' instance.uuid %}">Manage existing mappings</a></p>
+  </section>
+
   <p><a href="{% url 'nbms_app:reporting_instance_review' instance.uuid %}">Back to review dashboard</a></p>
 {% endblock %}

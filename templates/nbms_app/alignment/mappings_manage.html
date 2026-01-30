@@ -1,0 +1,31 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Manage Alignment Mappings{% endblock %}
+{% block content %}
+  <h1>Manage Alignment Mappings</h1>
+  <p class="muted">Instance: {{ instance.cycle.code }} {{ instance.version_label }}</p>
+
+  <section class="card">
+    <h2>Target alignments</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="bulk_action" value="targets" />
+      {% include "nbms_app/alignment/_orphans_table.html" with field=target_form.links %}
+      <button type="submit">Archive selected target alignments</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Indicator alignments</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="bulk_action" value="indicators" />
+      {% include "nbms_app/alignment/_orphans_table.html" with field=indicator_form.links %}
+      <button type="submit">Archive selected indicator alignments</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <p><a href="{% url 'nbms_app:alignment_orphans_targets' instance.uuid %}">Back to orphan targets</a></p>
+    <p><a href="{% url 'nbms_app:alignment_orphans_indicators' instance.uuid %}">Back to orphan indicators</a></p>
+  </section>
+{% endblock %}
