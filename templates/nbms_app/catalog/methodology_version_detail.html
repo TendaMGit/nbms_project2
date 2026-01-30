@@ -1,0 +1,25 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Methodology Version{% endblock %}
+{% block content %}
+  <h1>{{ version.methodology.methodology_code }} v{{ version.version }}</h1>
+  {% if can_edit %}
+    <p><a href="{% url 'nbms_app:methodology_version_edit' version.uuid %}">Edit version</a></p>
+  {% endif %}
+  <div class="card">
+    <p><strong>Status:</strong> {{ version.status }}</p>
+    <p><strong>Effective date:</strong> {{ version.effective_date|default:"-" }}</p>
+    <p><strong>Deprecated date:</strong> {{ version.deprecated_date|default:"-" }}</p>
+    <p><strong>Peer reviewed:</strong> {{ version.peer_reviewed|yesno:"Yes,No" }}</p>
+    <p><strong>Approval body:</strong> {{ version.approval_body|default:"-" }}</p>
+    <p><strong>Approval reference:</strong> {{ version.approval_reference|default:"-" }}</p>
+    <p><strong>Protocol URL:</strong> {{ version.protocol_url|default:"-" }}</p>
+    <p><strong>Computational script URL:</strong> {{ version.computational_script_url|default:"-" }}</p>
+  </div>
+  <div class="card">
+    <p><strong>Change log:</strong> {{ version.change_log|default:"-" }}</p>
+    <p><strong>QA steps summary:</strong> {{ version.qa_steps_summary|default:"-" }}</p>
+    <p><strong>Parameters:</strong></p>
+    <pre>{{ version.parameters_json|default:"{}" }}</pre>
+  </div>
+  <p><a href="{% url 'nbms_app:methodology_detail' version.methodology.uuid %}">Back to methodology</a></p>
+{% endblock %}

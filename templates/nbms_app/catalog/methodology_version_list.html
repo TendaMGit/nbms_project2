@@ -9,7 +9,9 @@
     <ul>
       {% for version in versions %}
         <li>
-          {{ version.methodology.methodology_code }} v{{ version.version }}
+          <a href="{% url 'nbms_app:methodology_version_detail' version.uuid %}">
+            {{ version.methodology.methodology_code }} v{{ version.version }}
+          </a>
           ({{ version.status }})
           <a href="{% url 'nbms_app:methodology_version_edit' version.uuid %}">Edit</a>
         </li>

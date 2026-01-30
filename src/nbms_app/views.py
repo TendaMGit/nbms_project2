@@ -1643,6 +1643,20 @@ def methodology_version_list(request):
     )
 
 
+def methodology_version_detail(request, version_uuid):
+    methodologies = filter_methodologies_for_user(Methodology.objects.all(), request.user)
+    methodology_ids = list(methodologies.values_list("id", flat=True))
+    versions = MethodologyVersion.objects.select_related("methodology").filter(methodology_id__in=methodology_ids)
+    version = get_object_or_404(versions, uuid=version_uuid)
+    audit_sensitive_access(request, version)
+    can_edit = can_edit_methodology(request.user, version.methodology) if request.user.is_authenticated else False
+    return render(
+        request,
+        "nbms_app/catalog/methodology_version_detail.html",
+        {"version": version, "can_edit": can_edit},
+    )
+
+
 @login_required
 def methodology_version_create(request):
     _require_contributor(request.user)
