@@ -21,7 +21,7 @@ including governance, consent checks, and instance-scoped approvals.
 
 ## Authoritative runbook
 
-See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook and repo state.
+See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook, posture, and repo state.
 
 ## Demo flow
 
@@ -33,7 +33,7 @@ See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook and 
 6) Review the manager report pack preview.
 7) Release an export package once blockers are cleared.
 
-## Quickstart (local, no Docker) - Primary
+## Quickstart (local, no Docker) - Primary (Windows local Postgres, ENABLE_GIS=false)
 
 1) Create a virtual environment and install deps:
 
@@ -73,7 +73,18 @@ python manage.py seed_reporting_defaults
 python manage.py runserver
 ```
 
-5) Run tests (PowerShell):
+5) Smoke check (PowerShell):
+
+```
+Invoke-WebRequest http://127.0.0.1:8000/health/ | Select-Object -Expand Content
+Invoke-WebRequest http://127.0.0.1:8000/health/storage/ | Select-Object -Expand Content
+```
+
+Expected responses (with `USE_S3=0`):
+- `/health/` -> `{ "status": "ok" }`
+- `/health/storage/` -> `{ "status": "disabled", "detail": "USE_S3=0" }`
+
+6) Run tests (PowerShell):
 
 ```
 $env:DJANGO_SETTINGS_MODULE='config.settings.test'
@@ -89,7 +100,7 @@ Notes:
   Use this if `--keepdb` hits schema drift or test DB mismatch errors.
 The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
-## Optional: Clean slate on the same server (Docker)
+## Optional: Docker infra (PostGIS/Redis/MinIO/optional GeoServer)
 
 1) Copy the environment file and fill in credentials:
 
@@ -243,6 +254,7 @@ Security and monitoring:
 ## Exports
 
 - ORT NR7 v2 (gated): `/exports/instances/<uuid>/ort-nr7-v2.json`
+- Gating: readiness + instance approvals + consent checks (IPLC-sensitive content)
 
 ## Reference catalog UI
 
