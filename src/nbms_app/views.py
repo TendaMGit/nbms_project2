@@ -1643,6 +1643,20 @@ def methodology_version_list(request):
     )
 
 
+def methodology_version_detail(request, version_uuid):
+    methodologies = filter_methodologies_for_user(Methodology.objects.all(), request.user)
+    methodology_ids = list(methodologies.values_list("id", flat=True))
+    versions = MethodologyVersion.objects.select_related("methodology").filter(methodology_id__in=methodology_ids)
+    version = get_object_or_404(versions, uuid=version_uuid)
+    audit_sensitive_access(request, version)
+    can_edit = can_edit_methodology(request.user, version.methodology) if request.user.is_authenticated else False
+    return render(
+        request,
+        "nbms_app/catalog/methodology_version_detail.html",
+        {"version": version, "can_edit": can_edit},
+    )
+
+
 @login_required
 def methodology_version_create(request):
     _require_contributor(request.user)
@@ -1823,8 +1837,11 @@ def framework_detail(request, framework_uuid):
         perm="nbms_app.view_framework",
     )
     framework = get_object_or_404(frameworks, uuid=framework_uuid)
-    goals = FrameworkGoal.objects.filter(framework=framework).exclude(status=LifecycleStatus.ARCHIVED).order_by(
-        "sort_order", "code"
+    goals = filter_queryset_for_user(
+        FrameworkGoal.objects.filter(framework=framework)
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("sort_order", "code"),
+        request.user,
     )
     targets = filter_queryset_for_user(
         FrameworkTarget.objects.filter(framework=framework)
@@ -1863,9 +1880,12 @@ def framework_goal_list(request):
             "id", flat=True
         )
     )
-    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids).exclude(
-        status=LifecycleStatus.ARCHIVED
-    ).order_by("framework__code", "sort_order")
+    goals = filter_queryset_for_user(
+        FrameworkGoal.objects.filter(framework_id__in=framework_ids)
+        .exclude(status=LifecycleStatus.ARCHIVED)
+        .order_by("framework__code", "sort_order"),
+        request.user,
+    )
     query = request.GET.get("q")
     if query:
         goals = goals.filter(Q(code__icontains=query) | Q(title__icontains=query))
@@ -1886,7 +1906,10 @@ def framework_goal_detail(request, goal_uuid):
             "id", flat=True
         )
     )
-    goals = FrameworkGoal.objects.filter(framework_id__in=framework_ids).exclude(status=LifecycleStatus.ARCHIVED)
+    goals = filter_queryset_for_user(
+        FrameworkGoal.objects.filter(framework_id__in=framework_ids).exclude(status=LifecycleStatus.ARCHIVED),
+        request.user,
+    )
     goal = get_object_or_404(goals, uuid=goal_uuid)
     targets = filter_queryset_for_user(
         FrameworkTarget.objects.filter(goal=goal).exclude(status=LifecycleStatus.ARCHIVED).order_by("code"),

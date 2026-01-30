@@ -90,6 +90,11 @@ urlpatterns = [
     ),
     path("catalog/methodology-versions/", views.methodology_version_list, name="methodology_version_list"),
     path(
+        "catalog/methodology-versions/<uuid:version_uuid>/",
+        views.methodology_version_detail,
+        name="methodology_version_detail",
+    ),
+    path(
         "catalog/methodology-versions/new/",
         views.methodology_version_create,
         name="methodology_version_create",

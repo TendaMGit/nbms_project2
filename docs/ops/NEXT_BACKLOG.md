@@ -24,6 +24,7 @@ Acceptance criteria:
 
 Artifacts:
 - Screens: list/detail/edit for each registry entity.
+- `docs/ops/REGISTRY_PARITY_MATRIX.md` (route coverage + gaps).
 - CSV templates + example fixtures for each registry table.
 - Updated reference catalog import/export docs and validation examples.
 

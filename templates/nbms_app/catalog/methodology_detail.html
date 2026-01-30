@@ -14,7 +14,11 @@
     <h2>Versions</h2>
     <ul>
       {% for version in versions %}
-        <li>{{ version.version }} ({{ version.status }})</li>
+        <li>
+          <a href="{% url 'nbms_app:methodology_version_detail' version.uuid %}">
+            {{ version.version }} ({{ version.status }})
+          </a>
+        </li>
       {% empty %}
         <li>No versions yet.</li>
       {% endfor %}
