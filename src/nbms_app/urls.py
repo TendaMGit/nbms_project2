@@ -1,6 +1,7 @@
 from django.urls import path
 
 from nbms_app import views
+from nbms_app import views_alignment_bulk
 from nbms_app import views_audit
 from nbms_app import views_metrics
 from nbms_app import views_notifications
@@ -281,6 +282,21 @@ urlpatterns = [
         "reporting/instances/<uuid:instance_uuid>/alignment-coverage/",
         views.reporting_instance_alignment_coverage,
         name="reporting_instance_alignment_coverage",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/alignment/orphans/national-targets/",
+        views_alignment_bulk.alignment_orphans_targets,
+        name="alignment_orphans_targets",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/alignment/orphans/indicators/",
+        views_alignment_bulk.alignment_orphans_indicators,
+        name="alignment_orphans_indicators",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/alignment/mappings/",
+        views_alignment_bulk.alignment_mappings_manage,
+        name="alignment_mappings_manage",
     ),
     path(
         "reporting/instances/<uuid:instance_uuid>/review-pack-v2/",

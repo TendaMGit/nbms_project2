@@ -1,0 +1,14 @@
+{
+  "indicator_codes": [
+    "I1",
+    "I2"
+  ],
+  "section_iii_targets": [
+    "T1",
+    "T2"
+  ],
+  "section_iv_framework_targets": [
+    "F1",
+    "F2"
+  ]
+}

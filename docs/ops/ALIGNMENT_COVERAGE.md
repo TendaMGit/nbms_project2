@@ -13,14 +13,14 @@ Scopes:
     - National targets come from `approved_queryset(instance, NationalTarget)`.
     - Indicators come from `approved_queryset(instance, Indicator)`.
   - Else:
-    - Selected totals are **0** (no silent fallback to “all visible”).
+    - Selected totals are **0** (no silent fallback to "all visible").
 - all
   - Uses all published NationalTarget/Indicator objects visible to the requesting user.
 
 Notes:
 - Totals reflect ABAC + consent filters for the requesting user.
 - If a user cannot see an object, it is excluded from totals and lists.
-- A link only counts as “mapped” if the user can see **both** ends and consent requirements are satisfied.
+- A link only counts as "mapped" if the user can see **both** ends and consent requirements are satisfied.
 - Sorting is deterministic and lexicographic by `(code, title, uuid)`.
   - Example ordering: `T1`, `T10`, `T2` (lexicographic, not natural).
 
@@ -68,3 +68,8 @@ Alignment coverage is surfaced read-only in:
 - Reporting instance review dashboard (`/reporting/instances/<uuid>/review/`)
 - Reporting instance readiness page (`/reporting/instances/<uuid>/`)
 - Full coverage page (`/reporting/instances/<uuid>/alignment-coverage/`)
+
+Phase 2.2 bulk alignment pages (instance-scoped):
+- Orphan NationalTargets: `/reporting/instances/<uuid>/alignment/orphans/national-targets/`
+- Orphan Indicators: `/reporting/instances/<uuid>/alignment/orphans/indicators/`
+- Mapping management: `/reporting/instances/<uuid>/alignment/mappings/`

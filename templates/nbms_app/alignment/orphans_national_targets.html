@@ -1,0 +1,45 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Orphan National Targets{% endblock %}
+{% block content %}
+  <h1>Orphan National Targets</h1>
+  <p class="muted">Instance: {{ instance.cycle.code }} {{ instance.version_label }}</p>
+
+  <section class="card">
+    <h2>Filters</h2>
+    <form method="get">
+      <label>
+        Framework
+        <select name="framework">
+          <option value="">All frameworks</option>
+          {% for framework in frameworks %}
+            <option value="{{ framework.code }}"{% if framework.code == selected_framework %} selected{% endif %}>{{ framework.code }} - {{ framework.title }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>
+        Search
+        <input type="text" name="q" value="{{ query }}" />
+      </label>
+      <label>
+        Framework target search
+        <input type="text" name="picker_q" value="{{ picker_query }}" />
+      </label>
+      <button type="submit">Apply</button>
+    </form>
+  </section>
+
+  <form method="post">
+    {% csrf_token %}
+    <section class="card">
+      <h2>Orphan national targets</h2>
+      {% include "nbms_app/alignment/_orphans_table.html" with field=form.national_targets %}
+    </section>
+
+    {% include "nbms_app/alignment/_bulk_mapping_form.html" with form=form mapping_field=form.framework_targets submit_label="Link to FrameworkTarget(s)" %}
+  </form>
+
+  <section class="card">
+    <p><a href="{% url 'nbms_app:alignment_mappings_manage' instance.uuid %}">Manage existing mappings</a></p>
+    <p><a href="{% url 'nbms_app:reporting_instance_alignment_coverage' instance.uuid %}">Back to coverage</a></p>
+  </section>
+{% endblock %}

@@ -1,0 +1,217 @@
+{
+  "schema": "nbms.ort.nr7.v2",
+  "exporter_version": "0.2.0",
+  "generated_at": "2026-01-20T10:00:00+00:00",
+  "reporting_instance": {
+    "uuid": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "title": "CYCLE-1 v1",
+    "status": "draft",
+    "version_label": "v1",
+    "cycle": {
+      "uuid": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+      "code": "CYCLE-1",
+      "title": "Cycle 1",
+      "start_date": "2025-01-01",
+      "end_date": "2025-12-31",
+      "due_date": "2026-01-31"
+    }
+  },
+  "sections": [
+    {
+      "code": "section-i",
+      "title": "Section I: Status of biodiversity",
+      "content": {
+        "summary": "Section I narrative"
+      }
+    },
+    {
+      "code": "section-ii",
+      "title": "Section II: Implementation measures",
+      "content": {
+        "policy_measures": "Section II narrative"
+      }
+    },
+    {
+      "code": "section-iii",
+      "title": "Section III: National targets progress",
+      "content": {
+        "progress_overview": "Section III narrative"
+      }
+    },
+    {
+      "code": "section-iv",
+      "title": "Section IV: Support needed",
+      "content": {
+        "support_needs": "Section IV narrative"
+      }
+    },
+    {
+      "code": "section-v",
+      "title": "Section V: Additional information",
+      "content": {
+        "annex_notes": "Section V notes",
+        "references": "Section V references"
+      }
+    },
+    {
+      "code": "section-other-information",
+      "title": "Section Other Information (Annex)",
+      "content": {
+        "additional_information": "Annex info",
+        "additional_documents": [
+          {
+            "url": "https://example.com/doc",
+            "name": "Annex doc"
+          }
+        ]
+      }
+    }
+  ],
+  "section_iii_progress": [
+    {
+      "uuid": "dddddddd-1111-2222-3333-444444444444",
+      "national_target": {
+        "uuid": "11111111-1111-1111-1111-111111111111",
+        "code": "NT-1",
+        "title": "National Target 1"
+      },
+      "progress_status": "in_progress",
+      "summary": "Section III summary",
+      "actions_taken": "Actions taken",
+      "outcomes": "Outcomes",
+      "challenges": "Challenges",
+      "support_needed": "Support needed",
+      "period_start": "2024-01-01",
+      "period_end": "2024-12-31",
+      "references": {
+        "indicator_data_series_uuids": [
+          "66666666-6666-6666-6666-666666666666"
+        ],
+        "binary_indicator_response_uuids": [
+          "ffffffff-1111-2222-3333-444444444444"
+        ],
+        "evidence_uuids": [
+          "aaaaaaaa-1111-2222-3333-444444444444"
+        ],
+        "dataset_release_uuids": [
+          "cccccccc-1111-2222-3333-444444444444"
+        ]
+      }
+    }
+  ],
+  "section_iv_progress": [
+    {
+      "uuid": "eeeeeeee-1111-2222-3333-444444444444",
+      "framework_target": {
+        "uuid": "44444444-4444-4444-4444-444444444444",
+        "code": "T2",
+        "title": "Restore ecosystems",
+        "framework_code": "GBF"
+      },
+      "progress_status": "in_progress",
+      "summary": "Section IV summary",
+      "actions_taken": "Actions taken",
+      "outcomes": "Outcomes",
+      "challenges": "Challenges",
+      "support_needed": "Support needed",
+      "period_start": "2024-01-01",
+      "period_end": "2024-12-31",
+      "references": {
+        "indicator_data_series_uuids": [
+          "66666666-6666-6666-6666-666666666666"
+        ],
+        "binary_indicator_response_uuids": [
+          "ffffffff-1111-2222-3333-444444444444"
+        ],
+        "evidence_uuids": [
+          "aaaaaaaa-1111-2222-3333-444444444444"
+        ],
+        "dataset_release_uuids": [
+          "cccccccc-1111-2222-3333-444444444444"
+        ]
+      }
+    }
+  ],
+  "indicator_data_series": [
+    {
+      "uuid": "66666666-6666-6666-6666-666666666666",
+      "identity": {
+        "indicator_uuid": "22222222-2222-2222-2222-222222222222",
+        "indicator_code": "IND-1"
+      },
+      "title": "Series 1",
+      "unit": "ha",
+      "value_type": "numeric",
+      "methodology": "Method",
+      "source_notes": "Source notes",
+      "disaggregation_schema": {},
+      "points": [
+        {
+          "uuid": "77777777-7777-7777-7777-777777777777",
+          "year": 2020,
+          "value_numeric": "1.500000",
+          "value_text": null,
+          "uncertainty": "",
+          "disaggregation": {
+            "sex": "all"
+          },
+          "dataset_release_uuid": "cccccccc-1111-2222-3333-444444444444",
+          "source_url": "https://example.com/source",
+          "footnote": "Footnote A"
+        },
+        {
+          "uuid": "88888888-8888-8888-8888-888888888888",
+          "year": 2021,
+          "value_numeric": "2.500000",
+          "value_text": null,
+          "uncertainty": "",
+          "disaggregation": {
+            "sex": "all"
+          },
+          "dataset_release_uuid": null,
+          "source_url": "",
+          "footnote": ""
+        }
+      ]
+    }
+  ],
+  "binary_indicator_data": [
+    {
+      "uuid": "ffffffff-1111-2222-3333-444444444444",
+      "reporting_instance_uuid": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+      "question": {
+        "uuid": "99999999-9999-9999-9999-999999999999",
+        "framework_indicator_code": "BIN-1",
+        "group_key": "group-1",
+        "question_key": "q1",
+        "section": "",
+        "number": "",
+        "question_type": "option",
+        "question_text": "Is the target on track?",
+        "help_text": "",
+        "options": [
+          "yes",
+          "no"
+        ],
+        "sort_order": 1
+      },
+      "response": [
+        "yes"
+      ],
+      "comments": "On track"
+    }
+  ],
+  "nbms_meta": {
+    "instance_uuid": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "ruleset_code": "7NR_DEFAULT",
+    "generated_at": "2026-01-20T10:00:00+00:00",
+    "exporter_version": "0.2.0",
+    "export_require_sections": true,
+    "missing_required_sections": [],
+    "conformance_flags": {
+      "structured_progress": true,
+      "indicator_data": true,
+      "binary_indicator_data": true
+    }
+  }
+}

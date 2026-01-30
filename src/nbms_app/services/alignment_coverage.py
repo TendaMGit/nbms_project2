@@ -23,6 +23,12 @@ from nbms_app.services.alignment import (
     filter_indicator_framework_links_for_user,
     filter_target_framework_links_for_user,
 )
+from nbms_app.services.alignment_ordering import (
+    order_queryset_by_code_title_uuid,
+    sort_dicts,
+    sort_framework_link_dicts,
+    sort_model_items,
+)
 from nbms_app.services.authorization import filter_queryset_for_user, is_system_admin
 from nbms_app.services.consent import requires_consent
 from nbms_app.services.instance_approvals import approved_queryset
@@ -46,21 +52,6 @@ def _strict_user(user):
     if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
         return _StrictUserProxy(user)
     return user
-
-
-def _sort_items(items):
-    return sorted(items, key=lambda obj: (obj.code or "", obj.title or "", str(obj.uuid)))
-
-
-def _sort_dicts(items, *keys):
-    def sort_key(item):
-        return tuple(item.get(key) or "" for key in keys)
-
-    return sorted(items, key=sort_key)
-
-
-def _sort_framework_link_dicts(items):
-    return _sort_dicts(items, "framework_code", "code", "title", "uuid")
 
 
 def _consent_granted_uuids(instance, model):
@@ -89,6 +80,61 @@ def _percent(part, total):
     if not total:
         return 0.0
     return round((part / total) * 100, 1)
+
+
+def get_selected_targets_and_indicators(*, instance, user):
+    """
+    Return querysets for selected NationalTargets and Indicators for the instance.
+
+    Selection precedence:
+    - progress: Section III/IV progress entries
+    - approvals: instance export approvals
+    - none: no progress or approvals
+    """
+    if not instance:
+        return NationalTarget.objects.none(), Indicator.objects.none(), "none"
+
+    progress_exists = (
+        SectionIIINationalTargetProgress.objects.filter(reporting_instance=instance).exists()
+        or SectionIVFrameworkTargetProgress.objects.filter(reporting_instance=instance).exists()
+    )
+    if progress_exists:
+        selection_source = "progress"
+        targets_qs = NationalTarget.objects.filter(
+            section_iii_progress_entries__reporting_instance=instance,
+            status=LifecycleStatus.PUBLISHED,
+        ).select_related("organisation", "created_by").distinct()
+        indicators_qs = Indicator.objects.filter(
+            Q(data_series__section_iii_progress_entries__reporting_instance=instance)
+            | Q(data_series__section_iv_progress_entries__reporting_instance=instance),
+            status=LifecycleStatus.PUBLISHED,
+        ).select_related("national_target", "organisation", "created_by").distinct()
+    else:
+        approvals_exist = InstanceExportApproval.objects.filter(reporting_instance=instance).exists()
+        if approvals_exist:
+            selection_source = "approvals"
+            targets_qs = approved_queryset(instance, NationalTarget).filter(
+                status=LifecycleStatus.PUBLISHED
+            ).select_related("organisation", "created_by")
+            indicators_qs = approved_queryset(instance, Indicator).filter(
+                status=LifecycleStatus.PUBLISHED
+            ).select_related("national_target", "organisation", "created_by")
+        else:
+            selection_source = "none"
+            targets_qs = NationalTarget.objects.none()
+            indicators_qs = Indicator.objects.none()
+
+    targets_qs = filter_queryset_for_user(
+        targets_qs,
+        user,
+        perm="nbms_app.view_nationaltarget",
+    )
+    indicators_qs = filter_queryset_for_user(
+        indicators_qs,
+        user,
+        perm="nbms_app.view_indicator",
+    )
+    return targets_qs, indicators_qs, selection_source
 
 
 def compute_alignment_coverage(
@@ -126,64 +172,30 @@ def compute_alignment_coverage(
 
     selection_source = None
     if scope == "selected":
-        progress_exists = (
-            SectionIIINationalTargetProgress.objects.filter(reporting_instance=instance).exists()
-            or SectionIVFrameworkTargetProgress.objects.filter(reporting_instance=instance).exists()
-        )
-        if progress_exists:
-            selection_source = "progress"
-            targets_qs = NationalTarget.objects.filter(
-                section_iii_progress_entries__reporting_instance=instance,
-                status=LifecycleStatus.PUBLISHED,
-            ).select_related("organisation", "created_by").distinct()
-            indicators_qs = Indicator.objects.filter(
-                Q(data_series__section_iii_progress_entries__reporting_instance=instance)
-                | Q(data_series__section_iv_progress_entries__reporting_instance=instance),
-                status=LifecycleStatus.PUBLISHED,
-            ).select_related("national_target", "organisation", "created_by").distinct()
-        else:
-            approvals_exist = InstanceExportApproval.objects.filter(reporting_instance=instance).exists()
-            if approvals_exist:
-                selection_source = "approvals"
-                targets_qs = approved_queryset(instance, NationalTarget).filter(
-                    status=LifecycleStatus.PUBLISHED
-                ).select_related("organisation", "created_by")
-                indicators_qs = approved_queryset(instance, Indicator).filter(
-                    status=LifecycleStatus.PUBLISHED
-                ).select_related("national_target", "organisation", "created_by")
-            else:
-                selection_source = "none"
-                targets_qs = NationalTarget.objects.none()
-                indicators_qs = Indicator.objects.none()
-
-        targets_qs = filter_queryset_for_user(
-            targets_qs,
-            user,
-            perm="nbms_app.view_nationaltarget",
-        )
-        indicators_qs = filter_queryset_for_user(
-            indicators_qs,
-            user,
-            perm="nbms_app.view_indicator",
+        targets_qs, indicators_qs, selection_source = get_selected_targets_and_indicators(
+            instance=instance,
+            user=user,
         )
     else:
         targets_qs = filter_queryset_for_user(
-            NationalTarget.objects.select_related("organisation", "created_by")
-            .filter(status=LifecycleStatus.PUBLISHED)
-            .order_by("code"),
+            order_queryset_by_code_title_uuid(
+                NationalTarget.objects.select_related("organisation", "created_by")
+                .filter(status=LifecycleStatus.PUBLISHED)
+            ),
             user,
             perm="nbms_app.view_nationaltarget",
         )
         indicators_qs = filter_queryset_for_user(
-            Indicator.objects.select_related("national_target", "organisation", "created_by")
-            .filter(status=LifecycleStatus.PUBLISHED)
-            .order_by("code"),
+            order_queryset_by_code_title_uuid(
+                Indicator.objects.select_related("national_target", "organisation", "created_by")
+                .filter(status=LifecycleStatus.PUBLISHED)
+            ),
             user,
             perm="nbms_app.view_indicator",
         )
 
-    targets = _sort_items(list(targets_qs))
-    indicators = _sort_items(list(indicators_qs))
+    targets = sort_model_items(list(targets_qs))
+    indicators = sort_model_items(list(indicators_qs))
 
     target_consent = _consent_granted_uuids(instance, NationalTarget)
     indicator_consent = _consent_granted_uuids(instance, Indicator)
@@ -265,7 +277,7 @@ def compute_alignment_coverage(
                 }
                 for link in links
             ]
-            linked_framework_targets = _sort_framework_link_dicts(linked_framework_targets)
+            linked_framework_targets = sort_framework_link_dicts(linked_framework_targets)
             target_details.append(
                 {
                     "uuid": str(target.uuid),
@@ -292,7 +304,7 @@ def compute_alignment_coverage(
                 }
                 for link in links
             ]
-            linked_framework_indicators = _sort_framework_link_dicts(linked_framework_indicators)
+            linked_framework_indicators = sort_framework_link_dicts(linked_framework_indicators)
             indicator_details.append(
                 {
                     "uuid": str(indicator.uuid),
@@ -350,7 +362,7 @@ def compute_alignment_coverage(
                 },
             }
         )
-    by_framework = _sort_dicts(by_framework, "framework_code", "framework_title")
+    by_framework = sort_dicts(by_framework, "framework_code", "framework_title")
 
     target_mapped = sum(1 for target in targets if target.id in mapped_target_ids)
     indicator_mapped = sum(1 for indicator in indicators if indicator.id in mapped_indicator_ids)
@@ -367,10 +379,10 @@ def compute_alignment_coverage(
     else:
         selection_note = None
 
-    orphans_targets = _sort_dicts(orphans_targets, "code", "title", "uuid")
-    orphans_indicators = _sort_dicts(orphans_indicators, "code", "title", "uuid")
-    target_details = _sort_dicts(target_details, "code", "title", "uuid")
-    indicator_details = _sort_dicts(indicator_details, "code", "title", "uuid")
+    orphans_targets = sort_dicts(orphans_targets, "code", "title", "uuid")
+    orphans_indicators = sort_dicts(orphans_indicators, "code", "title", "uuid")
+    target_details = sort_dicts(target_details, "code", "title", "uuid")
+    indicator_details = sort_dicts(indicator_details, "code", "title", "uuid")
 
     return {
         "instance_uuid": str(instance.uuid),
