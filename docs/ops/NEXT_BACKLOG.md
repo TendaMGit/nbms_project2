@@ -33,6 +33,9 @@ Risks/Dependencies:
 - Backfill/migration constraints must remain forward-safe.
 
 ## Phase 2: Alignment UI expansion + readiness/validation
+Status:
+- Phase 2.1 (coverage UI panels) delivered.
+
 Acceptance criteria:
 - Alignment UI supports bulk add/remove, confidence, and source metadata.
 - Readiness diagnostics include alignment coverage metrics and mapping completeness.

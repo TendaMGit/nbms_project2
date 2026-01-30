@@ -1,0 +1,74 @@
+{% if alignment_coverage %}
+  <section class="card">
+    <h2>Alignment coverage</h2>
+    <p class="muted">Metrics reflect your access permissions (ABAC/consent).</p>
+
+    {% if alignment_coverage.summary.national_targets.total == 0 and alignment_coverage.summary.indicators.total == 0 %}
+      <p class="muted">No selected items yet.</p>
+    {% else %}
+      <div class="card-grid">
+        <div class="card">
+          <h3>National targets</h3>
+          <p><strong>{{ alignment_coverage.summary.national_targets.pct_mapped }}%</strong> mapped</p>
+          <p>{{ alignment_coverage.summary.national_targets.mapped }} / {{ alignment_coverage.summary.national_targets.total }}</p>
+        </div>
+        <div class="card">
+          <h3>Indicators</h3>
+          <p><strong>{{ alignment_coverage.summary.indicators.pct_mapped }}%</strong> mapped</p>
+          <p>{{ alignment_coverage.summary.indicators.mapped }} / {{ alignment_coverage.summary.indicators.total }}</p>
+        </div>
+      </div>
+
+      {% if alignment_coverage.by_framework %}
+        <h3>By framework</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Framework</th>
+              <th>Target links</th>
+              <th>Indicator links</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in alignment_coverage.by_framework %}
+              <tr>
+                <td>{{ item.framework_code }}</td>
+                <td>{{ item.targets.mapped_links }}</td>
+                <td>{{ item.indicators.mapped_links }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endif %}
+
+      <div class="card-grid">
+        <div class="card">
+          <h3>Orphan national targets (top 10)</h3>
+          <ul>
+            {% for item in alignment_coverage.orphans.national_targets_unmapped|slice:":10" %}
+              <li>{{ item.code }} - {{ item.title }}</li>
+            {% empty %}
+              <li>No orphan national targets.</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Orphan indicators (top 10)</h3>
+          <ul>
+            {% for item in alignment_coverage.orphans.indicators_unmapped|slice:":10" %}
+              <li>{{ item.code }} - {{ item.title }}</li>
+            {% empty %}
+              <li>No orphan indicators.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    {% endif %}
+
+    <p>
+      <a href="{% url 'nbms_app:reporting_instance_alignment_coverage' alignment_coverage.instance_uuid %}">
+        View all coverage
+      </a>
+    </p>
+  </section>
+{% endif %}

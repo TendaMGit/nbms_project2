@@ -1,0 +1,67 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Alignment Coverage{% endblock %}
+{% block content %}
+  <h1>Alignment Coverage</h1>
+  <p class="muted">Metrics reflect your access permissions (ABAC/consent).</p>
+  <p><strong>Instance:</strong> {{ instance.cycle.code }} {{ instance.version_label }}</p>
+
+  {% if coverage.summary.national_targets.total == 0 and coverage.summary.indicators.total == 0 %}
+    <section class="card">
+      <p class="muted">No selected items yet.</p>
+    </section>
+  {% else %}
+    <section class="card">
+      <h2>Summary</h2>
+      <p><strong>National targets:</strong> {{ coverage.summary.national_targets.mapped }} / {{ coverage.summary.national_targets.total }} ({{ coverage.summary.national_targets.pct_mapped }}%)</p>
+      <p><strong>Indicators:</strong> {{ coverage.summary.indicators.mapped }} / {{ coverage.summary.indicators.total }} ({{ coverage.summary.indicators.pct_mapped }}%)</p>
+    </section>
+
+    {% if coverage.by_framework %}
+      <section class="card">
+        <h2>By framework</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Framework</th>
+              <th>Target links</th>
+              <th>Indicator links</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in coverage.by_framework %}
+              <tr>
+                <td>{{ item.framework_code }}</td>
+                <td>{{ item.targets.mapped_links }}</td>
+                <td>{{ item.indicators.mapped_links }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <h2>National targets unmapped</h2>
+      <ul>
+        {% for item in coverage.orphans.national_targets_unmapped %}
+          <li>{{ item.code }} - {{ item.title }}</li>
+        {% empty %}
+          <li>No orphan national targets.</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Indicators unmapped</h2>
+      <ul>
+        {% for item in coverage.orphans.indicators_unmapped %}
+          <li>{{ item.code }} - {{ item.title }}</li>
+        {% empty %}
+          <li>No orphan indicators.</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <p><a href="{% url 'nbms_app:reporting_instance_review' instance.uuid %}">Back to review dashboard</a></p>
+{% endblock %}
