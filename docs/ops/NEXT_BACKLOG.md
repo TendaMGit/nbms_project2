@@ -53,6 +53,9 @@ Risks/Dependencies:
 - Potential performance impact for large mapping tables.
 
 ## Phase 3: Pilot extraction strategy (from nbms_project)
+Status:
+- Phase 3 (pilot extraction strategy) in progress.
+
 Acceptance criteria:
 - Documented extraction scope and mapping rules (no legacy schema import).
 - Identifier mapping for targets/indicators/frameworks, plus provenance notes.
@@ -63,6 +66,11 @@ Artifacts:
 - Extraction mapping document (source field -> destination field).
 - Data acceptance checklist and sample validation output.
 - Import script plan (docs only; no implementation yet).
+- Phase 3 docs:
+  - `docs/ops/PILOT_EXTRACTION_STRATEGY.md`
+  - `docs/ops/PILOT_EXTRACTION_MAPPING.md`
+  - `docs/ops/PILOT_EXTRACTION_ACCEPTANCE_CHECKLIST.md`
+  - `docs/ops/PILOT_IMPORT_SCRIPT_PLAN.md`
 
 Risks/Dependencies:
 - Legacy data quality and missing identifiers.
