@@ -21,6 +21,9 @@ CACHES = {
     }
 }
 
+# Keep sessions in the DB for test runs to avoid Redis dependency.
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+
 TEST_RUNNER = "config.test_runner.NBMSTestRunner"
 TEST_DISCOVER_ROOT = str(SRC_DIR)  # noqa: F405
 TEST_DISCOVER_TOP_LEVEL = str(BASE_DIR)  # noqa: F405

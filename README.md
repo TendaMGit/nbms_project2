@@ -57,9 +57,12 @@ $env:DJANGO_DEBUG='true'
 $env:ENABLE_GIS='false'
 $env:DATABASE_URL='postgresql://nbms_user:YOUR_PASSWORD@localhost:5432/nbms_project2_db'
 $env:USE_S3='0'
+$env:USE_REDIS='0'
 ```
 
 `ENABLE_GIS=false` avoids the GDAL/GEOS dependency on Windows.
+Redis is optional for local login. Set `USE_REDIS=1` and `REDIS_URL=redis://localhost:6379/0`
+only if you are running Redis.
 
 4) Run migrations and start the server:
 

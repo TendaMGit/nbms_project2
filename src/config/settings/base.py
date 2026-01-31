@@ -2,6 +2,7 @@
 Base settings.
 """
 
+import logging
 import os
 from pathlib import Path
 
@@ -14,6 +15,9 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
+ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev").lower()
+
+logger = logging.getLogger(__name__)
 
 _default_hosts = "localhost,127.0.0.1,0.0.0.0"
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", _default_hosts).split(",") if h.strip()]
@@ -246,12 +250,51 @@ LOGGING = {
     "loggers": {"django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False}},
 }
 
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+def _bool_env(value):
+    return str(value).lower() in ("1", "true", "yes")
+
+
+def _should_use_redis():
+    explicit = os.environ.get("USE_REDIS")
+    if explicit is not None:
+        return _bool_env(explicit)
+    cache_backend = os.environ.get("CACHE_BACKEND", "").lower()
+    if cache_backend == "redis":
+        return True
+    return False
+
+
+def _build_cache_settings():
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    use_redis = _should_use_redis()
+    allow_fallback = DEBUG or ENVIRONMENT in ("dev", "test")
+
+    if use_redis and allow_fallback:
+        try:
+            import redis
+
+            redis.Redis.from_url(redis_url).ping()
+        except Exception:  # noqa: BLE001
+            logger.warning("Redis unreachable; falling back to LocMemCache for dev/test.")
+            use_redis = False
+
+    if use_redis:
+        return {
+            "default": {
+                "BACKEND": "django.core.cache.backends.redis.RedisCache",
+                "LOCATION": redis_url,
+            }
+        }
+
+    return {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+            "LOCATION": "nbms-local-cache",
+        }
     }
-}
+
+
+CACHES = _build_cache_settings()
 
 RATE_LIMITS = {
     "login": {
