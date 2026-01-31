@@ -1,0 +1,12 @@
+{
+  "indicator_codes": [
+    "DEMO-IND-1"
+  ],
+  "section_iii_targets": [
+    "DEMO-NT-1",
+    "DEMO-NT-2"
+  ],
+  "section_iv_framework_targets": [
+    "DEMO-T1"
+  ]
+}

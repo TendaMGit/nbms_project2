@@ -69,6 +69,9 @@ Risks/Dependencies:
 - Legal/consent constraints on IPLC-sensitive data.
 
 ## Phase 4: Demo seed plan (end-to-end walkthrough)
+Status:
+- Phase 4 (demo seed plan) in progress.
+
 Acceptance criteria:
 - Deterministic seed plan for cycles, instance, approvals, and review pack v2.
 - ORT NR7 v2 export produces a stable, golden payload for demo.
@@ -78,6 +81,11 @@ Artifacts:
 - Seed plan outline with commands and expected objects.
 - Golden export JSON (planned) and review pack v2 screenshots (planned).
 - Demo walkthrough checklist.
+- Phase 4 docs:
+  - `docs/demo/DEMO_SEED_PLAN.md`
+  - `docs/demo/DEMO_WALKTHROUGH.md`
+  - `docs/demo/golden/demo_ort_nr7_v2.json`
+  - `docs/demo/golden/review_pack_order.json`
 
 Risks/Dependencies:
 - Requires finalized reference catalog metadata and mapping completeness.
