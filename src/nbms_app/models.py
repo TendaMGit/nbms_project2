@@ -779,26 +779,48 @@ class SectionIINBSAPStatus(TimeStampedModel):
         null=True,
     )
 
+    STAKEHOLDER_GROUP_OPTIONS = {
+        "women",
+        "youth",
+        "indigenous_and_local_communities",
+        "private_sector",
+        "scientific_community",
+        "civil_society_organizations",
+        "local_and_subnational_government",
+        "other",
+        "other_stakeholders",
+    }
+
     def clean(self):
         super().clean()
         errors = {}
 
-        if self.nbsap_updated_status == NbsapStatus.IN_PROGRESS and not self.nbsap_expected_completion_date:
-            errors["nbsap_expected_completion_date"] = "Completion date is required for in-progress status."
+        if self.nbsap_updated_status in {NbsapStatus.NO, NbsapStatus.IN_PROGRESS} and not self.nbsap_expected_completion_date:
+            errors["nbsap_expected_completion_date"] = (
+                "Completion date is required for no or in-progress status."
+            )
         if self.nbsap_updated_status == NbsapStatus.OTHER and not self.nbsap_updated_other_text.strip():
             errors["nbsap_updated_other_text"] = "Please specify the other NBSAP update status."
 
         if self.stakeholders_involved == StakeholderInvolvement.YES and not self.stakeholder_groups:
             errors["stakeholder_groups"] = "Select at least one stakeholder group."
-        if "other" in (self.stakeholder_groups or []) and not self.stakeholder_groups_other_text.strip():
+        if self.stakeholder_groups:
+            invalid_groups = set(self.stakeholder_groups) - self.STAKEHOLDER_GROUP_OPTIONS
+            if invalid_groups:
+                errors["stakeholder_groups"] = (
+                    "Invalid stakeholder groups: " + ", ".join(sorted(invalid_groups))
+                )
+        if {"other", "other_stakeholders"} & set(self.stakeholder_groups or []) and not self.stakeholder_groups_other_text.strip():
             errors["stakeholder_groups_other_text"] = "Please specify the other stakeholder group."
 
         if self.nbsap_adopted_status in {NbsapStatus.YES, NbsapStatus.IN_PROGRESS} and not self.nbsap_adoption_mechanism.strip():
             errors["nbsap_adoption_mechanism"] = "Adoption mechanism is required for adopted or in-progress status."
-        if self.nbsap_adopted_status == NbsapStatus.IN_PROGRESS and not self.nbsap_expected_adoption_date:
-            errors["nbsap_expected_adoption_date"] = "Expected adoption date is required for in-progress status."
-        if self.nbsap_adopted_status == NbsapStatus.OTHER and not self.nbsap_adopted_other_text.strip():
-            errors["nbsap_adopted_other_text"] = "Please specify the other NBSAP adoption status."
+        if self.nbsap_adopted_status in {NbsapStatus.IN_PROGRESS, NbsapStatus.NO, NbsapStatus.OTHER} and not self.nbsap_expected_adoption_date:
+            errors["nbsap_expected_adoption_date"] = (
+                "Expected adoption date is required for no, other, or in-progress status."
+            )
+        if self.nbsap_adopted_status in {NbsapStatus.NO, NbsapStatus.OTHER} and not self.nbsap_adopted_other_text.strip():
+            errors["nbsap_adopted_other_text"] = "Please specify the adoption details for no/other status."
 
         if errors:
             raise ValidationError(errors)
@@ -1753,10 +1775,9 @@ class BinaryIndicatorGroupResponse(TimeStampedModel):
 
 
 class BinaryQuestionType(models.TextChoices):
-    OPTION = "option", "Option"
-    CHECKBOX = "checkbox", "Checkbox"
-    HEADER = "header", "Header"
-    STRING = "string", "String"
+    SINGLE = "single", "Single"
+    MULTIPLE = "multiple", "Multiple"
+    TEXT = "text", "Text"
 
 
 class BinaryIndicatorQuestion(TimeStampedModel):
@@ -1787,7 +1808,7 @@ class BinaryIndicatorQuestion(TimeStampedModel):
     question_type = models.CharField(
         max_length=20,
         choices=BinaryQuestionType.choices,
-        default=BinaryQuestionType.OPTION,
+        default=BinaryQuestionType.SINGLE,
     )
     question_text = models.TextField(blank=True)
     help_text = models.TextField(blank=True)
@@ -1795,6 +1816,8 @@ class BinaryIndicatorQuestion(TimeStampedModel):
     mandatory = models.BooleanField(default=False)
     options = models.JSONField(default=list, blank=True)
     sort_order = models.PositiveIntegerField(default=0)
+    validations = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return f"{self.framework_indicator.code} {self.question_key}"

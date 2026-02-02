@@ -55,12 +55,18 @@ Create model: `SectionIReportContext` (1:1 with `ReportingInstance`)
 ### Section II — NBSAP update / adoption status + monitoring system description
 Create model: `SectionIINBSAPStatus` (1:1 with `ReportingInstance`)
 
+
+#### Spec corrections (ORT exactness patches)
+- Q1 expected completion date is required when update status is **no** or **in progress**.
+- Stakeholder group picklist must include `local_and_subnational_government` and `other_stakeholders`.
+- Q3 adoption: when status is **no** or **other**, capture free-text "specify" and an expected adoption date.
+
 #### 1) Updated NBSAP published (status)
 | Field | Type | Required | Allowed values / rules |
 |---|---|---:|---|
 | nbsap_updated_status | CharField | yes | Enum: `yes`, `no`, `in_progress`, `other`, `unknown` |
 | nbsap_updated_other_text | TextField | conditional | required if status=`other` |
-| nbsap_expected_completion_date | DateField | conditional | required if status=`in_progress` (null allowed if unknown, but UI should warn) |
+| nbsap_expected_completion_date | DateField | conditional | required if status=`no` or `in_progress` (null allowed if unknown, but UI should warn) |
 
 #### 2) Stakeholders involved in NBSAP update
 | Field | Type | Required | Notes |
@@ -71,15 +77,15 @@ Create model: `SectionIINBSAPStatus` (1:1 with `ReportingInstance`)
 | stakeholder_groups_notes | TextField | no | Optional narrative expansion |
 
 **Stakeholder group codes** (from the Section II template):
-- `women`, `youth`, `indigenous_and_local_communities`, `private_sector`, `scientific_community`, `civil_society_organizations`, `other`
+- `women`, `youth`, `indigenous_and_local_communities`, `private_sector`, `scientific_community`, `civil_society_organizations`, `local_and_subnational_government`, `other_stakeholders`, `other`
 
 #### 3) NBSAP formally adopted
 | Field | Type | Required | Rules |
 |---|---|---:|---|
 | nbsap_adopted_status | CharField | yes | Enum: `yes`, `no`, `in_progress`, `other`, `unknown` |
-| nbsap_adopted_other_text | TextField | conditional | if status=`other` |
+| nbsap_adopted_other_text | TextField | conditional | if status=`no` or `other` (use as "specify") |
 | nbsap_adoption_mechanism | TextField | conditional | required if status=`yes` or `in_progress` (capture “how”) |
-| nbsap_expected_adoption_date | DateField | conditional | required if status=`in_progress` (nullable with warning) |
+| nbsap_expected_adoption_date | DateField | conditional | required if status=`no`, `other`, or `in_progress` (nullable with warning) |
 
 #### 4) National biodiversity monitoring system description
 | Field | Type | Required | Notes |

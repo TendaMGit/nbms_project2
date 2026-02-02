@@ -114,6 +114,15 @@ class Command(BaseCommand):
             group_map[group_key] = group
 
             group = group_map.get(record.get("group_key"))
+            raw_type = (record.get("question_type") or "single").lower()
+            if raw_type in {"option", "single"}:
+                question_type = "single"
+            elif raw_type in {"checkbox", "multiple"}:
+                question_type = "multiple"
+            elif raw_type in {"string", "text", "header"}:
+                question_type = "text"
+            else:
+                question_type = "text"
             _, was_created = BinaryIndicatorQuestion.objects.update_or_create(
                 framework_indicator=indicator,
                 group_key=record.get("group_key", ""),
@@ -122,12 +131,14 @@ class Command(BaseCommand):
                     "group": group,
                     "section": record.get("section", ""),
                     "number": record.get("number", ""),
-                    "question_type": record.get("question_type") or "option",
+                    "question_type": question_type,
                     "question_text": record.get("question_text_key", ""),
                     "multiple": bool(record.get("multiple")),
                     "mandatory": bool(record.get("mandatory")),
                     "options": record.get("options", []),
                     "sort_order": record.get("sort_order", 0),
+                    "validations": record.get("validations", {}),
+                    "is_active": True,
                 },
             )
             if was_created:
