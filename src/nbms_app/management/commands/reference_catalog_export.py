@@ -229,6 +229,39 @@ ENTITY_HEADERS = {
         "source_system",
         "source_ref",
     ],
+    "indicator": [
+        "indicator_uuid",
+        "indicator_code",
+        "indicator_title",
+        "national_target_code",
+        "national_target_uuid",
+        "indicator_type",
+        "reporting_cadence",
+        "qa_status",
+        "responsible_org_code",
+        "data_steward_username",
+        "indicator_lead_username",
+        "source_document_uuid",
+        "license_code",
+        "computation_notes",
+        "limitations",
+        "spatial_coverage",
+        "temporal_coverage",
+        "organisation_code",
+        "sensitivity",
+        "source_system",
+        "source_ref",
+        "reporting_capability",
+        "reporting_no_reason_codes",
+        "reporting_no_reason_notes",
+        "owner_org_code",
+        "update_frequency",
+        "last_updated_on",
+        "coverage_geography",
+        "coverage_time_start_year",
+        "coverage_time_end_year",
+        "data_quality_note",
+    ],
     "gbf_goals": [
         "framework_code",
         "goal_code",
@@ -350,6 +383,18 @@ EXAMPLE_ROWS = {
         "indicator_code": "IND-1",
         "relationship_type": "supporting",
         "is_active": "true",
+    },
+    "indicator": {
+        "indicator_code": "IND-1",
+        "indicator_title": "National indicator 1",
+        "national_target_code": "NT-1",
+        "indicator_type": "national",
+        "reporting_cadence": "annual",
+        "qa_status": "draft",
+        "reporting_capability": "unknown",
+        "reporting_no_reason_codes": "no_data;no_method",
+        "update_frequency": "annual",
+        "last_updated_on": "2025-01-01",
     },
     "gbf_goals": {
         "framework_code": "GBF",
@@ -764,6 +809,55 @@ def _export_gbf_targets(writer):
         )
 
 
+def _export_indicator(writer):
+    indicators = Indicator.objects.select_related(
+        "national_target",
+        "organisation",
+        "responsible_org",
+        "data_steward",
+        "indicator_lead",
+        "source_document",
+        "license",
+    ).order_by("code")
+    for indicator in indicators:
+        reason_codes = indicator.reporting_no_reason_codes or []
+        writer.writerow(
+            {
+                "indicator_uuid": str(indicator.uuid),
+                "indicator_code": indicator.code,
+                "indicator_title": indicator.title,
+                "national_target_code": indicator.national_target.code if indicator.national_target else "",
+                "national_target_uuid": str(indicator.national_target.uuid) if indicator.national_target else "",
+                "indicator_type": indicator.indicator_type or "",
+                "reporting_cadence": indicator.reporting_cadence or "",
+                "qa_status": indicator.qa_status or "",
+                "responsible_org_code": indicator.responsible_org.org_code if indicator.responsible_org else "",
+                "data_steward_username": indicator.data_steward.username if indicator.data_steward else "",
+                "indicator_lead_username": indicator.indicator_lead.username if indicator.indicator_lead else "",
+                "source_document_uuid": str(indicator.source_document.uuid) if indicator.source_document else "",
+                "license_code": indicator.license.code if indicator.license else "",
+                "computation_notes": indicator.computation_notes or "",
+                "limitations": indicator.limitations or "",
+                "spatial_coverage": indicator.spatial_coverage or "",
+                "temporal_coverage": indicator.temporal_coverage or "",
+                "organisation_code": indicator.organisation.org_code if indicator.organisation else "",
+                "sensitivity": indicator.sensitivity or "",
+                "source_system": indicator.source_system or "",
+                "source_ref": indicator.source_ref or "",
+                "reporting_capability": indicator.reporting_capability or "",
+                "reporting_no_reason_codes": ";".join(reason_codes),
+                "reporting_no_reason_notes": indicator.reporting_no_reason_notes or "",
+                "owner_org_code": indicator.owner_organisation.org_code if indicator.owner_organisation else "",
+                "update_frequency": indicator.update_frequency or "",
+                "last_updated_on": _format_date(indicator.last_updated_on),
+                "coverage_geography": indicator.coverage_geography or "",
+                "coverage_time_start_year": indicator.coverage_time_start_year or "",
+                "coverage_time_end_year": indicator.coverage_time_end_year or "",
+                "data_quality_note": indicator.data_quality_note or "",
+            }
+        )
+
+
 def _export_gbf_indicators(writer):
     indicators = FrameworkIndicator.objects.select_related("framework", "framework_target").order_by("framework__code", "code")
     for indicator in indicators:
@@ -795,6 +889,7 @@ _EXPORTERS = {
     "programme_indicator_link": _export_programme_indicator_link,
     "methodology_dataset_link": _export_methodology_dataset_link,
     "methodology_indicator_link": _export_methodology_indicator_link,
+    "indicator": _export_indicator,
     "gbf_goals": _export_gbf_goals,
     "gbf_targets": _export_gbf_targets,
     "gbf_indicators": _export_gbf_indicators,

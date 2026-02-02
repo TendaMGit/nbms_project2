@@ -417,6 +417,16 @@ class IndicatorForm(forms.ModelForm):
             "limitations",
             "spatial_coverage",
             "temporal_coverage",
+            "reporting_capability",
+            "reporting_no_reason_codes",
+            "reporting_no_reason_notes",
+            "owner_organisation",
+            "update_frequency",
+            "last_updated_on",
+            "coverage_geography",
+            "coverage_time_start_year",
+            "coverage_time_end_year",
+            "data_quality_note",
             "organisation",
             "sensitivity",
             "source_system",
@@ -429,6 +439,9 @@ class IndicatorForm(forms.ModelForm):
             Organisation.objects.order_by("name"), user
         )
         self.fields["responsible_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["owner_organisation"].queryset = filter_organisations_for_user(
             Organisation.objects.order_by("name"), user
         )
         user_qs = User.objects.order_by("username")

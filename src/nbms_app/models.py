@@ -164,6 +164,22 @@ class UpdateFrequency(models.TextChoices):
     CONTINUOUS = "continuous", "Continuous"
 
 
+class IndicatorUpdateFrequency(models.TextChoices):
+    CONTINUOUS = "continuous", "Continuous"
+    ANNUAL = "annual", "Annual"
+    BIENNIAL = "biennial", "Biennial"
+    EVERY_3_YEARS = "every_3_years", "Every 3 years"
+    AD_HOC = "ad_hoc", "Ad hoc"
+    UNKNOWN = "unknown", "Unknown"
+
+
+class IndicatorReportingCapability(models.TextChoices):
+    YES = "yes", "Yes"
+    PARTIAL = "partial", "Partial"
+    NO = "no", "No"
+    UNKNOWN = "unknown", "Unknown"
+
+
 class QaStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     REJECTED = "rejected", "Rejected"
@@ -1122,6 +1138,32 @@ class Indicator(TimeStampedModel):
     limitations = models.TextField(blank=True)
     spatial_coverage = models.TextField(blank=True)
     temporal_coverage = models.TextField(blank=True)
+    reporting_capability = models.CharField(
+        max_length=20,
+        choices=IndicatorReportingCapability.choices,
+        default=IndicatorReportingCapability.UNKNOWN,
+        blank=True,
+    )
+    reporting_no_reason_codes = models.JSONField(default=list, blank=True)
+    reporting_no_reason_notes = models.TextField(blank=True)
+    owner_organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="owned_indicators",
+        blank=True,
+        null=True,
+    )
+    update_frequency = models.CharField(
+        max_length=20,
+        choices=IndicatorUpdateFrequency.choices,
+        default=IndicatorUpdateFrequency.UNKNOWN,
+        blank=True,
+    )
+    last_updated_on = models.DateField(blank=True, null=True)
+    coverage_geography = models.TextField(blank=True)
+    coverage_time_start_year = models.IntegerField(blank=True, null=True)
+    coverage_time_end_year = models.IntegerField(blank=True, null=True)
+    data_quality_note = models.TextField(blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -1145,6 +1187,59 @@ class Indicator(TimeStampedModel):
 
     def __str__(self):
         return f"{self.code} - {self.title}"
+
+    REPORTING_NO_REASON_OPTIONS = {
+        "no_data",
+        "no_method",
+        "no_owner",
+        "no_mandate",
+        "confidentiality_or_consent",
+        "not_applicable",
+        "other",
+    }
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if not self.reporting_capability:
+            self.reporting_capability = IndicatorReportingCapability.UNKNOWN
+
+        codes = self.reporting_no_reason_codes
+        if codes is None or codes == "":
+            codes = []
+        if not isinstance(codes, list):
+            errors["reporting_no_reason_codes"] = "Reason codes must be a list of values."
+        else:
+            invalid = set(codes) - self.REPORTING_NO_REASON_OPTIONS
+            if invalid:
+                errors["reporting_no_reason_codes"] = (
+                    "Invalid reason codes: " + ", ".join(sorted(invalid))
+                )
+
+        if self.reporting_capability == IndicatorReportingCapability.NO:
+            if not codes:
+                errors["reporting_no_reason_codes"] = (
+                    "At least one reason code is required when reporting capability is no."
+                )
+        elif self.reporting_capability in {
+            IndicatorReportingCapability.YES,
+            IndicatorReportingCapability.PARTIAL,
+        }:
+            if codes:
+                errors["reporting_no_reason_codes"] = (
+                    "Reason codes are only allowed when reporting capability is no."
+                )
+
+        if (
+            self.coverage_time_start_year
+            and self.coverage_time_end_year
+            and self.coverage_time_end_year < self.coverage_time_start_year
+        ):
+            errors["coverage_time_end_year"] = "End year cannot be earlier than start year."
+
+        if errors:
+            raise ValidationError(errors)
 
     class Meta:
         indexes = [
