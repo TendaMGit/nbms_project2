@@ -1,0 +1,38 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Section IV Goals{% endblock %}
+{% block content %}
+  <h1>Section IV: GBF goals progress</h1>
+  <p><strong>Instance:</strong> {{ instance }}</p>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. Fields are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <table>
+    <thead>
+      <tr>
+        <th>Goal</th>
+        <th>Title</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+        <tr>
+          <td>{{ item.goal.code }}</td>
+          <td>{{ item.goal.title }}</td>
+          <td>{% if item.entry %}In progress{% else %}Not started{% endif %}</td>
+          <td>
+            <a href="{% url 'nbms_app:reporting_instance_section_iv_goal_edit' instance.uuid item.goal.uuid %}">Edit</a>
+          </td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="4">No goals available for this instance.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Back to sections</a></p>
+{% endblock %}

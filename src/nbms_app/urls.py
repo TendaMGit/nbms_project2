@@ -209,6 +209,16 @@ urlpatterns = [
         name="reporting_instance_sections",
     ),
     path(
+        "reporting/instances/<uuid:instance_uuid>/section-i/",
+        views.reporting_instance_section_i,
+        name="reporting_instance_section_i",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/section-ii/",
+        views.reporting_instance_section_ii,
+        name="reporting_instance_section_ii",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/sections/<str:section_code>/edit/",
         views.reporting_instance_section_edit,
         name="reporting_instance_section_edit",
@@ -234,9 +244,29 @@ urlpatterns = [
         name="reporting_instance_section_iv",
     ),
     path(
+        "reporting/instances/<uuid:instance_uuid>/section-iv/goals/",
+        views.reporting_instance_section_iv_goals,
+        name="reporting_instance_section_iv_goals",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/section-iv/goals/<uuid:goal_uuid>/",
+        views.reporting_instance_section_iv_goal_edit,
+        name="reporting_instance_section_iv_goal_edit",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/section-iv/binary-indicators/",
+        views.reporting_instance_section_iv_binary_indicators,
+        name="reporting_instance_section_iv_binary_indicators",
+    ),
+    path(
         "reporting/instances/<uuid:instance_uuid>/section-iv/<uuid:framework_target_uuid>/",
         views.reporting_instance_section_iv_edit,
         name="reporting_instance_section_iv_edit",
+    ),
+    path(
+        "reporting/instances/<uuid:instance_uuid>/section-v/",
+        views.reporting_instance_section_v,
+        name="reporting_instance_section_v",
     ),
     path(
         "reporting/instances/<uuid:instance_uuid>/approvals/",

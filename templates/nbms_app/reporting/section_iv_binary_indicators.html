@@ -1,0 +1,66 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Section IV Binary Indicators{% endblock %}
+{% block content %}
+  <h1>Section IV: Binary indicators</h1>
+  <p><strong>Instance:</strong> {{ instance }}</p>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. Fields are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {% for item in groups %}
+      <div class="card">
+        <h2>{{ item.group.key }}</h2>
+        {% if item.group.target_code %}<p><strong>Target:</strong> {{ item.group.target_code }}</p>{% endif %}
+        {% if item.group.framework_indicator %}<p><strong>Indicator:</strong> {{ item.group.framework_indicator.code }}</p>{% endif %}
+        <label for="id_group_comment_{{ item.group.id }}">Comments</label>
+        <textarea id="id_group_comment_{{ item.group.id }}" name="group_comment_{{ item.group.id }}" rows="3" {% if read_only %}disabled{% endif %}>{{ item.comment }}</textarea>
+        <div class="question-list">
+          {% for q in item.questions %}
+            <div class="question-item">
+              {% if q.is_header %}
+                <h3>{{ q.question.number }} {{ q.question.question_text }}</h3>
+              {% else %}
+                <label>{{ q.question.number }} {{ q.question.question_text }}</label>
+                {% if q.error %}
+                  <div class="error">{{ q.error }}</div>
+                {% endif %}
+                {% if q.question.question_type == 'single' %}
+                  <div>
+                    {% for option in q.question.options %}
+                      <label>
+                        <input type="radio" name="q_{{ q.question.id }}" value="{{ option.value }}" {% if option.value in q.selected_values %}checked{% endif %} {% if read_only %}disabled{% endif %}>
+                        {{ option.label_key|default:option.value }}
+                      </label>
+                    {% endfor %}
+                  </div>
+                {% elif q.question.question_type == 'multiple' %}
+                  <div>
+                    {% for option in q.question.options %}
+                      <label>
+                        <input type="checkbox" name="q_{{ q.question.id }}" value="{{ option.value }}" {% if option.value in q.selected_values %}checked{% endif %} {% if read_only %}disabled{% endif %}>
+                        {{ option.label_key|default:option.value }}
+                      </label>
+                    {% endfor %}
+                  </div>
+                {% else %}
+                  <textarea name="q_{{ q.question.id }}" rows="2" {% if read_only %}disabled{% endif %}>{{ q.value }}</textarea>
+                {% endif %}
+              {% endif %}
+            </div>
+          {% empty %}
+            <p>No questions available.</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% empty %}
+      <p>No binary indicator groups available for this instance.</p>
+    {% endfor %}
+    {% if not read_only %}
+      <button type="submit">Save</button>
+    {% endif %}
+  </form>
+  <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Back to sections</a></p>
+{% endblock %}

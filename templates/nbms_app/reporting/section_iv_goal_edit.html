@@ -1,0 +1,20 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Section IV Goal Progress{% endblock %}
+{% block content %}
+  <h1>Section IV Goal: {{ goal.code }} - {{ goal.title }}</h1>
+  <p><strong>Instance:</strong> {{ instance }}</p>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. Fields are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    {{ form.as_p }}
+    {% if not read_only %}
+      <button type="submit">Save</button>
+    {% endif %}
+  </form>
+  <p><a href="{% url 'nbms_app:reporting_instance_section_iv_goals' instance.uuid %}">Back to goals</a></p>
+{% endblock %}

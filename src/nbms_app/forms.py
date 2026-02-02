@@ -7,7 +7,9 @@ from django.core.exceptions import ValidationError
 from django.db import models
 
 from nbms_app.models import (
+    BinaryIndicatorGroup,
     BinaryIndicatorResponse,
+    BinaryIndicatorQuestion,
     Dataset,
     DatasetCatalog,
     DatasetRelease,
@@ -15,6 +17,7 @@ from nbms_app.models import (
     Evidence,
     ExportPackage,
     FrameworkIndicator,
+    FrameworkGoal,
     FrameworkTarget,
     Indicator,
     IndicatorDataSeries,
@@ -31,8 +34,12 @@ from nbms_app.models import (
     ReportSectionTemplate,
     ReportingCycle,
     ReportingInstance,
+    SectionIReportContext,
+    SectionIINBSAPStatus,
     SectionIIINationalTargetProgress,
+    SectionIVFrameworkGoalProgress,
     SectionIVFrameworkTargetProgress,
+    SectionVConclusions,
     SensitivityClass,
     SourceDocument,
     User,
@@ -51,6 +58,7 @@ from nbms_app.services.indicator_data import (
     binary_indicator_responses_for_user,
     indicator_data_series_for_user,
 )
+from nbms_app.services.consent import consent_is_granted, requires_consent
 
 
 class OrganisationForm(forms.ModelForm):
@@ -595,6 +603,37 @@ class ReportSectionResponseForm(forms.Form):
         return data
 
 
+def _filter_evidence_queryset(user, instance):
+    evidence_qs = Evidence.objects.all()
+    if instance:
+        evidence_qs = approved_queryset(instance, Evidence)
+    evidence_qs = filter_queryset_for_user(evidence_qs, user)
+    if not instance:
+        return evidence_qs
+    allowed_ids = [
+        item.id
+        for item in evidence_qs
+        if not requires_consent(item) or consent_is_granted(instance, item)
+    ]
+    return Evidence.objects.filter(id__in=allowed_ids)
+
+
+def _filter_dataset_releases_queryset(user, instance):
+    dataset_qs = Dataset.objects.all()
+    if instance:
+        dataset_qs = approved_queryset(instance, Dataset)
+    dataset_qs = filter_queryset_for_user(dataset_qs, user)
+    releases = DatasetRelease.objects.filter(dataset__in=dataset_qs)
+    if not instance:
+        return releases
+    allowed_ids = [
+        item.id
+        for item in releases
+        if not requires_consent(item) or consent_is_granted(instance, item)
+    ]
+    return DatasetRelease.objects.filter(id__in=allowed_ids)
+
+
 class SectionIIINationalTargetProgressForm(forms.ModelForm):
     indicator_data_series = forms.ModelMultipleChoiceField(
         queryset=IndicatorDataSeries.objects.none(),
@@ -617,10 +656,13 @@ class SectionIIINationalTargetProgressForm(forms.ModelForm):
         model = SectionIIINationalTargetProgress
         fields = [
             "progress_status",
+            "progress_level",
             "summary",
             "actions_taken",
             "outcomes",
-            "challenges",
+            "challenges_and_approaches",
+            "effectiveness_examples",
+            "sdg_and_other_agreements",
             "support_needed",
             "period_start",
             "period_end",
@@ -635,20 +677,17 @@ class SectionIIINationalTargetProgressForm(forms.ModelForm):
         if user is None:
             return
         instance = reporting_instance
+        self.fields["summary"].label = "Progress summary"
+        self.fields["challenges_and_approaches"].label = "Challenges and approaches"
+        self.fields["sdg_and_other_agreements"].label = "SDG and other agreements"
         series_qs = indicator_data_series_for_user(user, instance)
         if instance:
             approved_indicators = approved_queryset(instance, Indicator).values_list("id", flat=True)
             series_qs = series_qs.filter(models.Q(indicator_id__in=approved_indicators) | models.Q(indicator__isnull=True))
         self.fields["indicator_data_series"].queryset = series_qs
         self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
-        evidence_qs = Evidence.objects.all()
-        dataset_qs = Dataset.objects.all()
-        if instance:
-            evidence_qs = approved_queryset(instance, Evidence)
-            dataset_qs = approved_queryset(instance, Dataset)
-        self.fields["evidence_items"].queryset = filter_queryset_for_user(evidence_qs, user)
-        dataset_qs = filter_queryset_for_user(dataset_qs, user)
-        self.fields["dataset_releases"].queryset = DatasetRelease.objects.filter(dataset__in=dataset_qs)
+        self.fields["evidence_items"].queryset = _filter_evidence_queryset(user, instance)
+        self.fields["dataset_releases"].queryset = _filter_dataset_releases_queryset(user, instance)
 
 
 class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
@@ -673,10 +712,13 @@ class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
         model = SectionIVFrameworkTargetProgress
         fields = [
             "progress_status",
+            "progress_level",
             "summary",
             "actions_taken",
             "outcomes",
-            "challenges",
+            "challenges_and_approaches",
+            "effectiveness_examples",
+            "sdg_and_other_agreements",
             "support_needed",
             "period_start",
             "period_end",
@@ -691,17 +733,126 @@ class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
         if user is None:
             return
         instance = reporting_instance
+        self.fields["summary"].label = "Progress summary"
+        self.fields["challenges_and_approaches"].label = "Challenges and approaches"
+        self.fields["sdg_and_other_agreements"].label = "SDG and other agreements"
         series_qs = indicator_data_series_for_user(user, instance)
         if instance:
             approved_indicators = approved_queryset(instance, Indicator).values_list("id", flat=True)
             series_qs = series_qs.filter(models.Q(indicator_id__in=approved_indicators) | models.Q(indicator__isnull=True))
         self.fields["indicator_data_series"].queryset = series_qs
         self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
-        evidence_qs = Evidence.objects.all()
-        dataset_qs = Dataset.objects.all()
-        if instance:
-            evidence_qs = approved_queryset(instance, Evidence)
-            dataset_qs = approved_queryset(instance, Dataset)
-        self.fields["evidence_items"].queryset = filter_queryset_for_user(evidence_qs, user)
-        dataset_qs = filter_queryset_for_user(dataset_qs, user)
-        self.fields["dataset_releases"].queryset = DatasetRelease.objects.filter(dataset__in=dataset_qs)
+        self.fields["evidence_items"].queryset = _filter_evidence_queryset(user, instance)
+        self.fields["dataset_releases"].queryset = _filter_dataset_releases_queryset(user, instance)
+
+
+STAKEHOLDER_GROUP_CHOICES = [
+    ("women", "Women"),
+    ("youth", "Youth"),
+    ("indigenous_and_local_communities", "Indigenous peoples and local communities"),
+    ("private_sector", "Private sector"),
+    ("scientific_community", "Scientific community"),
+    ("civil_society_organizations", "Civil society organizations"),
+    ("local_and_subnational_government", "Local and subnational government"),
+    ("other_stakeholders", "Other stakeholders"),
+    ("other", "Other"),
+]
+
+
+class SectionIReportContextForm(forms.ModelForm):
+    class Meta:
+        model = SectionIReportContext
+        fields = [
+            "reporting_party_name",
+            "submission_language",
+            "additional_languages",
+            "responsible_authorities",
+            "contact_name",
+            "contact_email",
+            "preparation_process",
+            "preparation_challenges",
+            "acknowledgements",
+        ]
+
+
+class SectionIINBSAPStatusForm(forms.ModelForm):
+    stakeholder_groups = forms.MultipleChoiceField(
+        choices=STAKEHOLDER_GROUP_CHOICES,
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    class Meta:
+        model = SectionIINBSAPStatus
+        fields = [
+            "nbsap_updated_status",
+            "nbsap_updated_other_text",
+            "nbsap_expected_completion_date",
+            "stakeholders_involved",
+            "stakeholder_groups",
+            "stakeholder_groups_other_text",
+            "stakeholder_groups_notes",
+            "nbsap_adopted_status",
+            "nbsap_adopted_other_text",
+            "nbsap_adoption_mechanism",
+            "nbsap_expected_adoption_date",
+            "monitoring_system_description",
+        ]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["stakeholder_groups"].choices = STAKEHOLDER_GROUP_CHOICES
+
+        if self.instance and getattr(self.instance, "stakeholder_groups", None):
+            self.initial.setdefault("stakeholder_groups", self.instance.stakeholder_groups)
+
+
+class SectionIVFrameworkGoalProgressForm(forms.ModelForm):
+    evidence_items = forms.ModelMultipleChoiceField(
+        queryset=Evidence.objects.none(),
+        required=False,
+    )
+
+    class Meta:
+        model = SectionIVFrameworkGoalProgress
+        fields = [
+            "progress_summary",
+            "actions_taken",
+            "outcomes",
+            "challenges_and_approaches",
+            "sdg_and_other_agreements",
+            "evidence_items",
+        ]
+
+    def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            return
+        instance = reporting_instance
+        self.fields["evidence_items"].queryset = _filter_evidence_queryset(user, instance)
+
+
+class SectionVConclusionsForm(forms.ModelForm):
+    evidence_items = forms.ModelMultipleChoiceField(
+        queryset=Evidence.objects.none(),
+        required=False,
+    )
+
+    class Meta:
+        model = SectionVConclusions
+        fields = [
+            "overall_assessment",
+            "decision_15_8_information",
+            "decision_15_7_information",
+            "decision_15_11_information",
+            "plant_conservation_information",
+            "additional_notes",
+            "evidence_items",
+        ]
+
+    def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if user is None:
+            return
+        instance = reporting_instance
+        self.fields["evidence_items"].queryset = _filter_evidence_queryset(user, instance)
