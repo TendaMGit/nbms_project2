@@ -1,0 +1,142 @@
+{% extends "nbms_app/base.html" %}
+{% block title %}Section II NBSAP Status{% endblock %}
+{% block content %}
+  <h1>Section II: NBSAP status and monitoring system</h1>
+  <p><strong>Instance:</strong> {{ instance }}</p>
+  {% if read_only %}
+    <div class="card">
+      <p>This reporting instance is frozen. Fields are read-only unless you are an admin.</p>
+    </div>
+  {% endif %}
+  <form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <fieldset>
+      <legend>Updated NBSAP published</legend>
+      <div>
+        {{ form.nbsap_updated_status.label_tag }}
+        {{ form.nbsap_updated_status }}
+        {{ form.nbsap_updated_status.errors }}
+      </div>
+      <div id="field_nbsap_updated_other_text">
+        {{ form.nbsap_updated_other_text.label_tag }}
+        {{ form.nbsap_updated_other_text }}
+        {{ form.nbsap_updated_other_text.errors }}
+      </div>
+      <div id="field_nbsap_expected_completion_date">
+        {{ form.nbsap_expected_completion_date.label_tag }}
+        {{ form.nbsap_expected_completion_date }}
+        {{ form.nbsap_expected_completion_date.errors }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Stakeholders involved</legend>
+      <div>
+        {{ form.stakeholders_involved.label_tag }}
+        {{ form.stakeholders_involved }}
+        {{ form.stakeholders_involved.errors }}
+      </div>
+      <div id="field_stakeholder_groups">
+        {{ form.stakeholder_groups.label_tag }}
+        {{ form.stakeholder_groups }}
+        {{ form.stakeholder_groups.errors }}
+      </div>
+      <div id="field_stakeholder_groups_other_text">
+        {{ form.stakeholder_groups_other_text.label_tag }}
+        {{ form.stakeholder_groups_other_text }}
+        {{ form.stakeholder_groups_other_text.errors }}
+      </div>
+      <div>
+        {{ form.stakeholder_groups_notes.label_tag }}
+        {{ form.stakeholder_groups_notes }}
+        {{ form.stakeholder_groups_notes.errors }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>NBSAP formally adopted</legend>
+      <div>
+        {{ form.nbsap_adopted_status.label_tag }}
+        {{ form.nbsap_adopted_status }}
+        {{ form.nbsap_adopted_status.errors }}
+      </div>
+      <div id="field_nbsap_adopted_other_text">
+        {{ form.nbsap_adopted_other_text.label_tag }}
+        {{ form.nbsap_adopted_other_text }}
+        {{ form.nbsap_adopted_other_text.errors }}
+      </div>
+      <div id="field_nbsap_adoption_mechanism">
+        {{ form.nbsap_adoption_mechanism.label_tag }}
+        {{ form.nbsap_adoption_mechanism }}
+        {{ form.nbsap_adoption_mechanism.errors }}
+      </div>
+      <div id="field_nbsap_expected_adoption_date">
+        {{ form.nbsap_expected_adoption_date.label_tag }}
+        {{ form.nbsap_expected_adoption_date }}
+        {{ form.nbsap_expected_adoption_date.errors }}
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Monitoring system description</legend>
+      <div>
+        {{ form.monitoring_system_description.label_tag }}
+        {{ form.monitoring_system_description }}
+        {{ form.monitoring_system_description.errors }}
+      </div>
+    </fieldset>
+
+    {% if not read_only %}
+      <button type="submit">Save</button>
+    {% endif %}
+  </form>
+  <p><a href="{% url 'nbms_app:reporting_instance_sections' instance.uuid %}">Back to sections</a></p>
+
+  <script>
+    (function() {
+      function toggle(id, show) {
+        var node = document.getElementById(id);
+        if (!node) return;
+        node.style.display = show ? "block" : "none";
+      }
+
+      function selectedStakeholderValues() {
+        var boxes = document.querySelectorAll("input[name='stakeholder_groups']");
+        var values = [];
+        boxes.forEach(function(box) {
+          if (box.checked) values.push(box.value);
+        });
+        return values;
+      }
+
+      function updateVisibility() {
+        var updatedStatus = document.getElementById('id_nbsap_updated_status');
+        var stakeholders = document.getElementById('id_stakeholders_involved');
+        var adoptedStatus = document.getElementById('id_nbsap_adopted_status');
+
+        var updatedValue = updatedStatus ? updatedStatus.value : "";
+        toggle('field_nbsap_updated_other_text', updatedValue === 'other');
+        toggle('field_nbsap_expected_completion_date', updatedValue === 'no' || updatedValue === 'in_progress');
+
+        var stakeholdersValue = stakeholders ? stakeholders.value : "";
+        toggle('field_stakeholder_groups', stakeholdersValue === 'yes');
+        var selected = selectedStakeholderValues();
+        toggle('field_stakeholder_groups_other_text', selected.indexOf('other') !== -1 || selected.indexOf('other_stakeholders') !== -1);
+
+        var adoptedValue = adoptedStatus ? adoptedStatus.value : "";
+        toggle('field_nbsap_adoption_mechanism', adoptedValue === 'yes' || adoptedValue === 'in_progress');
+        toggle('field_nbsap_expected_adoption_date', adoptedValue === 'no' || adoptedValue === 'other' || adoptedValue === 'in_progress');
+        toggle('field_nbsap_adopted_other_text', adoptedValue === 'no' || adoptedValue === 'other');
+      }
+
+      document.addEventListener('change', function(evt) {
+        if (evt.target && (evt.target.id === 'id_nbsap_updated_status' || evt.target.id === 'id_stakeholders_involved' || evt.target.id === 'id_nbsap_adopted_status' || evt.target.name === 'stakeholder_groups')) {
+          updateVisibility();
+        }
+      });
+      updateVisibility();
+    })();
+  </script>
+{% endblock %}

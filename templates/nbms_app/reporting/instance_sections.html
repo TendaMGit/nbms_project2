@@ -7,6 +7,26 @@
       <p>This reporting instance is frozen. Sections are read-only unless you are an admin.</p>
     </div>
   {% endif %}
+  <h2>Structured sections (preferred)</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Title</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in structured_links %}
+        <tr>
+          <td>{{ item.code }}</td>
+          <td>{{ item.title }}</td>
+          <td><a href="{{ item.url }}">Open</a></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  <h2>Narrative templates</h2>
   <table>
     <thead>
       <tr>

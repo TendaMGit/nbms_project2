@@ -7,7 +7,7 @@ from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
-from django.db import connections
+from django.db import connections, transaction
 from django.db.models import Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -31,8 +31,12 @@ from nbms_app.forms import (
     NationalTargetForm,
     OrganisationForm,
     ReportSectionResponseForm,
+    SectionIReportContextForm,
+    SectionIINBSAPStatusForm,
     SectionIIINationalTargetProgressForm,
+    SectionIVFrameworkGoalProgressForm,
     SectionIVFrameworkTargetProgressForm,
+    SectionVConclusionsForm,
     SensitivityClassForm,
     ReportingCycleForm,
     ReportingInstanceForm,
@@ -48,6 +52,10 @@ from nbms_app.forms_catalog import (
     get_catalog_readonly_fields,
 )
 from nbms_app.models import (
+    BinaryIndicatorGroup,
+    BinaryIndicatorGroupResponse,
+    BinaryIndicatorQuestion,
+    BinaryIndicatorResponse,
     DataAgreement,
     Dataset,
     DatasetCatalog,
@@ -78,8 +86,12 @@ from nbms_app.models import (
     ReportingInstance,
     ReportingSnapshot,
     ReviewDecisionStatus,
+    SectionIReportContext,
+    SectionIINBSAPStatus,
     SectionIIINationalTargetProgress,
+    SectionIVFrameworkGoalProgress,
     SectionIVFrameworkTargetProgress,
+    SectionVConclusions,
     SensitivityClass,
     User,
     Notification,
@@ -127,6 +139,7 @@ from nbms_app.services.consent import (
     requires_consent,
     set_consent_status,
 )
+from nbms_app.services.indicator_data import binary_indicator_questions_for_user
 from nbms_app.services.exports import approve_export, reject_export, release_export, submit_export_for_review
 from nbms_app.services.instance_approvals import (
     approve_for_instance,
@@ -3132,10 +3145,55 @@ def reporting_instance_sections(request, instance_uuid):
         }
         for section in readiness["details"]["sections"]["sections"]
     ]
+    structured_links = [
+        {
+            "code": "section-i",
+            "title": "Section I: Report context",
+            "url": reverse("nbms_app:reporting_instance_section_i", kwargs={"instance_uuid": instance.uuid}),
+        },
+        {
+            "code": "section-ii",
+            "title": "Section II: NBSAP status",
+            "url": reverse("nbms_app:reporting_instance_section_ii", kwargs={"instance_uuid": instance.uuid}),
+        },
+        {
+            "code": "section-iii",
+            "title": "Section III: National targets progress",
+            "url": reverse("nbms_app:reporting_instance_section_iii", kwargs={"instance_uuid": instance.uuid}),
+        },
+        {
+            "code": "section-iv-goals",
+            "title": "Section IV: GBF goals",
+            "url": reverse("nbms_app:reporting_instance_section_iv_goals", kwargs={"instance_uuid": instance.uuid}),
+        },
+        {
+            "code": "section-iv-targets",
+            "title": "Section IV: GBF targets",
+            "url": reverse("nbms_app:reporting_instance_section_iv", kwargs={"instance_uuid": instance.uuid}),
+        },
+        {
+            "code": "section-iv-binary",
+            "title": "Section IV: Binary indicators",
+            "url": reverse(
+                "nbms_app:reporting_instance_section_iv_binary_indicators",
+                kwargs={"instance_uuid": instance.uuid},
+            ),
+        },
+        {
+            "code": "section-v",
+            "title": "Section V: Conclusions",
+            "url": reverse("nbms_app:reporting_instance_section_v", kwargs={"instance_uuid": instance.uuid}),
+        },
+    ]
     return render(
         request,
         "nbms_app/reporting/instance_sections.html",
-        {"instance": instance, "items": items, "is_admin": _is_admin_user(request.user)},
+        {
+            "instance": instance,
+            "items": items,
+            "structured_links": structured_links,
+            "is_admin": _is_admin_user(request.user),
+        },
     )
 
 
@@ -3201,6 +3259,373 @@ def reporting_instance_section_preview(request, instance_uuid, section_code):
             "response": response,
             "fields": fields,
             "response_json": response_json,
+        },
+    )
+
+
+@staff_or_system_admin_required
+def reporting_instance_section_i(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    context = SectionIReportContext.objects.filter(reporting_instance=instance).first()
+
+    initial = {}
+    if not context:
+        initial = {
+            "reporting_party_name": getattr(settings, "NBMS_REPORTING_PARTY_NAME", "South Africa"),
+            "submission_language": getattr(settings, "NBMS_SUBMISSION_LANGUAGE", "English"),
+        }
+    form = SectionIReportContextForm(request.POST or None, instance=context, initial=initial)
+
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            entry = form.save(commit=False)
+            entry.reporting_instance = instance
+            entry.updated_by = request.user
+            entry.save()
+            messages.success(request, "Updated Section I report context.")
+            return redirect("nbms_app:reporting_instance_section_i", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_i_edit.html",
+        {"instance": instance, "form": form, "read_only": read_only},
+    )
+
+
+@staff_or_system_admin_required
+def reporting_instance_section_ii(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    status = SectionIINBSAPStatus.objects.filter(reporting_instance=instance).first()
+    form = SectionIINBSAPStatusForm(request.POST or None, instance=status)
+
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            entry = form.save(commit=False)
+            entry.reporting_instance = instance
+            entry.updated_by = request.user
+            entry.save()
+            messages.success(request, "Updated Section II NBSAP status.")
+            return redirect("nbms_app:reporting_instance_section_ii", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_ii_edit.html",
+        {"instance": instance, "form": form, "read_only": read_only},
+    )
+
+
+@staff_or_system_admin_required
+def reporting_instance_section_v(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    conclusions = SectionVConclusions.objects.filter(reporting_instance=instance).first()
+    form = SectionVConclusionsForm(
+        request.POST or None,
+        instance=conclusions,
+        user=request.user,
+        reporting_instance=instance,
+    )
+
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            entry = form.save(commit=False)
+            entry.reporting_instance = instance
+            entry.updated_by = request.user
+            entry.save()
+            form.save_m2m()
+            messages.success(request, "Updated Section V conclusions.")
+            return redirect("nbms_app:reporting_instance_section_v", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_v_edit.html",
+        {"instance": instance, "form": form, "read_only": read_only},
+    )
+
+
+@staff_or_system_admin_required
+def reporting_instance_section_iv_goals(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    goals_qs = filter_queryset_for_user(
+        FrameworkGoal.objects.select_related("framework"),
+        request.user,
+    ).filter(status=LifecycleStatus.PUBLISHED)
+
+    scoped_targets = scoped_framework_targets(instance, request.user)
+    if scoped_targets.exists():
+        goal_ids = scoped_targets.values_list("goal_id", flat=True)
+        goals_qs = goals_qs.filter(id__in=goal_ids)
+    else:
+        goals_qs = goals_qs.filter(framework__code="GBF")
+
+    goals_qs = goals_qs.order_by("framework__code", "sort_order", "code")
+    entries = SectionIVFrameworkGoalProgress.objects.filter(
+        reporting_instance=instance,
+        framework_goal__in=goals_qs,
+    )
+    entry_map = {entry.framework_goal_id: entry for entry in entries}
+    items = [{"goal": goal, "entry": entry_map.get(goal.id)} for goal in goals_qs]
+
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    return render(
+        request,
+        "nbms_app/reporting/section_iv_goals_list.html",
+        {"instance": instance, "items": items, "read_only": read_only},
+    )
+
+
+@staff_or_system_admin_required
+def reporting_instance_section_iv_goal_edit(request, instance_uuid, goal_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+    goal = get_object_or_404(
+        filter_queryset_for_user(FrameworkGoal.objects.select_related("framework"), request.user),
+        uuid=goal_uuid,
+    )
+    entry = SectionIVFrameworkGoalProgress.objects.filter(
+        reporting_instance=instance, framework_goal=goal
+    ).first()
+    form = SectionIVFrameworkGoalProgressForm(
+        request.POST or None,
+        instance=entry,
+        user=request.user,
+        reporting_instance=instance,
+    )
+
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+    if read_only:
+        for field in form.fields.values():
+            field.disabled = True
+
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        if form.is_valid():
+            progress = form.save(commit=False)
+            progress.reporting_instance = instance
+            progress.framework_goal = goal
+            progress.updated_by = request.user
+            progress.save()
+            form.save_m2m()
+            messages.success(request, f"Updated Section IV goal progress for {goal.code}.")
+            return redirect("nbms_app:reporting_instance_section_iv_goals", instance_uuid=instance.uuid)
+
+    return render(
+        request,
+        "nbms_app/reporting/section_iv_goal_edit.html",
+        {"instance": instance, "goal": goal, "form": form, "read_only": read_only},
+    )
+
+
+def _binary_group_sort_key(group):
+    target_code = ""
+    if group.framework_target_id and group.framework_target:
+        target_code = group.framework_target.code
+    elif group.target_code:
+        target_code = group.target_code
+    return (target_code, group.ordering, group.key)
+
+
+def _binary_question_sort_key(question):
+    return (
+        question.sort_order,
+        question.section or "",
+        question.number or "",
+        question.question_key,
+    )
+
+
+@staff_or_system_admin_required
+def reporting_instance_section_iv_binary_indicators(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    _require_section_progress_access(instance, request.user)
+
+    admin_override = bool(is_system_admin(request.user) or user_has_role(request.user, ROLE_ADMIN))
+    read_only = bool(instance.frozen_at and not admin_override)
+
+    allowed_questions = (
+        binary_indicator_questions_for_user(request.user, instance)
+        .select_related("group", "framework_indicator", "parent_question")
+        .prefetch_related("child_questions")
+    )
+    group_ids = allowed_questions.values_list("group_id", flat=True).distinct()
+    groups_qs = (
+        BinaryIndicatorGroup.objects.filter(id__in=group_ids, is_active=True)
+        .select_related("framework_target", "framework_indicator")
+    )
+    groups = sorted(groups_qs, key=_binary_group_sort_key)
+
+    responses = BinaryIndicatorResponse.objects.filter(
+        reporting_instance=instance,
+        question__in=allowed_questions,
+    )
+    response_map = {resp.question_id: resp for resp in responses}
+
+    group_responses = BinaryIndicatorGroupResponse.objects.filter(
+        reporting_instance=instance,
+        group__in=groups,
+    )
+    group_response_map = {resp.group_id: resp for resp in group_responses}
+
+    questions_by_group = {}
+    for question in allowed_questions:
+        questions_by_group.setdefault(question.group_id, []).append(question)
+
+    def _normalize_question_type(question):
+        raw_type = (question.question_type or "").lower()
+        if raw_type in {"single", "option"}:
+            return "single"
+        if raw_type in {"multiple", "checkbox"}:
+            return "multiple"
+        if raw_type in {"text", "string", "header"}:
+            return "text"
+        return "single"
+
+    def _ordered_questions(question_list):
+        children_map = {}
+        for item in question_list:
+            if item.parent_question_id:
+                children_map.setdefault(item.parent_question_id, []).append(item)
+        root_items = [item for item in question_list if not item.parent_question_id]
+        root_items = sorted(root_items, key=_binary_question_sort_key)
+        ordered = []
+        for root in root_items:
+            ordered.append(root)
+            if root.id in children_map:
+                ordered.extend(sorted(children_map[root.id], key=_binary_question_sort_key))
+        return ordered, children_map
+
+    errors = {}
+    if request.method == "POST":
+        if read_only:
+            raise PermissionDenied("Reporting instance is frozen.")
+        cleaned = {}
+        ordered_cache = {}
+        header_ids = set()
+        for group_id, question_items in questions_by_group.items():
+            ordered, children_map = _ordered_questions(question_items)
+            ordered_cache[group_id] = (ordered, children_map)
+            header_ids.update(children_map.keys())
+
+        for question in allowed_questions:
+            if question.id in header_ids:
+                continue
+            field_name = f"q_{question.id}"
+            q_type = _normalize_question_type(question)
+            if q_type == "single":
+                value = (request.POST.get(field_name) or "").strip()
+            elif q_type == "multiple":
+                value = request.POST.getlist(field_name)
+            else:
+                value = (request.POST.get(field_name) or "").strip()
+            cleaned[question.id] = value
+
+            if question.mandatory:
+                empty = (value == "" or value == [] or value is None)
+                if empty:
+                    errors[question.id] = "This field is required."
+
+        if not errors:
+            with transaction.atomic():
+                for group in groups:
+                    comment_field = f"group_comment_{group.id}"
+                    comment = (request.POST.get(comment_field) or "").strip()
+                    if comment:
+                        BinaryIndicatorGroupResponse.objects.update_or_create(
+                            reporting_instance=instance,
+                            group=group,
+                            defaults={"comments": comment, "updated_by": request.user},
+                        )
+                    else:
+                        existing = group_response_map.get(group.id)
+                        if existing:
+                            existing.delete()
+
+                for question in allowed_questions:
+                    if question.id in header_ids:
+                        continue
+                    value = cleaned.get(question.id)
+                    existing = response_map.get(question.id)
+                    empty = (value == "" or value == [] or value is None)
+                    if empty:
+                        if existing:
+                            existing.delete()
+                        continue
+                    BinaryIndicatorResponse.objects.update_or_create(
+                        reporting_instance=instance,
+                        question=question,
+                        defaults={"response": value},
+                    )
+            messages.success(request, "Updated binary indicator responses.")
+            return redirect(
+                "nbms_app:reporting_instance_section_iv_binary_indicators",
+                instance_uuid=instance.uuid,
+            )
+
+    group_items = []
+    for group in groups:
+        group_questions = questions_by_group.get(group.id, [])
+        ordered, children_map = _ordered_questions(group_questions)
+        question_items = []
+        for question in ordered:
+            is_header = question.id in children_map
+            response = response_map.get(question.id)
+            value = response.response if response else None
+            selected_values = value if isinstance(value, list) else [value] if value else []
+            question_items.append(
+                {
+                    "question": question,
+                    "is_header": is_header,
+                    "value": value,
+                    "selected_values": selected_values,
+                    "error": errors.get(question.id),
+                }
+            )
+        group_items.append(
+            {
+                "group": group,
+                "comment": (group_response_map.get(group.id).comments if group_response_map.get(group.id) else ""),
+                "questions": question_items,
+            }
+        )
+
+    return render(
+        request,
+        "nbms_app/reporting/section_iv_binary_indicators.html",
+        {
+            "instance": instance,
+            "groups": group_items,
+            "read_only": read_only,
+            "errors": errors,
         },
     )
 
