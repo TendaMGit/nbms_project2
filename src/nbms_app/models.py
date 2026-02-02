@@ -107,6 +107,29 @@ class ProgressStatus(models.TextChoices):
     UNKNOWN = "unknown", "Unknown"
 
 
+class ProgressLevel(models.TextChoices):
+    ON_TRACK = "on_track", "On track"
+    INSUFFICIENT_RATE = "insufficient_rate", "Insufficient rate"
+    NO_CHANGE = "no_change", "No change"
+    NOT_APPLICABLE = "not_applicable", "Not applicable"
+    UNKNOWN = "unknown", "Unknown"
+    ACHIEVED = "achieved", "Achieved"
+
+
+class NbsapStatus(models.TextChoices):
+    YES = "yes", "Yes"
+    NO = "no", "No"
+    IN_PROGRESS = "in_progress", "In progress"
+    OTHER = "other", "Other"
+    UNKNOWN = "unknown", "Unknown"
+
+
+class StakeholderInvolvement(models.TextChoices):
+    YES = "yes", "Yes"
+    NO = "no", "No"
+    UNKNOWN = "unknown", "Unknown"
+
+
 class ExportStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     PENDING_REVIEW = "pending_review", "Pending review"
@@ -686,6 +709,173 @@ class ReportSectionResponse(TimeStampedModel):
 
     def __str__(self):
         return f"{self.reporting_instance} - {self.template.code}"
+
+
+class SectionIReportContext(TimeStampedModel):
+    reporting_instance = models.OneToOneField(
+        "ReportingInstance",
+        on_delete=models.CASCADE,
+        related_name="section_i_context",
+    )
+    reporting_party_name = models.CharField(max_length=255)
+    submission_language = models.CharField(max_length=64)
+    additional_languages = models.JSONField(default=list, blank=True)
+    responsible_authorities = models.TextField(blank=True)
+    contact_name = models.CharField(max_length=255, blank=True)
+    contact_email = models.EmailField(blank=True)
+    preparation_process = models.TextField(blank=True)
+    preparation_challenges = models.TextField(blank=True)
+    acknowledgements = models.TextField(blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="section_i_updates",
+        blank=True,
+        null=True,
+    )
+
+    def __str__(self):
+        return f"Section I context ({self.reporting_instance_id})"
+
+
+class SectionIINBSAPStatus(TimeStampedModel):
+    reporting_instance = models.OneToOneField(
+        "ReportingInstance",
+        on_delete=models.CASCADE,
+        related_name="section_ii_status",
+    )
+    nbsap_updated_status = models.CharField(
+        max_length=20,
+        choices=NbsapStatus.choices,
+        default=NbsapStatus.UNKNOWN,
+    )
+    nbsap_updated_other_text = models.TextField(blank=True)
+    nbsap_expected_completion_date = models.DateField(blank=True, null=True)
+
+    stakeholders_involved = models.CharField(
+        max_length=20,
+        choices=StakeholderInvolvement.choices,
+        default=StakeholderInvolvement.UNKNOWN,
+    )
+    stakeholder_groups = models.JSONField(default=list, blank=True)
+    stakeholder_groups_other_text = models.TextField(blank=True)
+    stakeholder_groups_notes = models.TextField(blank=True)
+
+    nbsap_adopted_status = models.CharField(
+        max_length=20,
+        choices=NbsapStatus.choices,
+        default=NbsapStatus.UNKNOWN,
+    )
+    nbsap_adopted_other_text = models.TextField(blank=True)
+    nbsap_adoption_mechanism = models.TextField(blank=True)
+    nbsap_expected_adoption_date = models.DateField(blank=True, null=True)
+
+    monitoring_system_description = models.TextField()
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="section_ii_updates",
+        blank=True,
+        null=True,
+    )
+
+    def clean(self):
+        super().clean()
+        errors = {}
+
+        if self.nbsap_updated_status == NbsapStatus.IN_PROGRESS and not self.nbsap_expected_completion_date:
+            errors["nbsap_expected_completion_date"] = "Completion date is required for in-progress status."
+        if self.nbsap_updated_status == NbsapStatus.OTHER and not self.nbsap_updated_other_text.strip():
+            errors["nbsap_updated_other_text"] = "Please specify the other NBSAP update status."
+
+        if self.stakeholders_involved == StakeholderInvolvement.YES and not self.stakeholder_groups:
+            errors["stakeholder_groups"] = "Select at least one stakeholder group."
+        if "other" in (self.stakeholder_groups or []) and not self.stakeholder_groups_other_text.strip():
+            errors["stakeholder_groups_other_text"] = "Please specify the other stakeholder group."
+
+        if self.nbsap_adopted_status in {NbsapStatus.YES, NbsapStatus.IN_PROGRESS} and not self.nbsap_adoption_mechanism.strip():
+            errors["nbsap_adoption_mechanism"] = "Adoption mechanism is required for adopted or in-progress status."
+        if self.nbsap_adopted_status == NbsapStatus.IN_PROGRESS and not self.nbsap_expected_adoption_date:
+            errors["nbsap_expected_adoption_date"] = "Expected adoption date is required for in-progress status."
+        if self.nbsap_adopted_status == NbsapStatus.OTHER and not self.nbsap_adopted_other_text.strip():
+            errors["nbsap_adopted_other_text"] = "Please specify the other NBSAP adoption status."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self):
+        return f"Section II status ({self.reporting_instance_id})"
+
+
+class SectionIVFrameworkGoalProgress(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        "ReportingInstance",
+        on_delete=models.CASCADE,
+        related_name="section_iv_goal_progress_entries",
+    )
+    framework_goal = models.ForeignKey(
+        "FrameworkGoal",
+        on_delete=models.CASCADE,
+        related_name="section_iv_progress_entries",
+    )
+    progress_summary = models.TextField()
+    actions_taken = models.TextField(blank=True)
+    outcomes = models.TextField(blank=True)
+    challenges_and_approaches = models.TextField(blank=True)
+    sdg_and_other_agreements = models.TextField(blank=True)
+    evidence_items = models.ManyToManyField(
+        "Evidence",
+        related_name="section_iv_goal_progress_entries",
+        blank=True,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="section_iv_goal_updates",
+        blank=True,
+        null=True,
+    )
+
+    def __str__(self):
+        return f"Section IV goal {self.framework_goal.code} ({self.reporting_instance_id})"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "framework_goal"],
+                name="uq_section_iv_goal_progress",
+            ),
+        ]
+
+
+class SectionVConclusions(TimeStampedModel):
+    reporting_instance = models.OneToOneField(
+        "ReportingInstance",
+        on_delete=models.CASCADE,
+        related_name="section_v_conclusions",
+    )
+    overall_assessment = models.TextField()
+    decision_15_8_information = models.TextField(blank=True)
+    decision_15_7_information = models.TextField(blank=True)
+    decision_15_11_information = models.TextField(blank=True)
+    plant_conservation_information = models.TextField(blank=True)
+    additional_notes = models.TextField(blank=True)
+    evidence_items = models.ManyToManyField(
+        "Evidence",
+        related_name="section_v_conclusions",
+        blank=True,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="section_v_updates",
+        blank=True,
+        null=True,
+    )
+
+    def __str__(self):
+        return f"Section V conclusions ({self.reporting_instance_id})"
 
 
 class ValidationScope(models.TextChoices):
@@ -1495,10 +1685,78 @@ class IndicatorDataPoint(TimeStampedModel):
         ]
 
 
+class BinaryIndicatorGroup(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    key = models.CharField(max_length=64, unique=True)
+    framework_target = models.ForeignKey(
+        FrameworkTarget,
+        on_delete=models.SET_NULL,
+        related_name="binary_indicator_groups",
+        blank=True,
+        null=True,
+    )
+    framework_indicator = models.ForeignKey(
+        FrameworkIndicator,
+        on_delete=models.SET_NULL,
+        related_name="binary_indicator_groups",
+        blank=True,
+        null=True,
+    )
+    target_code = models.CharField(max_length=50, blank=True)
+    binary_indicator_code = models.CharField(max_length=100, blank=True)
+    title = models.CharField(max_length=255, blank=True)
+    ordering = models.IntegerField(default=0)
+    source_ref = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.key
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["framework_target"]),
+            models.Index(fields=["framework_indicator"]),
+        ]
+
+
+class BinaryIndicatorGroupResponse(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="binary_indicator_group_responses",
+    )
+    group = models.ForeignKey(
+        BinaryIndicatorGroup,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    comments = models.TextField(blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="binary_indicator_group_responses",
+        blank=True,
+        null=True,
+    )
+
+    def __str__(self):
+        return f"{self.reporting_instance_id} {self.group_id}"
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "group"],
+                name="uq_binary_indicator_group_response",
+            ),
+        ]
+
+
 class BinaryQuestionType(models.TextChoices):
     OPTION = "option", "Option"
     CHECKBOX = "checkbox", "Checkbox"
     HEADER = "header", "Header"
+    STRING = "string", "String"
 
 
 class BinaryIndicatorQuestion(TimeStampedModel):
@@ -1507,6 +1765,20 @@ class BinaryIndicatorQuestion(TimeStampedModel):
         FrameworkIndicator,
         on_delete=models.CASCADE,
         related_name="binary_questions",
+    )
+    group = models.ForeignKey(
+        BinaryIndicatorGroup,
+        on_delete=models.SET_NULL,
+        related_name="questions",
+        blank=True,
+        null=True,
+    )
+    parent_question = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="child_questions",
+        blank=True,
+        null=True,
     )
     group_key = models.CharField(max_length=100)
     question_key = models.CharField(max_length=100)
@@ -1584,10 +1856,18 @@ class SectionIIINationalTargetProgress(TimeStampedModel):
         choices=ProgressStatus.choices,
         default=ProgressStatus.NOT_STARTED,
     )
+    progress_level = models.CharField(
+        max_length=30,
+        choices=ProgressLevel.choices,
+        default=ProgressLevel.UNKNOWN,
+    )
     summary = models.TextField(blank=True)
     actions_taken = models.TextField(blank=True)
     outcomes = models.TextField(blank=True)
     challenges = models.TextField(blank=True)
+    challenges_and_approaches = models.TextField(blank=True)
+    effectiveness_examples = models.TextField(blank=True)
+    sdg_and_other_agreements = models.TextField(blank=True)
     support_needed = models.TextField(blank=True)
     period_start = models.DateField(blank=True, null=True)
     period_end = models.DateField(blank=True, null=True)
@@ -1641,10 +1921,18 @@ class SectionIVFrameworkTargetProgress(TimeStampedModel):
         choices=ProgressStatus.choices,
         default=ProgressStatus.NOT_STARTED,
     )
+    progress_level = models.CharField(
+        max_length=30,
+        choices=ProgressLevel.choices,
+        default=ProgressLevel.UNKNOWN,
+    )
     summary = models.TextField(blank=True)
     actions_taken = models.TextField(blank=True)
     outcomes = models.TextField(blank=True)
     challenges = models.TextField(blank=True)
+    challenges_and_approaches = models.TextField(blank=True)
+    effectiveness_examples = models.TextField(blank=True)
+    sdg_and_other_agreements = models.TextField(blank=True)
     support_needed = models.TextField(blank=True)
     period_start = models.DateField(blank=True, null=True)
     period_end = models.DateField(blank=True, null=True)

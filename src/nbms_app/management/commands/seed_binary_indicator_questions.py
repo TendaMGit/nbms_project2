@@ -4,10 +4,12 @@ from importlib import resources
 from django.core.management.base import BaseCommand
 
 from nbms_app.models import (
+    BinaryIndicatorGroup,
     BinaryIndicatorQuestion,
     Framework,
     FrameworkIndicator,
     FrameworkIndicatorType,
+    FrameworkTarget,
     LifecycleStatus,
     SensitivityLevel,
 )
@@ -49,8 +51,27 @@ class Command(BaseCommand):
         )
 
         records = _load_fixture()
+        group_records = {}
+        for record in records:
+            group_key = record.get("group_key")
+            if not group_key:
+                continue
+            entry = group_records.setdefault(
+                group_key,
+                {
+                    "target_code": record.get("target", ""),
+                    "binary_indicator": record.get("binary_indicator", ""),
+                    "ordering": record.get("sort_order", 0),
+                },
+            )
+            ordering = record.get("sort_order", 0)
+            if ordering < entry["ordering"]:
+                entry["ordering"] = ordering
+
         indicators_created = 0
         questions_created = 0
+        groups_created = 0
+        indicator_map = {}
         for record in records:
             indicator_code = record.get("binary_indicator")
             if not indicator_code:
@@ -68,12 +89,37 @@ class Command(BaseCommand):
             )
             if indicator_was_created:
                 indicators_created += 1
+            indicator_map[indicator_code] = indicator
 
+        group_map = {}
+        for group_key, data in group_records.items():
+            target_code = data.get("target_code") or ""
+            target = FrameworkTarget.objects.filter(code=target_code).first() if target_code else None
+            indicator_code = data.get("binary_indicator") or ""
+            indicator = indicator_map.get(indicator_code)
+            group, was_created = BinaryIndicatorGroup.objects.update_or_create(
+                key=group_key,
+                defaults={
+                    "framework_target": target,
+                    "framework_indicator": indicator,
+                    "target_code": target_code,
+                    "binary_indicator_code": indicator_code,
+                    "ordering": data.get("ordering", 0),
+                    "is_active": True,
+                    "source_ref": "ort_binary_indicator_questions.json",
+                },
+            )
+            if was_created:
+                groups_created += 1
+            group_map[group_key] = group
+
+            group = group_map.get(record.get("group_key"))
             _, was_created = BinaryIndicatorQuestion.objects.update_or_create(
                 framework_indicator=indicator,
                 group_key=record.get("group_key", ""),
                 question_key=record.get("question_key", ""),
                 defaults={
+                    "group": group,
                     "section": record.get("section", ""),
                     "number": record.get("number", ""),
                     "question_type": record.get("question_type") or "option",
@@ -89,7 +135,8 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Ensured {len(records)} binary questions ({questions_created} created) "
+                f"Ensured {len(records)} binary questions ({questions_created} created), "
+                f"{len(group_records)} groups ({groups_created} created), "
                 f"across {FrameworkIndicator.objects.filter(framework=framework, indicator_type=FrameworkIndicatorType.BINARY).count()} "
                 f"binary indicators ({indicators_created} created)."
             )
