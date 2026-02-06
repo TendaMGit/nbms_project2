@@ -7,6 +7,25 @@ on:
       - main
 
 jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm run test
+
   quality-fast:
     runs-on: ubuntu-latest
     env:
@@ -123,3 +142,36 @@ jobs:
         uses: gitleaks/gitleaks-action@v2
       - name: Deploy checks
         run: python manage.py check --deploy
+
+  docker-minimal-smoke:
+    runs-on: ubuntu-latest
+    needs:
+      - quality-fast
+      - frontend-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare environment
+        run: cp .env.example .env
+      - name: Build and start minimal profile
+        run: docker compose --profile minimal up -d --build
+      - name: Wait for backend health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8000/health/ >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS http://127.0.0.1:8000/health/
+      - name: Wait for frontend availability
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8081/ >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS http://127.0.0.1:8081/api/help/sections >/dev/null
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

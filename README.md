@@ -53,13 +53,19 @@ Required for Docker compose:
 A) Minimal profile:
 
 ```
-docker compose -f docker/docker-compose.yml --profile minimal up -d
+docker compose --profile minimal up -d --build
 ```
 
-B) Spatial profile (includes GeoServer):
+B) Full profile (minimal + GeoServer):
 
 ```
-docker compose -f docker/docker-compose.yml --profile spatial up -d
+docker compose --profile full up -d --build
+```
+
+C) Spatial profile (minimal + GeoServer, spatial-focused):
+
+```
+docker compose --profile spatial up -d --build
 ```
 
 3) Run backend bootstrap/migrations:
@@ -76,6 +82,11 @@ python manage.py seed_reporting_defaults
 python manage.py runserver
 scripts\smoke.ps1
 ```
+
+Docker-first URLs:
+- Angular app + reverse proxy: `http://localhost:8081/`
+- Backend direct: `http://localhost:8000/`
+- Health through frontend proxy: `http://localhost:8081/health/`
 
 ## Quickstart (Windows no-Docker fallback)
 
@@ -165,14 +176,22 @@ The helper drops ONLY the configured test DB and refuses to run if it matches th
 Minimal stack (PostGIS + Redis + MinIO):
 
 ```
-docker compose -f docker/docker-compose.yml --profile minimal up -d
+docker compose --profile minimal up -d --build
+```
+
+Full stack (minimal + GeoServer):
+
+```
+docker compose --profile full up -d --build
 ```
 
 Spatial stack (minimal + GeoServer):
 
 ```
-docker compose -f docker/docker-compose.yml --profile spatial up -d
+docker compose --profile spatial up -d --build
 ```
+
+Legacy infra-only compose file remains available at `docker/docker-compose.yml` for service-only startup.
 
 Reset databases (only when you need a clean slate):
 
