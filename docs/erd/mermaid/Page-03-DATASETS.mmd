@@ -1,0 +1,291 @@
+erDiagram
+  %% Datasets, catalog, releases, evidence, monitoring programmes, and link tables (AS-IS).
+  %% Implicit M2M tables use Django default db_table naming (nbms_app_*).
+
+  Organisation {
+    bigint id PK
+    string(255) name
+    string(50) org_code
+  }
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    boolean is_active
+    fk organisation FK
+  }
+
+  SensitivityClass {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) sensitivity_code
+    string(255) sensitivity_name
+    text description
+    string(20) access_level_default
+    boolean consent_required_default
+    text redaction_policy
+    text legal_basis
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  DataAgreement {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) agreement_code
+    string(255) title
+    string(50) agreement_type
+    string(50) status
+    date start_date
+    date end_date
+    string(100) licence
+    text restrictions_summary
+    text benefit_sharing_terms
+    text citation_requirement
+    string document_url
+    string(255) primary_contact_name
+    string primary_contact_email
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  DatasetCatalog {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) dataset_code
+    string(255) title
+    text description
+    string(100) dataset_type
+    fk custodian_org FK
+    fk producer_org FK
+    string(100) licence
+    string(20) access_level
+    fk sensitivity_class FK
+    boolean consent_required
+    fk agreement FK
+    date temporal_start
+    date temporal_end
+    string(20) update_frequency
+    text spatial_coverage_description
+    string(100) spatial_resolution
+    string(255) taxonomy_standard
+    string(255) ecosystem_classification
+    string(255) doi_or_identifier
+    string landing_page_url
+    string api_endpoint_url
+    string(255) file_formats
+    string(20) qa_status
+    text citation
+    string(255) keywords
+    date last_updated_date
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  Dataset {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(255) title
+    text description
+    text methodology
+    string source_url
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  DatasetRelease {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk dataset FK
+    string(50) version
+    date release_date
+    string(255) snapshot_title
+    text snapshot_description
+    text snapshot_methodology
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  Evidence {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(255) title
+    text description
+    string(100) evidence_type
+    string source_url
+    file file
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  DatasetCatalogIndicatorLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk dataset FK
+    fk indicator FK
+    string(20) relationship_type
+    string(100) role
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  IndicatorDatasetLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk dataset FK
+    text note
+  }
+
+  IndicatorEvidenceLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk evidence FK
+    text note
+  }
+
+  MonitoringProgramme {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) programme_code
+    string(255) title
+    text description
+    string(50) programme_type
+    fk lead_org FK
+    int start_year
+    int end_year
+    string(255) geographic_scope
+    text spatial_coverage_description
+    string(255) taxonomic_scope
+    string(255) ecosystem_scope
+    text objectives
+    text sampling_design_summary
+    string(20) update_frequency
+    text qa_process_summary
+    fk sensitivity_class FK
+    boolean consent_required
+    fk agreement FK
+    string website_url
+    string(255) primary_contact_name
+    string primary_contact_email
+    string(255) alternative_contact_name
+    string alternative_contact_email
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  ProgrammeDatasetLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk programme FK
+    fk dataset FK
+    string(20) relationship_type
+    string(100) role
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  ProgrammeIndicatorLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk programme FK
+    fk indicator FK
+    string(20) relationship_type
+    string(100) role
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  Indicator {
+    bigint id PK
+    string(50) code
+    string(255) title
+  }
+
+  nbms_app_dataagreement_parties {
+    bigint id PK
+    fk dataagreement_id FK
+    fk organisation_id FK
+  }
+
+  nbms_app_monitoringprogramme_partners {
+    bigint id PK
+    fk monitoringprogramme_id FK
+    fk organisation_id FK
+  }
+
+  Organisation ||--o{ Dataset : "organisation"
+  User ||--o{ Dataset : "created_by"
+  Organisation ||--o{ DatasetCatalog : "custodian_org"
+  Organisation ||--o{ DatasetCatalog : "producer_org"
+  SensitivityClass ||--o{ DatasetCatalog : "sensitivity_class"
+  DataAgreement ||--o{ DatasetCatalog : "agreement"
+  DatasetCatalog ||--|{ DatasetCatalogIndicatorLink : "dataset"
+  Indicator ||--|{ DatasetCatalogIndicatorLink : "indicator"
+  Dataset ||--|{ DatasetRelease : "dataset"
+  Organisation ||--o{ DatasetRelease : "organisation"
+  User ||--o{ DatasetRelease : "created_by"
+  Organisation ||--o{ Evidence : "organisation"
+  User ||--o{ Evidence : "created_by"
+  Indicator ||--|{ IndicatorDatasetLink : "indicator"
+  Dataset ||--|{ IndicatorDatasetLink : "dataset"
+  Indicator ||--|{ IndicatorEvidenceLink : "indicator"
+  Evidence ||--|{ IndicatorEvidenceLink : "evidence"
+  Organisation ||--o{ MonitoringProgramme : "lead_org"
+  SensitivityClass ||--o{ MonitoringProgramme : "sensitivity_class"
+  DataAgreement ||--o{ MonitoringProgramme : "agreement"
+  MonitoringProgramme ||--|{ ProgrammeDatasetLink : "programme"
+  DatasetCatalog ||--|{ ProgrammeDatasetLink : "dataset"
+  MonitoringProgramme ||--|{ ProgrammeIndicatorLink : "programme"
+  Indicator ||--|{ ProgrammeIndicatorLink : "indicator"
+  Organisation ||--o{ User : "organisation"
+  DataAgreement ||--|{ nbms_app_dataagreement_parties : "dataagreement_id"
+  Organisation ||--|{ nbms_app_dataagreement_parties : "organisation_id"
+  MonitoringProgramme ||--|{ nbms_app_monitoringprogramme_partners : "monitoringprogramme_id"
+  Organisation ||--|{ nbms_app_monitoringprogramme_partners : "organisation_id"

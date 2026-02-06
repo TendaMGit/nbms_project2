@@ -33,7 +33,51 @@ See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook, pos
 6) Review the manager report pack preview.
 7) Release an export package once blockers are cleared.
 
-## Quickstart (local, no Docker) - Primary (Windows local Postgres, ENABLE_GIS=false)
+## Quickstart (Docker-first) - Primary
+
+1) Create `.env` from example and set required secrets:
+
+```
+copy .env.example .env
+```
+
+Required for Docker compose:
+- `POSTGRES_PASSWORD`
+- `NBMS_DB_PASSWORD`
+- `S3_ACCESS_KEY`
+- `S3_SECRET_KEY`
+- `GEOSERVER_PASSWORD` (only required for `spatial` profile)
+
+2) Start deterministic infrastructure:
+
+A) Minimal profile:
+
+```
+docker compose -f docker/docker-compose.yml --profile minimal up -d
+```
+
+B) Spatial profile (includes GeoServer):
+
+```
+docker compose -f docker/docker-compose.yml --profile spatial up -d
+```
+
+3) Run backend bootstrap/migrations:
+
+```
+scripts\bootstrap.ps1
+python manage.py bootstrap_roles
+python manage.py seed_reporting_defaults
+```
+
+4) Start backend and run smoke checks:
+
+```
+python manage.py runserver
+scripts\smoke.ps1
+```
+
+## Quickstart (Windows no-Docker fallback)
 
 1) Create a virtual environment and install deps:
 
@@ -76,11 +120,21 @@ python manage.py seed_reporting_defaults
 python manage.py runserver
 ```
 
+Deterministic setup shortcut (PowerShell):
+
+```
+scripts\bootstrap.ps1
+python manage.py bootstrap_roles
+python manage.py seed_reporting_defaults
+```
+
 5) Smoke check (PowerShell):
 
 ```
 Invoke-WebRequest http://127.0.0.1:8000/health/ | Select-Object -Expand Content
 Invoke-WebRequest http://127.0.0.1:8000/health/storage/ | Select-Object -Expand Content
+# or
+scripts\smoke.ps1
 ```
 
 Expected responses (with `USE_S3=0`):
@@ -93,45 +147,34 @@ Expected responses (with `USE_S3=0`):
 $env:DJANGO_SETTINGS_MODULE='config.settings.test'
 $env:PYTHONPATH="$PWD\src"
 pytest -q
+# or
+scripts\test.ps1
 ```
 
 Notes:
 - Default test script (`scripts/test.sh`, bash) uses `--keepdb` to avoid prompts on re-runs.
+- PowerShell parity script (`scripts/test.ps1`) follows the same `--keepdb` default.
 - For CI, set `CI=1` (uses `--noinput`).
 - PowerShell users should prefer the `pytest -q` command above.
 - To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
   Use this if `--keepdb` hits schema drift or test DB mismatch errors.
 The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
-## Optional: Docker infra (PostGIS/Redis/MinIO/optional GeoServer)
+## Docker Profiles
 
-1) Copy the environment file and fill in credentials:
-
-```
-copy .env.example .env
-```
-
-2) Start infra services (choose a mode):
-
-A) Minimal stack (PostGIS + Redis + MinIO):
+Minimal stack (PostGIS + Redis + MinIO):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init
+docker compose -f docker/docker-compose.yml --profile minimal up -d
 ```
 
-B) Full stack (includes GeoServer):
+Spatial stack (minimal + GeoServer):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init geoserver
+docker compose -f docker/docker-compose.yml --profile spatial up -d
 ```
 
-3) Bootstrap the app (installs deps + migrate):
-
-```
-scripts/bootstrap.sh
-```
-
-4) Reset databases (only when you need a clean slate):
+Reset databases (only when you need a clean slate):
 
 ```
 CONFIRM_DROP=YES scripts/reset_db.sh
@@ -139,7 +182,7 @@ CONFIRM_DROP=YES scripts/reset_db.sh
 
 Use `USE_DOCKER=0` to run the reset against a local Postgres (requires `psql`).
 
-5) Run the server:
+Run the server:
 
 ```
 python manage.py runserver

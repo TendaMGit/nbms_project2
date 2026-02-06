@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  quality-fast:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_DB_ENGINE: django.db.backends.sqlite3
+      NBMS_DB_NAME: nbms_quality.sqlite3
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Dependency consistency
+        run: python -m pip check
+      - name: Syntax check
+        run: python -m compileall src scripts manage.py
+      - name: Django checks
+        run: |
+          python manage.py check
+          python manage.py makemigrations --check --dry-run
+
+  tests-linux-full:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: nbms_ci_db
+          POSTGRES_USER: nbms_ci_user
+          POSTGRES_PASSWORD: nbms_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nbms_ci_user -d nbms_ci_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      NBMS_DB_NAME: nbms_ci_db
+      NBMS_DB_USER: nbms_ci_user
+      NBMS_DB_PASSWORD: nbms_ci_password
+      NBMS_TEST_DB_NAME: test_nbms_ci_db
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev libgeos-dev libproj-dev
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest -q
+
+  tests-windows-smoke:
+    runs-on: windows-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_DB_ENGINE: django.db.backends.sqlite3
+      NBMS_DB_NAME: nbms_windows_smoke.sqlite3
+      PYTHONPATH: ${{ github.workspace }}\\src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Windows smoke checks
+        shell: pwsh
+        run: |
+          python manage.py check
+          pytest -q src/nbms_app/tests/test_prod_settings.py src/nbms_app/tests/test_verify_env.py
+
+  security-baseline:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DJANGO_DB_ENGINE: django.db.backends.sqlite3
+      NBMS_DB_NAME: nbms_security.sqlite3
+      NBMS_DB_PASSWORD: security-db-password
+      DJANGO_SECRET_KEY: CI_SECURITY_SECRET_KEY_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ
+      DJANGO_ALLOWED_HOSTS: example.org
+      SECURE_HSTS_PRELOAD: "true"
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install pip-audit
+      - name: Dependency audit
+        continue-on-error: true
+        run: pip-audit --progress-spinner off
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+      - name: Deploy checks
+        run: python manage.py check --deploy

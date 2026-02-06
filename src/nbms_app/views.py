@@ -1,4 +1,5 @@
 import logging
+from functools import wraps
 
 from django.conf import settings
 from django.contrib import messages
@@ -164,6 +165,7 @@ from nbms_app.services.review_decisions import (
     get_current_review_decision,
     review_decisions_for_user,
 )
+from nbms_app.services.policy_registry import get_route_policy
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 from nbms_app.services.snapshots import (
     create_reporting_snapshot,
@@ -352,10 +354,30 @@ def health_storage(request):
 
 
 def staff_or_system_admin_required(view_func):
-    def _test(user):
-        return bool(user and user.is_authenticated and (user.is_staff or is_system_admin(user)))
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return redirect(f"{settings.LOGIN_URL}?{urlencode({'next': request.get_full_path()})}")
+        if not (user.is_staff or is_system_admin(user)):
+            # Preserve historic UX contract for staff-only pages:
+            # authenticated users without staff/system-admin privileges are redirected.
+            return redirect("nbms_app:home")
 
-    return user_passes_test(_test)(view_func)
+        resolved_view_name = (
+            getattr(getattr(request, "resolver_match", None), "url_name", None) or view_func.__name__
+        )
+        policy = get_route_policy(resolved_view_name) or get_route_policy(view_func.__name__)
+        if policy and policy.instance_scoped:
+            instance_uuid = kwargs.get(policy.instance_kwarg)
+            if instance_uuid:
+                instance = ReportingInstance.objects.filter(uuid=instance_uuid).only("id", "uuid").first()
+                if not instance:
+                    raise Http404("Reporting instance not found.")
+                _require_section_progress_access(instance, user)
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
 
 def _require_contributor(user):
     if not user or not getattr(user, "is_authenticated", False):
@@ -3818,6 +3840,9 @@ def reporting_instance_approval_action(request, instance_uuid, obj_type, obj_uui
     obj = get_object_or_404(queryset, uuid=obj_uuid)
     note = request.POST.get("note", "").strip()
     admin_override = request.POST.get("admin_override") in {"1", "true", "yes"}
+
+    if action == "approve" and getattr(obj, "status", None) != LifecycleStatus.PUBLISHED:
+        raise PermissionDenied("Only published items can be approved for export.")
 
     if action == "approve":
         approve_for_instance(instance, obj, request.user, note=note, admin_override=admin_override)

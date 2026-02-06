@@ -21,6 +21,17 @@ class _StrictUserProxy:
             return False
         return getattr(self._user, name)
 
+    @property
+    def id(self):
+        return self._user.id
+
+    @property
+    def pk(self):
+        return self._user.pk
+
+    def __int__(self):
+        return int(self._user.pk)
+
 
 def _strict_user(user):
     if not user:

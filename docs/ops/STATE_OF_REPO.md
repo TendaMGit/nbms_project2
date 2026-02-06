@@ -1,5 +1,26 @@
 # STATE OF REPO - NBMS Project 2
 
+## BASELINE VERIFIED (2026-02-06)
+- Branch: `feat/nr7-full-conformance-integration`
+- Commands executed (Windows host):
+  - `git status`
+  - `git branch`
+  - `python --version`
+  - `python -m pip install -r requirements.txt`
+  - `python -m pip install -r requirements-dev.txt`
+  - `$env:DJANGO_SETTINGS_MODULE='config.settings.test'; $env:PYTHONPATH="$PWD\src"; pytest -q`
+  - `python manage.py check`
+  - `python manage.py migrate`
+  - `python manage.py runserver`
+  - health checks: `GET /health/`, `GET /health/storage/`
+- Result summary:
+  - local suite: `308 passed`
+  - `check` and `migrate` succeeded
+  - `/health/` returned `{"status":"ok"}`
+  - `/health/storage/` returned `{"status":"disabled","detail":"USE_S3=0"}`
+- Docker baseline:
+  - `docker compose -f docker/docker-compose.yml up -d` verified after fixing `minio-init` image tag to `minio/mc:latest`.
+
 ## Snapshot scope
 - Audited commit (main): `d4efd3f8d7cf6b9a7fea98586c40ee54f44e9559`
 - Captured at: 2026-01-30 10:17 (local) before docs branch `feat/docs-repo-state`

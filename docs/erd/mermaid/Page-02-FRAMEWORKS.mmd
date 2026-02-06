@@ -1,0 +1,329 @@
+erDiagram
+  %% Frameworks, targets, indicators, and binary indicator definitions (AS-IS).
+
+  Organisation {
+    bigint id PK
+    string(255) name
+    string(50) org_code
+  }
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    boolean is_active
+    fk organisation FK
+  }
+
+  Framework {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    text description
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    text review_note
+  }
+
+  FrameworkGoal {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework FK
+    string(50) code
+    string(255) title
+    text official_text
+    text description
+    int sort_order
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    text review_note
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  FrameworkTarget {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework FK
+    fk goal FK
+    string(100) code
+    string(255) title
+    text official_text
+    text description
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    text review_note
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  FrameworkIndicator {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework FK
+    fk framework_target FK
+    string(100) code
+    string(255) title
+    text description
+    string(20) indicator_type
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    text review_note
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  NationalTarget {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    text description
+    fk responsible_org FK
+    string(20) qa_status
+    string(20) reporting_cadence
+    fk source_document FK
+    fk license FK
+    text provenance_notes
+    text spatial_coverage
+    text temporal_coverage
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    boolean export_approved
+    text review_note
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  Indicator {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    fk national_target FK
+    string(20) indicator_type
+    string(20) reporting_cadence
+    string(20) qa_status
+    fk responsible_org FK
+    fk data_steward FK
+    fk indicator_lead FK
+    fk source_document FK
+    fk license FK
+    text computation_notes
+    text limitations
+    text spatial_coverage
+    text temporal_coverage
+    string(20) reporting_capability
+    json reporting_no_reason_codes
+    text reporting_no_reason_notes
+    fk owner_organisation FK
+    string(20) update_frequency
+    date last_updated_on
+    text coverage_geography
+    int coverage_time_start_year
+    int coverage_time_end_year
+    text data_quality_note
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    boolean export_approved
+    text review_note
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  SourceDocument {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(255) title
+    string source_url
+    text citation
+    date version_date
+    text notes
+    fk created_by FK
+  }
+
+  License {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    string url
+    text description
+    boolean is_active
+  }
+
+  NationalTargetFrameworkTargetLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk national_target FK
+    fk framework_target FK
+    string(50) relation_type
+    int confidence
+    text notes
+    string source
+    boolean is_active
+  }
+
+  IndicatorFrameworkIndicatorLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk framework_indicator FK
+    string(50) relation_type
+    int confidence
+    text notes
+    string source
+    boolean is_active
+  }
+
+  BinaryIndicatorGroup {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(64) key
+    fk framework_target FK
+    fk framework_indicator FK
+    string(50) target_code
+    string(100) binary_indicator_code
+    string(255) title
+    int ordering
+    string(255) source_ref
+    boolean is_active
+  }
+
+  BinaryIndicatorQuestion {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework_indicator FK
+    fk group FK
+    fk parent_question FK
+    string(100) group_key
+    string(100) question_key
+    string(100) section
+    string(50) number
+    string(20) question_type
+    text question_text
+    text help_text
+    boolean multiple
+    boolean mandatory
+    json options
+    int sort_order
+    json validations
+    boolean is_active
+  }
+
+  IndicatorDataSeries {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework_indicator FK
+    fk indicator FK
+    string(255) title
+    string(100) unit
+    string(20) value_type
+    text methodology
+    json disaggregation_schema
+    text source_notes
+    fk organisation FK
+    fk created_by FK
+    string(20) status
+    string(20) sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  IndicatorDataPoint {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk series FK
+    int year
+    decimal(20,6) value_numeric
+    text value_text
+    text uncertainty
+    json disaggregation
+    fk dataset_release FK
+    string source_url
+    text footnote
+  }
+
+  FrameworkTarget ||--o{ BinaryIndicatorGroup : "framework_target"
+  FrameworkIndicator ||--o{ BinaryIndicatorGroup : "framework_indicator"
+  FrameworkIndicator ||--|{ BinaryIndicatorQuestion : "framework_indicator"
+  BinaryIndicatorGroup ||--o{ BinaryIndicatorQuestion : "group"
+  BinaryIndicatorQuestion ||--o{ BinaryIndicatorQuestion : "parent_question"
+  Organisation ||--o{ Framework : "organisation"
+  User ||--o{ Framework : "created_by"
+  Framework ||--|{ FrameworkGoal : "framework"
+  Organisation ||--o{ FrameworkGoal : "organisation"
+  User ||--o{ FrameworkGoal : "created_by"
+  Framework ||--|{ FrameworkIndicator : "framework"
+  FrameworkTarget ||--o{ FrameworkIndicator : "framework_target"
+  Organisation ||--o{ FrameworkIndicator : "organisation"
+  User ||--o{ FrameworkIndicator : "created_by"
+  Framework ||--|{ FrameworkTarget : "framework"
+  FrameworkGoal ||--o{ FrameworkTarget : "goal"
+  Organisation ||--o{ FrameworkTarget : "organisation"
+  User ||--o{ FrameworkTarget : "created_by"
+  NationalTarget ||--|{ Indicator : "national_target"
+  Organisation ||--o{ Indicator : "responsible_org"
+  User ||--o{ Indicator : "data_steward"
+  User ||--o{ Indicator : "indicator_lead"
+  SourceDocument ||--o{ Indicator : "source_document"
+  License ||--o{ Indicator : "license"
+  Organisation ||--o{ Indicator : "owner_organisation"
+  Organisation ||--o{ Indicator : "organisation"
+  User ||--o{ Indicator : "created_by"
+  IndicatorDataSeries ||--|{ IndicatorDataPoint : "series"
+  FrameworkIndicator ||--o{ IndicatorDataSeries : "framework_indicator"
+  Indicator ||--o{ IndicatorDataSeries : "indicator"
+  Organisation ||--o{ IndicatorDataSeries : "organisation"
+  User ||--o{ IndicatorDataSeries : "created_by"
+  Indicator ||--|{ IndicatorFrameworkIndicatorLink : "indicator"
+  FrameworkIndicator ||--|{ IndicatorFrameworkIndicatorLink : "framework_indicator"
+  Organisation ||--o{ NationalTarget : "responsible_org"
+  SourceDocument ||--o{ NationalTarget : "source_document"
+  License ||--o{ NationalTarget : "license"
+  Organisation ||--o{ NationalTarget : "organisation"
+  User ||--o{ NationalTarget : "created_by"
+  NationalTarget ||--|{ NationalTargetFrameworkTargetLink : "national_target"
+  FrameworkTarget ||--|{ NationalTargetFrameworkTargetLink : "framework_target"
+  User ||--o{ SourceDocument : "created_by"
+  Organisation ||--o{ User : "organisation"

@@ -1,0 +1,176 @@
+erDiagram
+  %% Governance, consent, approval, audit, and reference policy tables (AS-IS).
+  %% Implicit M2M tables use Django default db_table naming (nbms_app_*).
+
+  Organisation {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    string(255) name
+    string(50) org_code
+    string(100) org_type
+    fk parent_org FK
+    string website_url
+    string(255) primary_contact_name
+    string primary_contact_email
+    string(255) alternative_contact_name
+    string alternative_contact_email
+    string contact_email
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    boolean is_active
+    fk organisation FK
+  }
+
+  ContentType {
+    bigint id PK
+    string(100) app_label
+    string(100) model
+  }
+
+  ReportingInstance {
+    bigint id PK
+    string(50) version_label
+    string(20) status
+  }
+
+  ConsentRecord {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk content_type FK
+    uuid object_uuid
+    fk reporting_instance FK
+    string(20) status
+    fk granted_by FK
+    datetime granted_at
+    text notes
+    file consent_document
+  }
+
+  InstanceExportApproval {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk content_type FK
+    uuid object_uuid
+    string(20) decision
+    string(50) approval_scope
+    fk approved_by FK
+    datetime approved_at
+    text decision_note
+  }
+
+  AuditEvent {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk actor FK
+    string(100) action
+    string(100) event_type
+    fk content_type FK
+    string(100) object_type
+    string(64) object_id
+    uuid object_uuid
+    json metadata
+    string(255) request_path
+    string(16) request_method
+    string(64) ip_address
+    text user_agent
+    string(64) session_key
+    string(64) request_id
+  }
+
+  Notification {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk recipient FK
+    string(255) message
+    string(255) url
+    boolean is_read
+  }
+
+  DataAgreement {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) agreement_code
+    string(255) title
+    string(50) agreement_type
+    string(50) status
+    date start_date
+    date end_date
+    string(100) licence
+    text restrictions_summary
+    text benefit_sharing_terms
+    text citation_requirement
+    string document_url
+    string(255) primary_contact_name
+    string primary_contact_email
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  SensitivityClass {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) sensitivity_code
+    string(255) sensitivity_name
+    text description
+    string(20) access_level_default
+    boolean consent_required_default
+    text redaction_policy
+    text legal_basis
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  License {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    string url
+    text description
+    boolean is_active
+  }
+
+  nbms_app_dataagreement_parties {
+    bigint id PK
+    fk dataagreement_id FK
+    fk organisation_id FK
+  }
+
+  User ||--o{ AuditEvent : "actor"
+  ContentType ||--o{ AuditEvent : "content_type"
+  ContentType ||--|{ ConsentRecord : "content_type"
+  ReportingInstance ||--o{ ConsentRecord : "reporting_instance"
+  User ||--o{ ConsentRecord : "granted_by"
+  ReportingInstance ||--|{ InstanceExportApproval : "reporting_instance"
+  ContentType ||--|{ InstanceExportApproval : "content_type"
+  User ||--o{ InstanceExportApproval : "approved_by"
+  User ||--|{ Notification : "recipient"
+  Organisation ||--o{ Organisation : "parent_org"
+  Organisation ||--o{ User : "organisation"
+  DataAgreement ||--|{ nbms_app_dataagreement_parties : "dataagreement_id"
+  Organisation ||--|{ nbms_app_dataagreement_parties : "organisation_id"

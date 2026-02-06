@@ -316,6 +316,7 @@ RATE_LIMITS = {
 }
 
 METRICS_TOKEN = os.environ.get("METRICS_TOKEN", "")
+METRICS_ALLOW_QUERY_TOKEN = os.environ.get("METRICS_ALLOW_QUERY_TOKEN", "0").lower() in ("1", "true", "yes")
 
 LOGIN_URL = "two_factor:login"
 LOGIN_REDIRECT_URL = "/"

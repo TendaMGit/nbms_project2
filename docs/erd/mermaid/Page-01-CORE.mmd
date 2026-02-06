@@ -1,0 +1,285 @@
+erDiagram
+  %% Core backbone entities only (AS-IS).
+  %% User fields are inherited from AbstractUser plus organisation FK.
+
+  Organisation {
+    bigint id PK
+    string(255) name
+    string(50) org_code
+    string(100) org_type
+    fk parent_org FK
+    boolean is_active
+  }
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    string(150) first_name
+    string(150) last_name
+    boolean is_active
+    boolean is_staff
+    fk organisation FK
+  }
+
+  ContentType {
+    bigint id PK
+    string(100) app_label
+    string(100) model
+  }
+
+  Framework {
+    bigint id PK
+    uuid uuid
+    string(50) code
+    string(255) title
+    string(20) status
+    fk organisation FK
+  }
+
+  FrameworkGoal {
+    bigint id PK
+    uuid uuid
+    fk framework FK
+    string(50) code
+    string(255) title
+    string(20) status
+    boolean is_active
+  }
+
+  FrameworkTarget {
+    bigint id PK
+    uuid uuid
+    fk framework FK
+    fk goal FK
+    string(100) code
+    string(255) title
+    string(20) status
+  }
+
+  FrameworkIndicator {
+    bigint id PK
+    uuid uuid
+    fk framework FK
+    fk framework_target FK
+    string(100) code
+    string(255) title
+    string(20) indicator_type
+    string(20) status
+  }
+
+  NationalTarget {
+    bigint id PK
+    uuid uuid
+    string(50) code
+    string(255) title
+    fk responsible_org FK
+    string(20) status
+  }
+
+  Indicator {
+    bigint id PK
+    uuid uuid
+    string(50) code
+    string(255) title
+    fk national_target FK
+    string(20) indicator_type
+    string(20) reporting_cadence
+    string(20) status
+    fk responsible_org FK
+    fk organisation FK
+  }
+
+  IndicatorDataSeries {
+    bigint id PK
+    uuid uuid
+    fk framework_indicator FK
+    fk indicator FK
+    string(255) title
+    string(100) unit
+    string(20) value_type
+    string(20) status
+  }
+
+  IndicatorDataPoint {
+    bigint id PK
+    uuid uuid
+    fk series FK
+    int year
+    decimal(20,6) value_numeric
+    text value_text
+  }
+
+  DatasetCatalog {
+    bigint id PK
+    uuid uuid
+    string(50) dataset_code
+    string(255) title
+    fk custodian_org FK
+    fk producer_org FK
+    string(20) access_level
+    boolean is_active
+  }
+
+  Dataset {
+    bigint id PK
+    uuid uuid
+    string(255) title
+    fk organisation FK
+    string(20) status
+    string(20) sensitivity
+  }
+
+  DatasetRelease {
+    bigint id PK
+    uuid uuid
+    fk dataset FK
+    string(50) version
+    date release_date
+    string(20) status
+  }
+
+  Evidence {
+    bigint id PK
+    uuid uuid
+    string(255) title
+    string(100) evidence_type
+    fk organisation FK
+    string(20) status
+    string(20) sensitivity
+  }
+
+  ReportingCycle {
+    bigint id PK
+    uuid uuid
+    string(50) code
+    string(255) title
+    date start_date
+    date end_date
+    date due_date
+    boolean is_active
+  }
+
+  ReportingInstance {
+    bigint id PK
+    uuid uuid
+    fk cycle FK
+    string(50) version_label
+    string(20) status
+    datetime frozen_at
+    fk frozen_by FK
+  }
+
+  ExportPackage {
+    bigint id PK
+    uuid uuid
+    string(255) title
+    string(20) status
+    fk reporting_instance FK
+    fk organisation FK
+    datetime generated_at
+    datetime released_at
+  }
+
+  ConsentRecord {
+    bigint id PK
+    uuid uuid
+    fk content_type FK
+    uuid object_uuid
+    fk reporting_instance FK
+    string(20) status
+    fk granted_by FK
+    datetime granted_at
+  }
+
+  AuditEvent {
+    bigint id PK
+    datetime created_at
+    fk actor FK
+    string(100) action
+    string(100) event_type
+    fk content_type FK
+    string(100) object_type
+    uuid object_uuid
+  }
+
+  NationalTargetFrameworkTargetLink {
+    bigint id PK
+    fk national_target FK
+    fk framework_target FK
+    string(50) relation_type
+    int confidence
+    boolean is_active
+  }
+
+  IndicatorFrameworkIndicatorLink {
+    bigint id PK
+    fk indicator FK
+    fk framework_indicator FK
+    string(50) relation_type
+    int confidence
+    boolean is_active
+  }
+
+  IndicatorDatasetLink {
+    bigint id PK
+    fk indicator FK
+    fk dataset FK
+    text note
+  }
+
+  IndicatorEvidenceLink {
+    bigint id PK
+    fk indicator FK
+    fk evidence FK
+    text note
+  }
+
+  DatasetCatalogIndicatorLink {
+    bigint id PK
+    fk dataset FK
+    fk indicator FK
+    string(20) relationship_type
+    string(100) role
+    boolean is_active
+  }
+
+  User ||--o{ AuditEvent : "actor"
+  ContentType ||--o{ AuditEvent : "content_type"
+  ContentType ||--|{ ConsentRecord : "content_type"
+  ReportingInstance ||--o{ ConsentRecord : "reporting_instance"
+  User ||--o{ ConsentRecord : "granted_by"
+  Organisation ||--o{ Dataset : "organisation"
+  Organisation ||--o{ DatasetCatalog : "custodian_org"
+  Organisation ||--o{ DatasetCatalog : "producer_org"
+  DatasetCatalog ||--|{ DatasetCatalogIndicatorLink : "dataset"
+  Indicator ||--|{ DatasetCatalogIndicatorLink : "indicator"
+  Dataset ||--|{ DatasetRelease : "dataset"
+  Organisation ||--o{ Evidence : "organisation"
+  ReportingInstance ||--o{ ExportPackage : "reporting_instance"
+  Organisation ||--o{ ExportPackage : "organisation"
+  Organisation ||--o{ Framework : "organisation"
+  Framework ||--|{ FrameworkGoal : "framework"
+  Framework ||--|{ FrameworkIndicator : "framework"
+  FrameworkTarget ||--o{ FrameworkIndicator : "framework_target"
+  Framework ||--|{ FrameworkTarget : "framework"
+  FrameworkGoal ||--o{ FrameworkTarget : "goal"
+  NationalTarget ||--|{ Indicator : "national_target"
+  Organisation ||--o{ Indicator : "responsible_org"
+  Organisation ||--o{ Indicator : "organisation"
+  IndicatorDataSeries ||--|{ IndicatorDataPoint : "series"
+  FrameworkIndicator ||--o{ IndicatorDataSeries : "framework_indicator"
+  Indicator ||--o{ IndicatorDataSeries : "indicator"
+  Indicator ||--|{ IndicatorDatasetLink : "indicator"
+  Dataset ||--|{ IndicatorDatasetLink : "dataset"
+  Indicator ||--|{ IndicatorEvidenceLink : "indicator"
+  Evidence ||--|{ IndicatorEvidenceLink : "evidence"
+  Indicator ||--|{ IndicatorFrameworkIndicatorLink : "indicator"
+  FrameworkIndicator ||--|{ IndicatorFrameworkIndicatorLink : "framework_indicator"
+  Organisation ||--o{ NationalTarget : "responsible_org"
+  NationalTarget ||--|{ NationalTargetFrameworkTargetLink : "national_target"
+  FrameworkTarget ||--|{ NationalTargetFrameworkTargetLink : "framework_target"
+  Organisation ||--o{ Organisation : "parent_org"
+  ReportingCycle ||--|{ ReportingInstance : "cycle"
+  User ||--o{ ReportingInstance : "frozen_by"
+  Organisation ||--o{ User : "organisation"

@@ -113,6 +113,13 @@ class Command(BaseCommand):
                 groups_created += 1
             group_map[group_key] = group
 
+        for record in records:
+            indicator_code = record.get("binary_indicator")
+            if not indicator_code:
+                continue
+            indicator = indicator_map.get(indicator_code)
+            if not indicator:
+                continue
             group = group_map.get(record.get("group_key"))
             raw_type = (record.get("question_type") or "single").lower()
             if raw_type in {"option", "single"}:

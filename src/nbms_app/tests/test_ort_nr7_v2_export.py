@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 from datetime import date, datetime, timezone as py_timezone
 from decimal import Decimal
@@ -309,6 +310,10 @@ def test_ort_nr7_v2_happy_path_golden():
         payload = build_ort_nr7_v2_payload(instance=instance, user=user)
 
     fixture_path = Path("src/nbms_app/tests/fixtures/exports/ort_nr7_v2_expected.json")
+    if os.getenv("UPDATE_GOLDEN") == "1":
+        fixture_path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+        assert True
+        return
     expected = json.loads(fixture_path.read_text(encoding="utf-8"))
     assert payload == expected
 

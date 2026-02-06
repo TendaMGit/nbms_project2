@@ -2,6 +2,7 @@ services:
   postgis:
     image: postgis/postgis:16-3.4
     container_name: nbms_postgis
+    profiles: ["minimal", "spatial"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -19,12 +20,14 @@ services:
   redis:
     image: redis:7-alpine
     container_name: nbms_redis
+    profiles: ["minimal", "spatial"]
     ports:
       - "6379:6379"
 
   minio:
     image: minio/minio:RELEASE.2024-08-03T04-33-23Z
     container_name: nbms_minio
+    profiles: ["minimal", "spatial"]
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: ${S3_ACCESS_KEY:?S3_ACCESS_KEY is required}
@@ -36,7 +39,8 @@ services:
       - minio_data:/data
 
   minio-init:
-    image: minio/mc:RELEASE.2024-08-03T02-33-30Z
+    image: minio/mc:latest
+    profiles: ["minimal", "spatial"]
     depends_on:
       - minio
     entrypoint: >
@@ -53,9 +57,10 @@ services:
   geoserver:
     image: kartoza/geoserver:2.23.2
     container_name: nbms_geoserver
+    profiles: ["spatial"]
     environment:
       GEOSERVER_ADMIN_USER: ${GEOSERVER_USER:-admin}
-      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_PASSWORD:?GEOSERVER_PASSWORD is required}
+      GEOSERVER_ADMIN_PASSWORD: ${GEOSERVER_PASSWORD:-geoserver}
       GEOSERVER_DATA_DIR: /opt/geoserver/data_dir
     ports:
       - "8080:8080"

@@ -1,5 +1,5 @@
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from nbms_app.models import Organisation, User
@@ -27,3 +27,21 @@ class MetricsAccessTests(TestCase):
         resp = self.client.get(reverse("nbms_app:metrics"))
         self.assertEqual(resp.status_code, 200)
         self.assertIn("requests_total", resp.content.decode())
+
+    @override_settings(METRICS_TOKEN="metrics-secret")
+    def test_bearer_token_allowed_for_anonymous(self):
+        resp = self.client.get(
+            reverse("nbms_app:metrics"),
+            HTTP_AUTHORIZATION="Bearer metrics-secret",
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    @override_settings(METRICS_TOKEN="metrics-secret")
+    def test_query_token_blocked_by_default(self):
+        resp = self.client.get(reverse("nbms_app:metrics"), {"token": "metrics-secret"})
+        self.assertEqual(resp.status_code, 403)
+
+    @override_settings(METRICS_TOKEN="metrics-secret", METRICS_ALLOW_QUERY_TOKEN=True)
+    def test_query_token_allowed_when_explicitly_enabled(self):
+        resp = self.client.get(reverse("nbms_app:metrics"), {"token": "metrics-secret"})
+        self.assertEqual(resp.status_code, 200)

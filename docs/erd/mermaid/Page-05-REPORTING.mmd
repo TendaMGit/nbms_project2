@@ -1,0 +1,398 @@
+erDiagram
+  %% Reporting cycles, instances, sections, snapshots, and responses (AS-IS).
+  %% Implicit M2M tables use Django default db_table naming (nbms_app_*).
+
+  ReportingCycle {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    date start_date
+    date end_date
+    date due_date
+    boolean is_active
+  }
+
+  ReportingInstance {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk cycle FK
+    string(50) version_label
+    string(20) status
+    datetime frozen_at
+    fk frozen_by FK
+    text notes
+  }
+
+  ReportingSnapshot {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    string(50) snapshot_type
+    json payload_json
+    string(64) payload_hash
+    string(100) exporter_schema
+    string(50) exporter_version
+    json readiness_report_json
+    boolean readiness_overall_ready
+    int readiness_blocking_gap_count
+    fk created_by FK
+    text notes
+  }
+
+  ReviewDecision {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk snapshot FK
+    string(32) decision
+    text notes
+    fk created_by FK
+    fk supersedes FK
+  }
+
+  ReportSectionTemplate {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) code
+    string(255) title
+    int ordering
+    json schema_json
+    boolean is_active
+  }
+
+  ReportSectionResponse {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk template FK
+    json response_json
+    fk updated_by FK
+  }
+
+  SectionIReportContext {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk reporting_instance FK
+    string(255) reporting_party_name
+    string(64) submission_language
+    json additional_languages
+    text responsible_authorities
+    string(255) contact_name
+    string contact_email
+    text preparation_process
+    text preparation_challenges
+    text acknowledgements
+    fk updated_by FK
+  }
+
+  SectionIINBSAPStatus {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk reporting_instance FK
+    string(20) nbsap_updated_status
+    text nbsap_updated_other_text
+    date nbsap_expected_completion_date
+    string(20) stakeholders_involved
+    json stakeholder_groups
+    text stakeholder_groups_other_text
+    text stakeholder_groups_notes
+    string(20) nbsap_adopted_status
+    text nbsap_adopted_other_text
+    text nbsap_adoption_mechanism
+    date nbsap_expected_adoption_date
+    text monitoring_system_description
+    fk updated_by FK
+  }
+
+  SectionIIINationalTargetProgress {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk national_target FK
+    string(30) progress_status
+    string(30) progress_level
+    text summary
+    text actions_taken
+    text outcomes
+    text challenges
+    text challenges_and_approaches
+    text effectiveness_examples
+    text sdg_and_other_agreements
+    text support_needed
+    date period_start
+    date period_end
+  }
+
+  SectionIVFrameworkGoalProgress {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk framework_goal FK
+    text progress_summary
+    text actions_taken
+    text outcomes
+    text challenges_and_approaches
+    text sdg_and_other_agreements
+    fk updated_by FK
+  }
+
+  SectionIVFrameworkTargetProgress {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk framework_target FK
+    string(30) progress_status
+    string(30) progress_level
+    text summary
+    text actions_taken
+    text outcomes
+    text challenges
+    text challenges_and_approaches
+    text effectiveness_examples
+    text sdg_and_other_agreements
+    text support_needed
+    date period_start
+    date period_end
+  }
+
+  SectionVConclusions {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk reporting_instance FK
+    text overall_assessment
+    text decision_15_8_information
+    text decision_15_7_information
+    text decision_15_11_information
+    text plant_conservation_information
+    text additional_notes
+    fk updated_by FK
+  }
+
+  BinaryIndicatorGroupResponse {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk group FK
+    text comments
+    fk updated_by FK
+  }
+
+  BinaryIndicatorResponse {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk question FK
+    json response
+    text comments
+  }
+
+  ExportPackage {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(255) title
+    text description
+    string(20) status
+    text review_note
+    fk reporting_instance FK
+    fk organisation FK
+    fk created_by FK
+    json payload
+    datetime generated_at
+    datetime released_at
+  }
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    boolean is_active
+    fk organisation FK
+  }
+
+  NationalTarget {
+    bigint id PK
+    string(50) code
+    string(255) title
+  }
+
+  FrameworkTarget {
+    bigint id PK
+    string(100) code
+    string(255) title
+  }
+
+  FrameworkGoal {
+    bigint id PK
+    string(50) code
+    string(255) title
+  }
+
+  IndicatorDataSeries {
+    bigint id PK
+    string(255) title
+    string(20) value_type
+  }
+
+  BinaryIndicatorQuestion {
+    bigint id PK
+    string(100) question_key
+    string(20) question_type
+  }
+
+  BinaryIndicatorGroup {
+    bigint id PK
+    string(64) key
+    string(255) title
+  }
+
+  Evidence {
+    bigint id PK
+    string(255) title
+    string(100) evidence_type
+  }
+
+  DatasetRelease {
+    bigint id PK
+    string(50) version
+    date release_date
+  }
+
+  nbms_app_sectioniiinationaltargetprogress_indicator_data_series {
+    bigint id PK
+    fk sectioniiinationaltargetprogress_id FK
+    fk indicatordataseries_id FK
+  }
+
+  nbms_app_sectioniiinationaltargetprogress_binary_indicator_responses {
+    bigint id PK
+    fk sectioniiinationaltargetprogress_id FK
+    fk binaryindicatorresponse_id FK
+  }
+
+  nbms_app_sectioniiinationaltargetprogress_evidence_items {
+    bigint id PK
+    fk sectioniiinationaltargetprogress_id FK
+    fk evidence_id FK
+  }
+
+  nbms_app_sectioniiinationaltargetprogress_dataset_releases {
+    bigint id PK
+    fk sectioniiinationaltargetprogress_id FK
+    fk datasetrelease_id FK
+  }
+
+  nbms_app_sectionivframeworktargetprogress_indicator_data_series {
+    bigint id PK
+    fk sectionivframeworktargetprogress_id FK
+    fk indicatordataseries_id FK
+  }
+
+  nbms_app_sectionivframeworktargetprogress_binary_indicator_responses {
+    bigint id PK
+    fk sectionivframeworktargetprogress_id FK
+    fk binaryindicatorresponse_id FK
+  }
+
+  nbms_app_sectionivframeworktargetprogress_evidence_items {
+    bigint id PK
+    fk sectionivframeworktargetprogress_id FK
+    fk evidence_id FK
+  }
+
+  nbms_app_sectionivframeworktargetprogress_dataset_releases {
+    bigint id PK
+    fk sectionivframeworktargetprogress_id FK
+    fk datasetrelease_id FK
+  }
+
+  nbms_app_sectionivframeworkgoalprogress_evidence_items {
+    bigint id PK
+    fk sectionivframeworkgoalprogress_id FK
+    fk evidence_id FK
+  }
+
+  nbms_app_sectionvconclusions_evidence_items {
+    bigint id PK
+    fk sectionvconclusions_id FK
+    fk evidence_id FK
+  }
+
+  ReportingInstance ||--|{ BinaryIndicatorGroupResponse : "reporting_instance"
+  BinaryIndicatorGroup ||--|{ BinaryIndicatorGroupResponse : "group"
+  User ||--o{ BinaryIndicatorGroupResponse : "updated_by"
+  ReportingInstance ||--|{ BinaryIndicatorResponse : "reporting_instance"
+  BinaryIndicatorQuestion ||--|{ BinaryIndicatorResponse : "question"
+  ReportingInstance ||--o{ ExportPackage : "reporting_instance"
+  User ||--o{ ExportPackage : "created_by"
+  ReportingInstance ||--|{ ReportSectionResponse : "reporting_instance"
+  ReportSectionTemplate ||--|{ ReportSectionResponse : "template"
+  User ||--o{ ReportSectionResponse : "updated_by"
+  ReportingCycle ||--|{ ReportingInstance : "cycle"
+  User ||--o{ ReportingInstance : "frozen_by"
+  ReportingInstance ||--|{ ReportingSnapshot : "reporting_instance"
+  User ||--o{ ReportingSnapshot : "created_by"
+  ReportingInstance ||--|{ ReviewDecision : "reporting_instance"
+  ReportingSnapshot ||--|{ ReviewDecision : "snapshot"
+  User ||--o{ ReviewDecision : "created_by"
+  ReviewDecision ||--o{ ReviewDecision : "supersedes"
+  ReportingInstance ||--|{ SectionIIINationalTargetProgress : "reporting_instance"
+  NationalTarget ||--|{ SectionIIINationalTargetProgress : "national_target"
+  ReportingInstance ||--|| SectionIINBSAPStatus : "reporting_instance"
+  User ||--o{ SectionIINBSAPStatus : "updated_by"
+  ReportingInstance ||--|| SectionIReportContext : "reporting_instance"
+  User ||--o{ SectionIReportContext : "updated_by"
+  ReportingInstance ||--|{ SectionIVFrameworkGoalProgress : "reporting_instance"
+  FrameworkGoal ||--|{ SectionIVFrameworkGoalProgress : "framework_goal"
+  User ||--o{ SectionIVFrameworkGoalProgress : "updated_by"
+  ReportingInstance ||--|{ SectionIVFrameworkTargetProgress : "reporting_instance"
+  FrameworkTarget ||--|{ SectionIVFrameworkTargetProgress : "framework_target"
+  ReportingInstance ||--|| SectionVConclusions : "reporting_instance"
+  User ||--o{ SectionVConclusions : "updated_by"
+  SectionIIINationalTargetProgress ||--|{ nbms_app_sectioniiinationaltargetprogress_indicator_data_series : "sectioniiinationaltargetprogress_id"
+  IndicatorDataSeries ||--|{ nbms_app_sectioniiinationaltargetprogress_indicator_data_series : "indicatordataseries_id"
+  SectionIIINationalTargetProgress ||--|{ nbms_app_sectioniiinationaltargetprogress_binary_indicator_responses : "sectioniiinationaltargetprogress_id"
+  BinaryIndicatorResponse ||--|{ nbms_app_sectioniiinationaltargetprogress_binary_indicator_responses : "binaryindicatorresponse_id"
+  SectionIIINationalTargetProgress ||--|{ nbms_app_sectioniiinationaltargetprogress_evidence_items : "sectioniiinationaltargetprogress_id"
+  Evidence ||--|{ nbms_app_sectioniiinationaltargetprogress_evidence_items : "evidence_id"
+  SectionIIINationalTargetProgress ||--|{ nbms_app_sectioniiinationaltargetprogress_dataset_releases : "sectioniiinationaltargetprogress_id"
+  DatasetRelease ||--|{ nbms_app_sectioniiinationaltargetprogress_dataset_releases : "datasetrelease_id"
+  SectionIVFrameworkTargetProgress ||--|{ nbms_app_sectionivframeworktargetprogress_indicator_data_series : "sectionivframeworktargetprogress_id"
+  IndicatorDataSeries ||--|{ nbms_app_sectionivframeworktargetprogress_indicator_data_series : "indicatordataseries_id"
+  SectionIVFrameworkTargetProgress ||--|{ nbms_app_sectionivframeworktargetprogress_binary_indicator_responses : "sectionivframeworktargetprogress_id"
+  BinaryIndicatorResponse ||--|{ nbms_app_sectionivframeworktargetprogress_binary_indicator_responses : "binaryindicatorresponse_id"
+  SectionIVFrameworkTargetProgress ||--|{ nbms_app_sectionivframeworktargetprogress_evidence_items : "sectionivframeworktargetprogress_id"
+  Evidence ||--|{ nbms_app_sectionivframeworktargetprogress_evidence_items : "evidence_id"
+  SectionIVFrameworkTargetProgress ||--|{ nbms_app_sectionivframeworktargetprogress_dataset_releases : "sectionivframeworktargetprogress_id"
+  DatasetRelease ||--|{ nbms_app_sectionivframeworktargetprogress_dataset_releases : "datasetrelease_id"
+  SectionIVFrameworkGoalProgress ||--|{ nbms_app_sectionivframeworkgoalprogress_evidence_items : "sectionivframeworkgoalprogress_id"
+  Evidence ||--|{ nbms_app_sectionivframeworkgoalprogress_evidence_items : "evidence_id"
+  SectionVConclusions ||--|{ nbms_app_sectionvconclusions_evidence_items : "sectionvconclusions_id"
+  Evidence ||--|{ nbms_app_sectionvconclusions_evidence_items : "evidence_id"

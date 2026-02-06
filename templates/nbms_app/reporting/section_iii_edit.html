@@ -10,7 +10,10 @@
   {% endif %}
   <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
+    {{ form.non_field_errors }}
+    {% for field in form %}
+      {% include "nbms_app/partials/_field_with_help.html" with field=field %}
+    {% endfor %}
     {% if not read_only %}
       <button type="submit">Save</button>
     {% endif %}
