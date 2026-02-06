@@ -2174,3 +2174,207 @@ class Notification(TimeStampedModel):
 
     def __str__(self):
         return f"Notification for {self.recipient_id}"
+
+
+class SpatialLayerSourceType(models.TextChoices):
+    STATIC = "static", "Static"
+    INDICATOR = "indicator", "Indicator"
+
+
+class SpatialLayer(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=120, unique=True)
+    description = models.TextField(blank=True)
+    source_type = models.CharField(
+        max_length=20,
+        choices=SpatialLayerSourceType.choices,
+        default=SpatialLayerSourceType.STATIC,
+    )
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    is_public = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    default_style_json = models.JSONField(default=dict, blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="spatial_layers",
+        blank=True,
+        null=True,
+    )
+    indicator = models.ForeignKey(
+        Indicator,
+        on_delete=models.SET_NULL,
+        related_name="spatial_layers",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_spatial_layers",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["slug"]),
+            models.Index(fields=["is_active", "is_public"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+        ]
+
+    def __str__(self):
+        return self.name
+
+
+def _extract_coords(node):
+    if isinstance(node, (list, tuple)):
+        if len(node) >= 2 and isinstance(node[0], (int, float)) and isinstance(node[1], (int, float)):
+            yield float(node[0]), float(node[1])
+        else:
+            for item in node:
+                yield from _extract_coords(item)
+
+
+def _bbox_from_geojson(geometry):
+    if not isinstance(geometry, dict):
+        return None
+    coords = list(_extract_coords(geometry.get("coordinates")))
+    if not coords:
+        return None
+    xs = [coord[0] for coord in coords]
+    ys = [coord[1] for coord in coords]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+class SpatialFeature(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    layer = models.ForeignKey(
+        SpatialLayer,
+        on_delete=models.CASCADE,
+        related_name="features",
+    )
+    feature_key = models.CharField(max_length=120)
+    name = models.CharField(max_length=255, blank=True)
+    province_code = models.CharField(max_length=20, blank=True)
+    year = models.PositiveIntegerField(blank=True, null=True)
+    indicator = models.ForeignKey(
+        Indicator,
+        on_delete=models.SET_NULL,
+        related_name="spatial_features",
+        blank=True,
+        null=True,
+    )
+    properties_json = models.JSONField(default=dict, blank=True)
+    geometry_json = models.JSONField(default=dict, blank=True)
+    minx = models.FloatField(blank=True, null=True)
+    miny = models.FloatField(blank=True, null=True)
+    maxx = models.FloatField(blank=True, null=True)
+    maxy = models.FloatField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["layer", "feature_key"], name="uq_spatial_feature_layer_key"),
+        ]
+        indexes = [
+            models.Index(fields=["layer", "feature_key"]),
+            models.Index(fields=["province_code"]),
+            models.Index(fields=["year"]),
+            models.Index(fields=["indicator"]),
+            models.Index(fields=["minx", "maxx"]),
+            models.Index(fields=["miny", "maxy"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        bbox = _bbox_from_geojson(self.geometry_json)
+        if bbox:
+            self.minx, self.miny, self.maxx, self.maxy = bbox
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.feature_key
+
+
+class ReportTemplatePack(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    mea_code = models.CharField(max_length=50)
+    version = models.CharField(max_length=30, default="v1")
+    description = models.TextField(blank=True)
+    framework = models.ForeignKey(
+        Framework,
+        on_delete=models.SET_NULL,
+        related_name="template_packs",
+        blank=True,
+        null=True,
+    )
+    export_handler = models.CharField(max_length=120, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["mea_code", "is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.code} ({self.version})"
+
+
+class ReportTemplatePackSection(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    pack = models.ForeignKey(
+        ReportTemplatePack,
+        on_delete=models.CASCADE,
+        related_name="sections",
+    )
+    code = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
+    ordering = models.PositiveIntegerField(default=0)
+    schema_json = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["pack", "code"], name="uq_template_pack_section_code"),
+        ]
+        ordering = ["pack__code", "ordering", "code"]
+
+    def __str__(self):
+        return f"{self.pack.code}:{self.code}"
+
+
+class ReportTemplatePackResponse(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="template_pack_responses",
+    )
+    section = models.ForeignKey(
+        ReportTemplatePackSection,
+        on_delete=models.CASCADE,
+        related_name="responses",
+    )
+    response_json = models.JSONField(default=dict, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="template_pack_responses",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "section"],
+                name="uq_template_pack_response",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.reporting_instance_id}:{self.section_id}"
