@@ -1,0 +1,56 @@
+@use '@angular/material' as mat;
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+@include mat.core();
+
+$nbms-theme: mat.define-theme(
+  (
+    color: (
+      theme-type: light,
+      primary: mat.$green-palette,
+      tertiary: mat.$cyan-palette
+    ),
+    density: (
+      scale: -1
+    )
+  )
+);
+
+html {
+  @include mat.all-component-themes($nbms-theme);
+}
+
+:root {
+  --nbms-primary: #126a4e;
+  --nbms-secondary: #3f8d64;
+  --nbms-accent: #0c7c6b;
+  --nbms-surface: #f5f8f4;
+  --nbms-muted: #5c6d63;
+  --nbms-border: rgba(18, 63, 50, 0.14);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at top right, #f2f8f4, #edf4f0 45%, #f8faf9 100%);
+  color: #1d2e25;
+  font-family: 'Source Sans 3', 'Segoe UI', Tahoma, sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: 'Merriweather Sans', 'Trebuchet MS', sans-serif;
+}
+
+a {
+  color: var(--nbms-primary);
+}
