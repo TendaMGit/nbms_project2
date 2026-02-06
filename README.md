@@ -317,7 +317,8 @@ Security and monitoring:
 ## Reporting
 
 - Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
-- Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
+- Angular NR7 Builder: `/nr7-builder` (via frontend app route) with QA bar, section completion, and live preview.
+- NR7 PDF export API: `/api/reporting/instances/<uuid>/nr7/export.pdf`.
 
 ## Exports
 

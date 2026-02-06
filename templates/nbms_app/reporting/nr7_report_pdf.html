@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>NBMS NR7 Report</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        font-size: 10pt;
+        color: #1f2b26;
+      }
+      h1,
+      h2,
+      h3 {
+        margin: 0 0 6pt 0;
+      }
+      .meta {
+        margin-bottom: 12pt;
+      }
+      .status {
+        font-weight: bold;
+      }
+      .ok {
+        color: #1c6b44;
+      }
+      .warn {
+        color: #9b5e00;
+      }
+      .block {
+        color: #8d1f1f;
+      }
+      .section-card {
+        border: 1px solid #d8e2dc;
+        padding: 8pt;
+        margin: 6pt 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8pt;
+      }
+      th,
+      td {
+        border: 1px solid #d8e2dc;
+        padding: 5pt;
+        vertical-align: top;
+      }
+      .page-break {
+        page-break-before: always;
+      }
+      pre {
+        white-space: pre-wrap;
+        font-size: 8.5pt;
+        background: #f6f8f7;
+        border: 1px solid #e2e8e5;
+        padding: 6pt;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>NBMS NR7 Report Builder Export</h1>
+    <div class="meta">
+      <div><strong>Instance:</strong> {{ instance.uuid }} ({{ instance.version_label }})</div>
+      <div><strong>Cycle:</strong> {{ instance.cycle.code }} - {{ instance.cycle.title }}</div>
+      <div><strong>Generated:</strong> {{ generated_at|date:"Y-m-d H:i:s T" }}</div>
+    </div>
+
+    <h2>QA Summary</h2>
+    <div class="status {% if validation.overall_ready %}ok{% else %}block{% endif %}">
+      Overall readiness: {% if validation.overall_ready %}READY{% else %}NOT READY{% endif %}
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Severity</th>
+          <th>Code</th>
+          <th>Section</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in validation.qa_items %}
+          <tr>
+            <td>{{ item.severity }}</td>
+            <td>{{ item.code }}</td>
+            <td>{{ item.section }}</td>
+            <td>{{ item.message }}</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4">No QA findings.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <h2>Section Completion</h2>
+    {% for item in validation.sections %}
+      <div class="section-card">
+        <h3>{{ item.title }} ({{ item.code }})</h3>
+        <div>Required: {{ item.required }}</div>
+        <div>State: {{ item.state }}</div>
+        <div>Completion: {{ item.completion }}%</div>
+      </div>
+    {% endfor %}
+
+    <div class="page-break"></div>
+    <h2>Preview Payload</h2>
+    {% if preview_error %}
+      <p class="status warn">{{ preview_error }}</p>
+    {% elif preview_payload %}
+      <pre>{{ preview_payload|pprint }}</pre>
+    {% else %}
+      <p>No preview payload available.</p>
+    {% endif %}
+  </body>
+</html>

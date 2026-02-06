@@ -3,6 +3,19 @@
 ## Unreleased
 
 Highlights:
+- Phase 2 NR7 authoring uplift:
+  - Added Angular NR7 Report Builder workspace in `frontend/src/app/pages/reporting-page.component.ts` with:
+    - section completion nav,
+    - QA bar (blockers/warnings),
+    - preview panel,
+    - direct links to structured section editors,
+    - PDF export action.
+  - Added backend NR7 builder APIs:
+    - `/api/reporting/instances`
+    - `/api/reporting/instances/{uuid}/nr7/summary`
+    - `/api/reporting/instances/{uuid}/nr7/export.pdf`
+  - Added NR7 validation engine and preview composition service (`src/nbms_app/services/nr7_builder.py`).
+  - Added server-side PDF rendering template and pipeline.
 - Phase 1 hardening increment:
   - Added request-ID propagation end-to-end (`X-Request-ID`) with middleware and log correlation.
   - Added structured JSON logging option (`DJANGO_LOG_JSON=1`) and request-id log filter.

@@ -11,6 +11,8 @@ RUN apt-get update \
         build-essential \
         curl \
         libpq-dev \
+        libcairo2-dev \
+        pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.txt

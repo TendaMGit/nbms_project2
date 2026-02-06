@@ -6,7 +6,7 @@
 - Command:
   - `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
 - Result:
-  - `334 passed` (full suite)
+  - `337 passed` (full suite)
 
 ### Frontend
 - Build:
@@ -15,7 +15,7 @@
   - `cd frontend && npm run test`
 - Result:
   - build passes
-  - `2 passed` (current Angular shell tests)
+  - `4 passed` (Angular app + NR7/system-health component tests)
 
 ### Docker smoke
 - Command:

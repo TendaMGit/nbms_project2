@@ -142,3 +142,42 @@ export interface SystemHealthSummary {
     created_at: string;
   }>;
 }
+
+export interface ReportingInstanceSummary {
+  uuid: string;
+  cycle_code: string;
+  cycle_title: string;
+  version_label: string;
+  status: string;
+  frozen_at: string | null;
+  readiness_status: string;
+  readiness_score: number | null;
+}
+
+export interface Nr7BuilderSummary {
+  instance: {
+    uuid: string;
+    cycle_code: string;
+    cycle_title: string;
+    version_label: string;
+    status: string;
+    frozen_at: string | null;
+  };
+  validation: {
+    overall_ready: boolean;
+    generated_at: string;
+    qa_items: Array<{ severity: string; code: string; section: string; message: string }>;
+    sections: Array<{
+      code: string;
+      title: string;
+      required: boolean;
+      state: string;
+      completion: number;
+      missing_fields: string[];
+      incomplete_fields: string[];
+    }>;
+  };
+  preview_payload: Record<string, unknown> | null;
+  preview_error: string | null;
+  links: Record<string, string>;
+}

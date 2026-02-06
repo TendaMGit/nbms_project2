@@ -26,6 +26,11 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 ### Dashboard
 - `GET /api/dashboard/summary` (`IsAuthenticated`)
 
+### Reporting (NR7 builder)
+- `GET /api/reporting/instances` (`IsAuthenticated`, staff/system-admin + instance scope)
+- `GET /api/reporting/instances/{uuid}/nr7/summary` (`IsAuthenticated`, instance scope)
+- `GET /api/reporting/instances/{uuid}/nr7/export.pdf` (`IsAuthenticated`, instance scope)
+
 ### Indicators
 - `GET /api/indicators` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered)

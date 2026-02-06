@@ -76,6 +76,26 @@ SECTION_FIELD_HELP = {
 }
 
 
+SECTION_FIELD_WHY = {
+    "section_i": "Section I establishes accountability, language, and national point-of-contact details used across the report.",
+    "section_ii": "Section II provides implementation context for interpreting progress against national targets.",
+    "section_iii": "Section III is the core national-target progress evidence block for ORT submissions.",
+    "section_iv_goal": "Section IV goal narratives explain contributions to GBF 2050 outcomes.",
+    "section_iv_target": "Section IV target progress links national action to GBF target-level outcomes.",
+    "section_v": "Section V captures strategic conclusions and decisions that frame implementation priorities.",
+}
+
+
+def build_section_help_payload():
+    payload = {}
+    for section_key, fields in SECTION_FIELD_HELP.items():
+        payload[section_key] = {
+            "why_it_matters": SECTION_FIELD_WHY.get(section_key, ""),
+            "fields": {field: {"help": text, "why_it_matters": SECTION_FIELD_WHY.get(section_key, "")} for field, text in fields.items()},
+        }
+    return payload
+
+
 def apply_section_help(form, section_key):
     section_help = SECTION_FIELD_HELP.get(section_key, {})
     for field_name, help_text in section_help.items():

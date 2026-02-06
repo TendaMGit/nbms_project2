@@ -43,7 +43,7 @@ export class App {
     { route: '/dashboard', label: 'Dashboard', icon: 'dashboard' },
     { route: '/indicators', label: 'Indicator Explorer', icon: 'insights' },
     { route: '/map', label: 'Spatial Viewer', icon: 'map' },
-    { route: '/reporting', label: 'Reporting', icon: 'assignment' },
+    { route: '/nr7-builder', label: 'NR7 Builder', icon: 'assignment' },
     { route: '/template-packs', label: 'MEA Packs', icon: 'account_tree' },
     { route: '/system-health', label: 'System Health', icon: 'monitor_heart' }
   ];

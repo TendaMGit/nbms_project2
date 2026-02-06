@@ -7,8 +7,10 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections
 from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -35,7 +37,7 @@ from nbms_app.models import (
     SpatialLayer,
     SensitivityLevel,
 )
-from nbms_app.section_help import SECTION_FIELD_HELP
+from nbms_app.section_help import SECTION_FIELD_HELP, build_section_help_payload
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_DATA_STEWARD,
@@ -47,6 +49,12 @@ from nbms_app.services.authorization import (
     user_has_role,
 )
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
+from nbms_app.services.nr7_builder import (
+    build_nr7_preview_payload,
+    build_nr7_validation_summary,
+    render_nr7_pdf_bytes,
+)
+from nbms_app.services.readiness import get_instance_readiness
 from nbms_app.services.section_progress import scoped_national_targets
 from nbms_app.services.spatial_access import (
     filter_spatial_layers_for_user,
@@ -236,6 +244,7 @@ def api_help_sections(request):
         {
             "version": "2026-02-06",
             "sections": SECTION_FIELD_HELP,
+            "sections_rich": build_section_help_payload(),
         }
     )
 
@@ -384,6 +393,88 @@ def api_dashboard_summary(request):
             "trend_signals": trend_signals,
         }
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_reporting_instances(request):
+    if not (is_system_admin(request.user) or getattr(request.user, "is_staff", False)):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+    queryset = (
+        ReportingInstance.objects.select_related("cycle", "frozen_by")
+        .order_by("-cycle__start_date", "-created_at", "uuid")
+    )
+    rows = []
+    for instance in queryset:
+        if not _require_instance_scope(request.user, instance):
+            continue
+        readiness = get_instance_readiness(instance, request.user)
+        rows.append(
+            {
+                "uuid": str(instance.uuid),
+                "cycle_code": instance.cycle.code,
+                "cycle_title": instance.cycle.title,
+                "version_label": instance.version_label,
+                "status": instance.status,
+                "frozen_at": instance.frozen_at.isoformat() if instance.frozen_at else None,
+                "readiness_status": readiness.get("status", "unknown"),
+                "readiness_score": readiness.get("score"),
+            }
+        )
+    return Response({"instances": rows})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_reporting_nr7_summary(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _require_instance_scope(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+    validation = build_nr7_validation_summary(instance=instance, user=request.user)
+    preview = build_nr7_preview_payload(instance=instance, user=request.user)
+    links = {
+        "sections_overview": reverse("nbms_app:reporting_instance_sections", kwargs={"instance_uuid": instance.uuid}),
+        "section_i": reverse("nbms_app:reporting_instance_section_i", kwargs={"instance_uuid": instance.uuid}),
+        "section_ii": reverse("nbms_app:reporting_instance_section_ii", kwargs={"instance_uuid": instance.uuid}),
+        "section_iii": reverse("nbms_app:reporting_instance_section_iii", kwargs={"instance_uuid": instance.uuid}),
+        "section_iv_goals": reverse("nbms_app:reporting_instance_section_iv_goals", kwargs={"instance_uuid": instance.uuid}),
+        "section_iv_targets": reverse("nbms_app:reporting_instance_section_iv", kwargs={"instance_uuid": instance.uuid}),
+        "section_v": reverse("nbms_app:reporting_instance_section_v", kwargs={"instance_uuid": instance.uuid}),
+        "pdf_export": reverse("api_reporting_nr7_pdf", kwargs={"instance_uuid": instance.uuid}),
+    }
+    return Response(
+        {
+            "instance": {
+                "uuid": str(instance.uuid),
+                "cycle_code": instance.cycle.code,
+                "cycle_title": instance.cycle.title,
+                "version_label": instance.version_label,
+                "status": instance.status,
+                "frozen_at": instance.frozen_at.isoformat() if instance.frozen_at else None,
+            },
+            "validation": validation,
+            "preview_payload": preview["preview_payload"],
+            "preview_error": preview["preview_error"],
+            "links": links,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_reporting_nr7_pdf(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _require_instance_scope(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        pdf_bytes = render_nr7_pdf_bytes(instance=instance, user=request.user)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="nr7-{instance.uuid}.pdf"'
+    return response
 
 
 @api_view(["GET"])

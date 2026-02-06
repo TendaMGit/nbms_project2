@@ -26,6 +26,9 @@ Implemented:
   - Bandit SAST + Trivy filesystem/image scans in `.github/workflows/ci.yml`
 - Critical workflow audit coverage tests:
   - `src/nbms_app/tests/test_audit_transition_coverage.py`
+- NR7 builder API hardening:
+  - instance-scoped, authenticated reporting APIs (`/api/reporting/instances*`) in `src/nbms_app/api_spa.py`
+  - QA checks composed from readiness + explicit required-field validation (`src/nbms_app/services/nr7_builder.py`)
 
 ## RBAC + Object-Level Access Findings
 

@@ -30,9 +30,9 @@ export const routes: Routes = [
     data: { title: 'Spatial Viewer', sectionKey: 'section_iv' }
   },
   {
-    path: 'reporting',
+    path: 'nr7-builder',
     component: ReportingPageComponent,
-    data: { title: 'Reporting Workspace', sectionKey: 'section_v' }
+    data: { title: 'NR7 Report Builder', sectionKey: 'section_v' }
   },
   {
     path: 'template-packs',

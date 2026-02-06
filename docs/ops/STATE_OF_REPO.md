@@ -47,6 +47,26 @@ Implemented in phase:
 - CI security additions: Bandit + Trivy.
 - Backup/restore helper scripts and runbook.
 
+## One Biodiversity Hardening V1 - Phase 2 NR7 Builder Uplift (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Base commit for phase: `7f533d8`
+
+Commands executed:
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q src/nbms_app/tests/test_api_nr7_builder.py src/nbms_app/tests/test_api_spa_auth.py src/nbms_app/tests/test_request_id.py` -> `9 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `337 passed`
+- `npm --prefix frontend run test` -> `4 passed`
+- `npm --prefix frontend run build` -> pass
+- `docker compose --profile minimal up -d --build` -> pass
+- `Invoke-WebRequest http://127.0.0.1:8000/health/` -> `{"status":"ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/` -> `{"status":"ok"}`
+
+Implemented in phase:
+- Added NR7 builder APIs for instance listing, QA/preview summary, and PDF export.
+- Added validation engine for required fields, cross-section checks, and readiness integration.
+- Added Angular NR7 Report Builder page with QA bar, section completion list, live preview, and PDF action.
+- Added richer section-help payload (`sections_rich`) for contextual guidance.
+- Added PDF runtime dependencies to backend Docker image and requirements.
+
 ## UI/Spatial/Indicator Increment Verification (2026-02-06)
 - Branch: `feat/ui-spatial-indicators-v1`
 - Base commit at start of increment: `db98d16`
