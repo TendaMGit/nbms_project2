@@ -1,5 +1,40 @@
 # STATE OF REPO - NBMS Project 2
 
+## UI/Spatial/Indicator Increment Verification (2026-02-06)
+- Branch: `feat/ui-spatial-indicators-v1`
+- Base commit at start of increment: `db98d16`
+
+Commands executed (host):
+- `python --version`
+- `python -m pip install -r requirements.txt`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py check`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations --check --dry-run`
+- `cd frontend; npm run build`
+- `cd frontend; npm run test`
+- `docker compose --profile minimal up -d --build`
+- `docker compose --profile full up -d`
+- `docker compose --profile minimal ps`
+- `Invoke-WebRequest http://127.0.0.1:8000/health/`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/help/sections`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/indicators?status=published`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/spatial/layers`
+
+Result summary:
+- Backend test suite: `324 passed`
+- Django checks: clean (`No changes detected` for migrations)
+- Frontend: Angular build passes; frontend tests pass (`2 passed`)
+- Docker minimal profile: backend + frontend + PostGIS + Redis + MinIO healthy
+- Docker full profile: starts GeoServer on `http://127.0.0.1:8080/`
+- Health checks:
+  - backend direct `/health/` -> `{"status": "ok"}`
+  - frontend-proxied `/health/` -> `{"status": "ok"}`
+- API checks:
+  - `/api/help/sections` status `200`
+  - `/api/indicators?status=published` returns seeded GBF workflow indicators
+  - `/api/spatial/layers` returns seeded map layer metadata
+
 ## BASELINE VERIFIED (2026-02-06)
 - Branch: `feat/nr7-full-conformance-integration`
 - Commands executed (Windows host):

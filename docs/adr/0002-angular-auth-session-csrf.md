@@ -9,7 +9,7 @@ NBMS has strict governance requirements (RBAC/ABAC, consent gating, audit tracea
 ## Decision
 - Angular UI will use server-backed session authentication with CSRF protection.
 - Authorization remains server-side in Django services/views/APIs; Angular is presentation and workflow orchestration only.
-- Introduce `/api/me` and CSRF bootstrap endpoint patterns as needed, but avoid client-side trust for policy decisions.
+- Introduce `/api/auth/me` and `/api/auth/csrf` bootstrap endpoints, but avoid client-side trust for policy decisions.
 
 ## Consequences
 - Preserves existing governance controls and two-factor login posture.

@@ -9,8 +9,9 @@ NBMS needs reproducible deployment for national reporting workflows. Local Windo
 ## Decision
 - Keep Docker as the default reproducible infrastructure path.
 - Maintain two runtime profiles:
-  - `minimal`: core services needed for workflow execution (PostGIS, Redis, MinIO, backend runtime path).
-  - `spatial`: `minimal` plus GeoServer and spatial integrations.
+  - `minimal`: core services + backend + frontend (`compose.yml`).
+  - `full`: `minimal` plus GeoServer.
+  - `spatial`: same service envelope as `full`, focused on spatial feature work.
 - Keep Windows no-Docker mode as a supported fallback for contributors and constrained environments.
 
 ## Consequences

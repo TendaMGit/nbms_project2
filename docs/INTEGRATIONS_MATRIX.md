@@ -1,23 +1,22 @@
-﻿# INTEGRATIONS_MATRIX
+# INTEGRATIONS_MATRIX
 
-This matrix reflects integration points represented in the current codebase. `_2bi` means planned or implied but not implemented as an operational integration.
+This matrix tracks concrete integrations represented in code. `_2bi` means planned next-step capability, not yet operational.
 
 | Integration Point | implemented | _2bi (to be implemented) |
 |---|---|---|
-| CBD ORT NR7 narrative export | `GET /exports/instances/<uuid>/ort-nr7-narrative.json` via `src/nbms_app/exports/ort_nr7_narrative.py` | Field-level conformance mapping for full ORT schema parity across all sections |
-| CBD ORT NR7 v2 structured export | `GET /exports/instances/<uuid>/ort-nr7-v2.json` via `src/nbms_app/exports/ort_nr7_v2.py` | Direct submit/publish handshake adapter to ORT endpoint APIs |
-| ORT binary indicator question bank | Seed command loads `src/nbms_app/data/ort_binary_indicator_questions.json` via `seed_binary_indicator_questions` | Automated version sync against authoritative ORT template releases |
-| GBF framework registry | Framework/goal/target/indicator models (`Framework*`) and alignment links in `src/nbms_app/models.py` | Full multi-framework governance workflows (e.g., SDG/Ramsar/UNCCD cross-mapping UX) |
-| GBF indicator data model alignment | `Indicator`, `IndicatorDataSeries`, `IndicatorDataPoint`, `SectionIII/IV` structured progress models, and ORT NR7 v2 exporter mappings in `src/nbms_app/exports/ort_nr7_v2.py` | Automated ingestion/computation pipelines per indicator methodology requirements and global submission adapters |
-| Reference catalog CSV exchange | `reference_catalog_import` / `reference_catalog_export` commands | Managed API-based integration contracts with partner systems |
-| Indicator data CSV exchange | `import_indicator_data` / `export_indicator_data` commands | Excel/native statistical package connectors and scheduled ingest jobs |
-| Alignment mappings CSV exchange | `import_alignment_mappings` / `export_alignment_mappings` commands | Bi-directional sync with external alignment registries |
-| Internal organisational integration model (SANBI/DFFE/etc.) | Generic `Organisation` model + FK relationships across registry/reporting models | Formal org-master sync (authoritative directory, external IAM/group sync) |
-| SANBI-specific presence | Demo fixtures/constants: `src/nbms_app/demo_constants.py`, `docs/demo/DEMO_SEED_PLAN.md` | Production SANBI source-system adapter and managed reference-data sync |
-| DFFE-specific presence | Mentioned in import template examples (`docs/reference_catalog/import_templates/*.md`) | Production DFFE integration interface (data/API/ETL contract) |
-| Stats SA integration | Not represented in executable integration code | Dedicated Stats SA dataset ingest, metadata mapping, and QA pipeline |
-| SAEON integration | Mentioned in dataset template examples (`dataset_catalog_import_template.md`) | Dedicated SAEON catalog/series synchronization and provenance validation |
-| Ramsar/CITES/CMS framework packs | Not yet represented in executable template-pack code | Add modular framework/template packs and mapping tables while preserving CBD/GBF first-class behavior |
-| API integration surface for partners | Read-only DRF endpoints in `src/nbms_app/api.py` (`/api/v1/*`) | Authenticated write APIs, idempotent upsert contracts, versioned partner schemas |
-| DaRT-style enter-once/reuse-many workflow | Partial via snapshots/export packages (`ReportingSnapshot`, `ExportPackage`) and deterministic report pack/export builders | Reusable cross-cycle package manifests, mapping registry, replay automation, and remote workspace sync |
-
+| CBD ORT NR7 structured export | `GET /exports/instances/<uuid>/ort-nr7-v2.json` via `src/nbms_app/exports/ort_nr7_v2.py` + contract validation in `src/nbms_app/services/export_contracts.py` | Direct ORT submission adapter and submission-status sync |
+| CBD ORT narrative export | `GET /exports/instances/<uuid>/ort-nr7-narrative.json` via `src/nbms_app/exports/ort_nr7_narrative.py` | Narrative-to-structured reconciliation tooling |
+| Multi-MEA template runtime | `ReportTemplatePack*` models (`src/nbms_app/models.py`), pack seeding (`seed_mea_template_packs`), API runtime handlers in `src/nbms_app/api_spa.py` | Ramsar/CITES/CMS full export contracts beyond current stub payloads |
+| GBF framework registry | `Framework`, `FrameworkGoal`, `FrameworkTarget`, `FrameworkIndicator` plus mapping tables in `src/nbms_app/models.py`; seeded GBF goal/target scaffold in `seed_indicator_workflow_v1` | Full GBF indicator method packs with computation runners per indicator fact sheet |
+| SDG scaffold | SDG framework scaffold seeded in `seed_indicator_workflow_v1` | SDG-specific dashboard pack and reporting exports |
+| Indicator workflow v1 pack | Four seeded indicators with methodologies, datasets, releases, series/datapoints, evidence, workflow state readiness in `seed_indicator_workflow_v1` | Additional GBF indicator packs and automated method execution |
+| Monitoring programme integration | `MonitoringProgramme`, `ProgrammeIndicatorLink`, `ProgrammeDatasetLink` and seeded NBMS core programme relationships in `seed_indicator_workflow_v1` | Scheduled ingest pipelines from programme source systems |
+| Indicator CSV exchange | `import_indicator_data` / `export_indicator_data` management commands | API-upload path and scheduled ingestion jobs |
+| Dataset/reference catalog exchange | `reference_catalog_import` / `reference_catalog_export` commands | External API contracts with partner institutions |
+| Spatial layer integration | `SpatialLayer` + `SpatialFeature` models, `seed_spatial_demo_layers`, GeoJSON APIs (`/api/spatial/*`) | PostGIS-native geometry tables and vector-tile publishing |
+| Angular primary UI integration | Angular app in `/frontend`, served via nginx container (`docker/frontend/nginx.conf`), backend API integration via `/api/*` | Full replacement of remaining Django form-heavy reporting pages |
+| SANBI organizational integration surface | SANBI org seeded in indicator workflow command and organization model usage across governance fields | Production SANBI system adapters and directory sync |
+| DFFE organizational integration surface | DFFE org seeded in indicator workflow command and reporting ownership fields | Formal DFFE data exchange and review workflow integration |
+| Stats SA integration | Not yet implemented in executable adapters | Stats SA dataset/profile adapters and QA mapping |
+| SAEON integration | Not yet implemented in executable adapters | SAEON ingest connectors and provenance checks |
+| DaRT-style enter-once/reuse-many | Reporting snapshots/export packages + reusable indicator metadata surfaces | Cross-cycle package manifests, workspace sync, and replay/export orchestration |

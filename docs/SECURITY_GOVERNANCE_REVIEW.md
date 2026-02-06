@@ -1,7 +1,7 @@
 ﻿# SECURITY_GOVERNANCE_REVIEW
 
 ## Executive Summary
-NBMS already has a meaningful governance baseline (RBAC/ABAC filters, object-level permissions via guardian, consent records, audit signals, export approvals). The highest remaining risk is not missing primitives, but inconsistent enforcement across all entry points and insufficient operational hardening depth (CI security gates, metrics persistence, policy headers).
+NBMS has a strong governance baseline (RBAC/ABAC filters, object-level permissions via guardian, consent records, audit signals, export approvals). The newest risk surface is the expanded `/api/*` layer for Angular: controls are mostly correct, but endpoint-by-endpoint policy standardization and deeper CI security checks remain ongoing work.
 
 ## RBAC + Object-Level Access Findings
 
@@ -17,6 +17,9 @@ NBMS already has a meaningful governance baseline (RBAC/ABAC filters, object-lev
   - guardian `get_objects_for_user` is applied when `perm` is passed to `filter_queryset_for_user`.
 - Catalog access policy:
   - dataset/programme/methodology/agreement/sensitivity filters in `src/nbms_app/services/catalog_access.py`.
+- Spatial ABAC policy:
+  - layer/feature filters in `src/nbms_app/services/spatial_access.py`
+  - tests in `src/nbms_app/tests/test_api_spatial.py`
 
 ### Findings
 - `Improved`: staff-protected route policy metadata is now centralized.
@@ -24,6 +27,9 @@ NBMS already has a meaningful governance baseline (RBAC/ABAC filters, object-lev
   - Coverage guard tests: `src/nbms_app/tests/test_policy_registry.py`
   - Decorator resolves policy by URL name/function name: `src/nbms_app/views.py`
   - Remaining risk: role-gated non-staff endpoints still require explicit per-view checks.
+- `Improved`: new Angular-facing APIs use ABAC-filtered querysets and object lookup patterns.
+  - `/api/indicators*`, `/api/spatial*`, `/api/template-packs*` in `src/nbms_app/api_spa.py`
+  - direct ABAC leakage checks added for spatial APIs (`test_api_spatial.py`).
 - `Partial`: guardian checks are not universal.
   - Where `perm` is omitted in `filter_queryset_for_user`, authorization is ABAC-only.
   - This is intentional in places but should be explicit per endpoint category.
@@ -80,6 +86,7 @@ NBMS already has a meaningful governance baseline (RBAC/ABAC filters, object-lev
 - No explicit CORS policy module configured.
 - Metrics storage is in-memory only (`src/nbms_app/services/metrics.py`), so counts are process-local.
 - SAST is still missing; baseline secret/dependency checks are now in CI.
+- Frontend dependency and bundle integrity policies are not yet pinned by lockfile verification in backend CI jobs.
 
 ## Immediate Fixes Applied in This Tightening Pass
 - Metrics token handling tightened:
@@ -94,8 +101,12 @@ NBMS already has a meaningful governance baseline (RBAC/ABAC filters, object-lev
 - Route-policy normalization baseline:
   - Added endpoint policy matrix in `src/nbms_app/services/policy_registry.py`.
   - Added coverage tests in `src/nbms_app/tests/test_policy_registry.py`.
+- New API governance surface:
+  - Added session+CSRF bootstrap APIs: `/api/auth/me`, `/api/auth/csrf`.
+  - Added template-pack runtime APIs and spatial GeoJSON APIs with ABAC filtering.
+  - Added dedicated API tests: `test_api_spa_auth.py`, `test_api_indicator_explorer.py`, `test_api_spatial.py`, `test_api_template_packs.py`.
 - CI hardening baseline:
-  - Added split CI workflow with fast checks, Linux full tests, Windows smoke, and security baseline in `.github/workflows/ci.yml`.
+  - Added split CI workflow with fast checks, Linux full tests, Windows smoke, security baseline, frontend build/tests, and Docker minimal profile smoke in `.github/workflows/ci.yml`.
 
 ## Medium-Term Governance Plan
 1. Make endpoint policy classification explicit.

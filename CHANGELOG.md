@@ -3,6 +3,29 @@
 ## Unreleased
 
 Highlights:
+- Added Angular primary app (`frontend/`) with dashboard, indicator explorer/detail, spatial map viewer, reporting launcher, and template-pack pages.
+- Added SPA/BFF API layer under `/api/*`:
+  - auth/help: `/api/auth/me`, `/api/auth/csrf`, `/api/help/sections`
+  - dashboard: `/api/dashboard/summary`
+  - indicators: `/api/indicators*` detail/datasets/series/validation/transition
+  - spatial: `/api/spatial/layers`, `/api/spatial/layers/{slug}/features`
+  - template packs: `/api/template-packs*`
+- Added spatial runtime models and services:
+  - `SpatialLayer`, `SpatialFeature` and ABAC filter service in `src/nbms_app/services/spatial_access.py`
+  - demo spatial seed command: `seed_spatial_demo_layers`
+- Added multi-MEA template-pack runtime scaffolding:
+  - `ReportTemplatePack`, `ReportTemplatePackSection`, `ReportTemplatePackResponse`
+  - pack seed command: `seed_mea_template_packs`
+  - exporter registry: `src/nbms_app/services/template_pack_registry.py`
+- Added GBF/NBA-inspired indicator workflow seed pack:
+  - command: `seed_indicator_workflow_v1`
+  - includes 4 end-to-end indicators with methodology/dataset/series/evidence/programme links
+- Added Docker-first full-stack runtime at repo root:
+  - `compose.yml` with `minimal`, `full`, `spatial` profiles
+  - backend and frontend Dockerfiles plus nginx reverse proxy config
+- Expanded CI:
+  - new `frontend-build` job
+  - new `docker-minimal-smoke` job
 - ORT NR7 v2 exporter now maps structured Section I/II/V models and enriched Section III/IV data, including Section IV goal progress and binary indicator group comments.
 - Added export payload contract validation service (`src/nbms_app/services/export_contracts.py`) with tests and golden fixture refresh flow.
 - Added centralized section field help dictionary and rendered field-level help/tooltips for Section I-V templates.

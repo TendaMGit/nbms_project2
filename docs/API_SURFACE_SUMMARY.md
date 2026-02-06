@@ -1,77 +1,71 @@
-﻿# API_SURFACE_SUMMARY
+# API_SURFACE_SUMMARY
 
 ## Scope
-This summary covers executable API-like surfaces in code:
-- DRF router endpoints in `src/nbms_app/api.py` under `/api/v1/`
-- JSON export endpoints in `src/nbms_app/views.py`
-- Metrics and health endpoints
+- `src/config/urls.py`
+- `src/nbms_app/api_urls.py` (`/api/*`, SPA/BFF endpoints)
+- `src/nbms_app/api.py` (`/api/v1/*`, read-only DRF catalog endpoints)
+- `src/nbms_app/views.py` (`/exports/*`, health, metrics)
 
-## DRF API (`/api/v1/`)
-Source: `src/config/urls.py`, `src/nbms_app/api.py`
+## Auth Model
+- Primary API auth: Django session cookie + CSRF (`SessionAuthentication`).
+- `/api/auth/csrf` issues CSRF token payload and cookie.
+- ABAC/object filtering remains server-side via:
+  - `filter_queryset_for_user` (`src/nbms_app/services/authorization.py`)
+  - `indicator_data_series_for_user` / `indicator_data_points_for_user`
+  - `filter_spatial_layers_for_user` / `filter_spatial_features_for_user`
 
-### Endpoint list (read-only)
-- `GET /api/v1/evidence/`, `GET /api/v1/evidence/{uuid}/`
-- `GET /api/v1/frameworks/`, `GET /api/v1/frameworks/{uuid}/`
-- `GET /api/v1/framework-goals/`, `GET /api/v1/framework-goals/{uuid}/`
-- `GET /api/v1/framework-targets/`, `GET /api/v1/framework-targets/{uuid}/`
-- `GET /api/v1/framework-indicators/`, `GET /api/v1/framework-indicators/{uuid}/`
-- `GET /api/v1/national-targets/`, `GET /api/v1/national-targets/{uuid}/`
-- `GET /api/v1/indicators/`, `GET /api/v1/indicators/{uuid}/`
-- `GET /api/v1/dataset-catalog/`, `GET /api/v1/dataset-catalog/{uuid}/`
-- `GET /api/v1/dataset-releases/`, `GET /api/v1/dataset-releases/{uuid}/`
+## SPA/BFF Endpoints (`/api/*`)
+Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 
-### Auth and access model
-- Authentication classes from settings (`src/config/settings/base.py`):
-  - `SessionAuthentication`
-  - `BasicAuthentication`
-- Authorization:
-  - ABAC filtering via `filter_queryset_for_user` or catalog-specific filters.
-  - SystemAdmin bypass via `is_system_admin`.
-- Audit:
-  - API list/detail reads pass through `AuditReadOnlyModelViewSet` and call `audit_sensitive_access`.
+### Auth + help
+- `GET /api/auth/me` (`IsAuthenticated`)
+- `GET /api/auth/csrf` (`AllowAny`)
+- `GET /api/help/sections` (`AllowAny`)
 
-### Serializer field exposure (selected)
-- Evidence: `uuid`, `title`, `evidence_type`, `source_url`, `status`, `sensitivity`
-- Framework: `uuid`, `code`, `title`, `description`, `status`, `sensitivity`
-- FrameworkGoal: `uuid`, `framework`, `code`, `title`, `status`, `sensitivity`, `sort_order`
-- FrameworkTarget: `uuid`, `framework`, `goal`, `code`, `title`, `status`, `sensitivity`
-- FrameworkIndicator: `uuid`, `framework`, `framework_target`, `code`, `title`, `indicator_type`, `status`, `sensitivity`
-- NationalTarget: `uuid`, `code`, `title`, `status`, `sensitivity`
-- Indicator: `uuid`, `code`, `title`, `national_target`, `indicator_type`, `status`, `sensitivity`
-- DatasetCatalog: `uuid`, `dataset_code`, `title`, `description`, `access_level`, `is_active`
-- DatasetRelease: `uuid`, `dataset`, `version`, `release_date`, `status`, `sensitivity`
+### Dashboard
+- `GET /api/dashboard/summary` (`IsAuthenticated`)
 
-## JSON Export Endpoints (non-DRF)
-Source: `src/nbms_app/urls.py`, `src/nbms_app/views.py`
+### Indicators
+- `GET /api/indicators` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}/datasets` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}/series` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}/validation` (`AllowAny`, ABAC-filtered)
+- `POST /api/indicators/{uuid}/transition` (`IsAuthenticated`, workflow/role-gated)
 
+### Spatial
+- `GET /api/spatial/layers` (`AllowAny`, ABAC-filtered)
+- `GET /api/spatial/layers/{slug}/features` (`AllowAny`, ABAC-filtered, GeoJSON FeatureCollection)
+
+### Template packs (multi-MEA runtime scaffolding)
+- `GET /api/template-packs` (`IsAuthenticated`)
+- `GET /api/template-packs/{pack_code}/sections` (`IsAuthenticated`)
+- `GET|POST /api/template-packs/{pack_code}/instances/{instance_uuid}/responses` (`IsAuthenticated`, instance-scope check)
+- `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export` (`IsAuthenticated`, exporter registry driven)
+
+## DRF API (`/api/v1/*`, read-only)
+Source: `src/nbms_app/api.py`.
+
+- `GET /api/v1/evidence/`
+- `GET /api/v1/frameworks/`
+- `GET /api/v1/framework-goals/`
+- `GET /api/v1/framework-targets/`
+- `GET /api/v1/framework-indicators/`
+- `GET /api/v1/national-targets/`
+- `GET /api/v1/indicators/`
+- `GET /api/v1/dataset-catalog/`
+- `GET /api/v1/dataset-releases/`
+
+All are read-only viewsets with ABAC filtering and audit read-tracking.
+
+## Export + Ops Endpoints
 - `GET /exports/instances/{instance_uuid}/ort-nr7-narrative.json`
-  - builder: `build_ort_nr7_narrative_payload`
-  - schema marker: `nbms.ort.nr7.narrative.v1`
 - `GET /exports/instances/{instance_uuid}/ort-nr7-v2.json`
-  - builder: `build_ort_nr7_v2_payload`
-  - schema marker: `nbms.ort.nr7.v2`
-  - contract validator: `src/nbms_app/services/export_contracts.py`
 - `GET /exports/{package_uuid}/download/`
-  - download of released `ExportPackage.payload`
+- `GET /health/`
+- `GET /health/storage/`
+- `GET /metrics/` (SystemAdmin session or `METRICS_TOKEN`)
 
-Auth/authorization:
-- These routes are staff/system-admin gated in `views.py`.
-- Export generation additionally enforces readiness, approval, consent, and referential integrity through service-layer calls.
-- Structured sections I/II/V and enriched III/IV content are exported from structured models when present; narrative templates remain fallback for backward compatibility.
-
-## Health and Metrics Endpoints
-- `GET /health/` (`health_db`)
-- `GET /health/storage/` (`health_storage`)
-- `GET /metrics/` (`views_metrics.metrics`)
-  - access via SystemAdmin session or `METRICS_TOKEN` bearer token
-  - query token support only when `METRICS_ALLOW_QUERY_TOKEN=true`
-
-## Schema/OpenAPI Notes
-- DRF schema class is configured (`drf_spectacular.openapi.AutoSchema`) in `src/config/settings/base.py`.
-- No dedicated OpenAPI serving route is currently wired in `src/config/urls.py`.
-
-## Current API Limitations
-- API is read-only; no create/update/delete endpoints.
-- No token/JWT/OAuth2 API auth profile (session/basic only).
-- No explicit API version negotiation beyond URL namespace `/api/v1/`.
-
+## Notes
+- OpenAPI schema class is configured (`drf_spectacular`) but schema-serving routes are not yet exposed in `src/config/urls.py`.
+- `/api/*` provides the Angular primary UI data surface.

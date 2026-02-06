@@ -1,162 +1,84 @@
-﻿# REVIEW_SYSTEM_OVERVIEW
+# REVIEW_SYSTEM_OVERVIEW
 
-## Scope
-- Repository: `nbms_project2`
-- Review date: 2026-02-06
-- Basis: code, tests, settings, scripts, docs in current workspace.
-- Intent: as-built truth for NBMS hardening and incremental delivery.
+## As-Built System Map (2026-02-06)
 
-## Top-Level Inventory (as built)
-```
-.
-|- .github/workflows/
-|- docker/
-|- docs/
-|- scripts/
-|- src/
-|  |- config/
-|  |  |- settings/{base,dev,prod,test}.py
-|  |  |- urls.py
-|  |  |- test_runner.py
-|  |- nbms_app/
-|     |- models.py
-|     |- views.py
-|     |- api.py
-|     |- services/
-|     |- exports/
-|     |- management/commands/
-|     |- middleware*.py
-|     |- signals*.py
-|     |- tests/
-|- templates/
-|- static/
-|- requirements.txt
-|- requirements-dev.txt
-|- README.md
-```
+### Runtime layers
+- Backend: Django 5.x + DRF (`src/config`, `src/nbms_app`)
+- Frontend: Angular standalone app (`frontend/`)
+- Container runtime: root `compose.yml` with profiles `minimal`, `full`, `spatial`
+- Data services: PostGIS container, Redis, MinIO, optional GeoServer
 
-## Runtime + Tooling
-- Core runtime: Django 5.2, DRF, django-guardian, django-two-factor-auth, django-otp, django-storages, psycopg2.
-  - Source: `requirements.txt`
-- Test stack: `pytest`, `pytest-django`.
-  - Source: `requirements-dev.txt`, `pytest.ini`
-- Deployment helpers:
-  - Local + Docker infra: `docker/docker-compose.yml`
-  - Migration verification stack: `docker-compose.verify.yml`, `.github/workflows/migration-verify.yml`
-  - Windows-first scripts: `scripts/bootstrap.ps1`, `scripts/test.ps1`, `scripts/smoke.ps1`
-
-## Module Responsibility Map
-- App routing:
-  - Project URLs: `src/config/urls.py`
-  - UI routes: `src/nbms_app/urls.py`
-  - API router: `src/nbms_app/api.py`
-- Domain model:
-  - Single app model set in `src/nbms_app/models.py` (reporting, catalog, approvals, consent, audit, snapshots).
+### Backend module map
+- Core domain models: `src/nbms_app/models.py`
+- Server UI workflows: `src/nbms_app/views.py`, templates under `templates/nbms_app/`
+- SPA/BFF endpoints: `src/nbms_app/api_spa.py`, `src/nbms_app/api_urls.py`
+- Read-only catalog APIs: `src/nbms_app/api.py` (`/api/v1/*`)
 - Governance services:
-  - RBAC/ABAC: `src/nbms_app/services/authorization.py`, `src/nbms_app/services/catalog_access.py`
-  - Route-policy matrix: `src/nbms_app/services/policy_registry.py`
-  - Consent: `src/nbms_app/services/consent.py`
-  - Audit: `src/nbms_app/services/audit.py`, `src/nbms_app/signals_audit.py`, `src/nbms_app/middleware_audit.py`
-  - Approvals: `src/nbms_app/services/instance_approvals.py`
+  - authorization: `src/nbms_app/services/authorization.py`
+  - policy registry: `src/nbms_app/services/policy_registry.py`
+  - consent: `src/nbms_app/services/consent.py`
+  - audit: `src/nbms_app/services/audit.py`
 - Reporting/export services:
-  - Readiness: `src/nbms_app/services/readiness.py`
-  - ORT exports: `src/nbms_app/exports/ort_nr7_narrative.py`, `src/nbms_app/exports/ort_nr7_v2.py`
-  - Export release workflow: `src/nbms_app/services/exports.py`
-  - Snapshot/review decisions: `src/nbms_app/services/snapshots.py`, `src/nbms_app/services/review_decisions.py`
-- Ingest/ETL commands:
-  - Indicator data CSV import/export: `src/nbms_app/management/commands/import_indicator_data.py`, `src/nbms_app/management/commands/export_indicator_data.py`
-  - Reference catalog CSV import/export: `src/nbms_app/management/commands/reference_catalog_import.py`, `src/nbms_app/management/commands/reference_catalog_export.py`
-  - Alignment mappings CSV import/export: `src/nbms_app/management/commands/import_alignment_mappings.py`, `src/nbms_app/management/commands/export_alignment_mappings.py`
+  - ORT exports: `src/nbms_app/exports/ort_nr7_v2.py`, `src/nbms_app/exports/ort_nr7_narrative.py`
+  - contract checks: `src/nbms_app/services/export_contracts.py`
+- Spatial services:
+  - layer/feature ABAC filtering: `src/nbms_app/services/spatial_access.py`
+- Multi-MEA runtime:
+  - pack exporter registry: `src/nbms_app/services/template_pack_registry.py`
 
-## Core Workflows Implemented in Code
+### Frontend module map
+- App shell + route layout: `frontend/src/app/app.ts`, `frontend/src/app/app.html`
+- Pages:
+  - dashboard: `frontend/src/app/pages/dashboard-page.component.ts`
+  - indicator explorer + detail: `frontend/src/app/pages/indicator-explorer-page.component.ts`, `frontend/src/app/pages/indicator-detail-page.component.ts`
+  - spatial viewer: `frontend/src/app/pages/map-viewer-page.component.ts`
+  - reporting entry point: `frontend/src/app/pages/reporting-page.component.ts`
+  - template packs: `frontend/src/app/pages/template-packs-page.component.ts`
+- API services: `frontend/src/app/services/*.ts`
 
-### 1) Indicator registry + methodology versioning
-- Implemented models for indicators and methodology versions:
-  - `Indicator`, `Methodology`, `MethodologyVersion`, `IndicatorMethodologyVersionLink` in `src/nbms_app/models.py`
-- UI and catalog flows:
-  - `methodology_*`, `methodology_version_*`, `indicator_methodology_versions` views in `src/nbms_app/views.py`
-- Import/export support for methodology links and versions:
-  - `reference_catalog_import.py`, `reference_catalog_export.py`
+## Main Workflows
 
-### 2) Reporting instances (7NR/ORT style)
-- Reporting backbone:
-  - `ReportingCycle`, `ReportingInstance`, `ReportSectionTemplate`, `ReportSectionResponse`
-- Structured sections:
-  - Section I/II/V one-to-one models + Section III/IV progress models in `src/nbms_app/models.py`
-- Approvals and freeze:
-  - UI endpoints in `src/nbms_app/views.py`
-  - service logic in `src/nbms_app/services/instance_approvals.py`
-- Exports:
-  - ORT narrative and v2 routes in `src/nbms_app/urls.py`
-  - payload builders in `src/nbms_app/exports/*`
-- Validation/readiness:
-  - `ValidationRuleSet` + readiness engine in `src/nbms_app/services/readiness.py`
+### 1) ORT NR7 reporting workflow
+- Reporting entities: `ReportingCycle`, `ReportingInstance`, Section I-V structured models.
+- Freeze/review/approval/export flows remain in Django server views/services.
+- ORT v2 export remains deterministic and contract-validated.
 
-### 3) Consent + sensitivity workflows
-- Consent record model: `ConsentRecord` in `src/nbms_app/models.py`
-- Decision logic: `requires_consent`, `consent_is_granted`, `set_consent_status` in `src/nbms_app/services/consent.py`
-- Consent workspace UI:
-  - `reporting_instance_consent`, `reporting_instance_consent_action` in `src/nbms_app/views.py`
-- Export block on missing consent:
-  - `approve_for_instance` and `release_export` services
+### 2) Indicator workflow v1
+- Seeded by `seed_indicator_workflow_v1`:
+  - 4 operational GBF/NBA-inspired indicators
+  - linked national targets, framework indicators, methodologies/versions
+  - datasets/catalog links, releases, evidence, data series/datapoints
+  - monitoring programme links as source-of-data structure
+- Workflow transitions exposed via `/api/indicators/{uuid}/transition` with server-side role checks and evidence-before-publish rule.
 
-### 4) Authorization checks (RBAC + object-level)
-- Role constants + role checks in `src/nbms_app/services/authorization.py`
-- ABAC queryset filtering in `filter_queryset_for_user`
-- Guardian object permissions integrated when `perm` argument is passed
-- Catalog-specific access filtering in `src/nbms_app/services/catalog_access.py`
-- Route-policy metadata and matrix in `src/nbms_app/services/policy_registry.py`
-- Coverage guard tests: `src/nbms_app/tests/test_policy_registry.py`
+### 3) Spatial workflow v1
+- Seeded by `seed_spatial_demo_layers`:
+  - provinces, protected areas, ecosystem threat demo layer
+- APIs:
+  - `/api/spatial/layers`
+  - `/api/spatial/layers/{slug}/features` (GeoJSON + bbox/province/indicator/year filters)
+- UI:
+  - Angular MapLibre page with layer toggles, filters, legend, feature-inspect panel.
 
-### 5) Audit logging
-- Event model: `AuditEvent` (`src/nbms_app/models.py`)
-- Domain event recording and metadata sanitization: `src/nbms_app/services/audit.py`
-- Automatic CRUD event coverage via signals: `src/nbms_app/signals_audit.py`
-- Request context capture: `src/nbms_app/middleware_audit.py`, `src/nbms_app/services/request_context.py`
+### 4) Multi-MEA template workflow
+- Generic runtime models:
+  - `ReportTemplatePack`, `ReportTemplatePackSection`, `ReportTemplatePackResponse`
+- Seeded packs:
+  - `cbd_ort_nr7_v2` (primary)
+  - `ramsar_v1`, `cites_v1`, `cms_v1` scaffold packs
+- Runtime APIs for section retrieval, response save/load, and export handler dispatch.
 
-## Capability Truth Table
+## Key Tradeoffs
+- Chosen now:
+  - session+CSRF auth for Angular (no token split-brain)
+  - docker-first reproducibility with Windows fallback
+  - GeoJSON API-first spatial delivery before full PostGIS geometry API refactor
+- Deferred:
+  - direct ORT submission adapters
+  - full Ramsar/CITES/CMS export schemas
+  - automated indicator computation runners per methodology script
 
-| Area | Status | Evidence (as-built) | Primary Risk |
-|---|---|---|---|
-| AuthN/AuthZ (RBAC + object-level) | Partial | `authorization.py`, `catalog_access.py`, guardian in `filter_queryset_for_user`, route decorators in `views.py`, policy matrix in `policy_registry.py` | Drift risk is reduced by route policy coverage tests, but non-staff role-gated routes still rely on view-level checks. |
-| Consent + sensitivity gating | Partial | `ConsentRecord`, `consent.py`, approval/export checks in `instance_approvals.py` and `exports.py` | Consent semantics are strong for exportable items, but scope is not uniformly enforced across every data surface. |
-| Audit events + traceability | Implemented | `AuditEvent`, `record_event`, request metadata capture, model signals | No tamper-evident storage/retention controls defined in code. |
-| Indicator computation pipeline (raw -> validated -> computed -> published) | Partial | `IndicatorDataSeries`, `IndicatorDataPoint`, `reporting_readiness.py`, readiness diagnostics | No explicit computation orchestration/job pipeline or publish pipeline distinct from workflow status. |
-| Dataset catalog + provenance | Implemented | `DatasetCatalog`, `MonitoringProgramme`, `Methodology*`, provenance fields (`source_system`, `source_ref`), CSV IO commands | Provenance quality depends on operator discipline; no hard completeness enforcement at publish. |
-| Import/export formats (ORT/GBF, CSV/Excel/API) | Partial | ORT JSON export routes + builders, CSV import/export commands | No first-class Excel pipeline; no push/pull integration adapters for partner systems; API is read-only. |
-| Validation framework (rulesets/scopes) | Partial | `ValidationRuleSet`, `seed_validation_rules.py`, readiness consumption in `readiness.py` | Rules primarily gate readiness/export, not universal model-level validation. |
-| Observability (health/logging/metrics) | Partial | `/health/`, `/health/storage/`, `/metrics`, `metrics.py`, logging settings | Metrics are in-process/in-memory only; no durable metrics backend/tracing. |
-| Security basics (secrets/headers/CSRF/CORS/rate limit) | Partial | Prod security defaults in `config/settings/prod.py`, CSRF, rate-limit middleware | No CSP policy, no CORS policy module, no automated secret scanning in CI workflow. |
-| Testing + CI + migrations integrity | Partial | 80+ test modules; migration verification workflow + split CI workflow exist; local suite validated at `308 passed` with Windows `tmp_path` compatibility fixture in `src/nbms_app/tests/conftest.py` | Compatibility shim should be retired once upstream temp-path behavior is stable; SAST still missing from CI baseline. |
-| Documentation quality (Windows-first + ops runbook) | Partial | Strong runbook material (`README.md`, `docs/ops/STATE_OF_REPO.md`) | Multiple docs overlap; no single “current hardening backlog + execution status” doc before this review. |
-
-## As-Built Architecture and Tradeoffs
-- Architecture style: Django monolith with explicit service layer for governance-sensitive behavior.
-- Strengths:
-  - Governance-critical logic is centralized in services (`authorization`, `consent`, `instance_approvals`, `exports`, `readiness`).
-  - Reporting export gating is explicit and test-covered.
-  - Rich domain model for catalog + reporting + audit.
-- Tradeoffs:
-  - `src/nbms_app/views.py` is very large and mixes orchestration + policy checks + rendering.
-  - API surface is intentionally read-only; external integrations currently rely on files/commands rather than service APIs.
-  - Observability and security hardening are functional but still baseline.
-
-## NBMS Requirement Delta (high-level)
-- GBF/CBD ORT alignment: partial implemented; structured Section III/IV is strong, but ORT field-level conformance for sections I/II/V remains incomplete.
-- DaRT-style "enter once, reuse many": partial; snapshots/review packs/export packages support reuse, but cross-cycle reusable package workflows and integration contracts are still minimal.
-- Governance posture: strong baseline with audit/RBAC/consent, but still needs tighter object-level consistency, CI guardrails, and security policy depth before scale-up.
-
-## External Standards Alignment Notes
-- CBD COP Decision 16/31 confirms use of headline and binary indicators for monitoring and reporting; NBMS models now explicitly support both via structured progress + binary group/question response models.
-  - Source: https://www.cbd.int/decisions/cop/16/31
-- CBD ORT NR7 guidance/templates define structured Section II fields and Section III/IV progress semantics; Section I/II/V structured models and ORT v2 mapping in code follow this direction.
-  - Sources:
-    - https://www.cbd.int/doc/decisions/cop-15/cop-15-dec-06-en.pdf
-    - https://www.cbd.int/doc/online-reporting/31/Guidance_English.pdf
-    - https://www.cbd.int/doc/online-reporting/31/Template_Section_III_Progress_in_national_targets_English.pdf
-- GBF indicator methods emphasize disaggregation by geography, taxon, ecosystem, and socioeconomic variables; NBMS indicator series schema retains optional disaggregation payloads and export ordering.
-  - Source: https://www.gbf-indicators.org/resources/indicator-factsheets/
-- DaRT "enter once, reuse many" pattern is partially covered via `ReportingSnapshot`, review packs, and export packages; cross-cycle reusable package manifests remain backlog work.
-  - Source: https://www.unep.org/explore-topics/environmental-rights-and-governance/what-we-do/meeting-international-environmental-agreements
-
-
+## Current Architecture Risks
+- Large `views.py` remains a maintenance hotspot despite policy registry progress.
+- Spatial storage currently uses JSON geometries with bbox indexing; works for v1 but is not final-scale geometry architecture.
+- Some reporting capture remains Django-template based while Angular progressively becomes primary UX.

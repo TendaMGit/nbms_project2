@@ -1,69 +1,67 @@
-﻿# TESTING_AND_CI_PLAN
+# TESTING_AND_CI_PLAN
 
-## Current Test Surface (as-built)
-- Test modules: 80+ under `src/nbms_app/tests/`.
-- Coverage themes present:
-  - authorization/ABAC/object perms
-  - consent and approvals
-  - reporting sections and freeze behavior
-  - readiness diagnostics and exports
-  - snapshot/review workflows
-  - catalog import/export commands
-  - settings/metrics/smoke checks
+## Current Status (2026-02-06)
 
-## Local Test Status (this review pass)
+### Backend
+- Command:
+  - `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
+- Result:
+  - `324 passed` (full suite)
 
-### Targeted hardening suite
-Command:
-```powershell
-$env:PYTHONPATH="$PWD\src"
-pytest -q src/nbms_app/tests/test_metrics.py src/nbms_app/tests/test_reporting_approvals_ui.py src/nbms_app/tests/test_reporting_freeze.py src/nbms_app/tests/test_export_contracts.py src/nbms_app/tests/test_ort_nr7_v2_export.py src/nbms_app/tests/test_prod_settings.py src/nbms_app/tests/test_seed_binary_indicator_questions_command.py src/nbms_app/tests/test_indicator_data.py src/nbms_app/tests/test_sections_structured_models.py
-```
-Result: `39 passed`.
+### Frontend
+- Build:
+  - `cd frontend && npm run build`
+- Unit tests:
+  - `cd frontend && npm run test`
+- Result:
+  - build passes
+  - `2 passed` (current Angular shell tests)
 
-### Windows tmp-path compatibility coverage
-Command:
-```powershell
-$env:PYTHONPATH="$PWD\src"
-pytest -q src/nbms_app/tests/test_demo_seed.py::test_demo_verify_hash_deterministic src/nbms_app/tests/test_indicator_reporting_metadata.py::test_indicator_import_export_roundtrip src/nbms_app/tests/test_reference_catalog_import.py::test_reference_catalog_import_upsert_updates src/nbms_app/tests/test_reference_catalog_import.py::test_reference_catalog_import_invalid_vocab_rejected src/nbms_app/tests/test_reference_catalog_import.py::test_reference_catalog_import_requires_references src/nbms_app/tests/test_reference_catalog_import.py::test_reference_catalog_import_framework_happy_path src/nbms_app/tests/test_reference_catalog_import.py::test_reference_catalog_import_reports_row_errors src/nbms_app/tests/test_reference_catalog_import.py::test_reference_catalog_export_template_includes_example src/nbms_app/tests/test_reporting_readiness_diagnostics.py::test_csv_output_format
-```
-Result: `9 passed`.
+### Docker smoke
+- Command:
+  - `docker compose --profile minimal up -d --build`
+- Verified:
+  - backend health: `http://127.0.0.1:8000/health/`
+  - frontend proxy health: `http://127.0.0.1:8081/health/`
+  - API surface through proxy: `http://127.0.0.1:8081/api/help/sections`
 
-Compatibility change:
-- Added Windows/Python 3.13-safe `tmp_path` fixture override in `src/nbms_app/tests/conftest.py` to avoid pytest ACL failures while preserving test intent.
+## CI Pipeline (implemented)
+File: `.github/workflows/ci.yml`
 
-### Full suite
-Command:
-```powershell
-$env:PYTHONPATH="$PWD\src"
-pytest -q
-```
-Result: `308 passed`.
+- `frontend-build`
+  - install frontend dependencies
+  - Angular build + unit tests
+- `quality-fast`
+  - pip check
+  - syntax compile
+  - `manage.py check`
+  - migrations drift check
+- `tests-linux-full`
+  - PostGIS-backed full backend pytest suite
+- `tests-windows-smoke`
+  - Windows smoke checks for backend/test tooling
+- `security-baseline`
+  - dependency audit
+  - gitleaks secret scan
+  - `manage.py check --deploy`
+- `docker-minimal-smoke`
+  - build/start minimal compose profile
+  - verify backend and frontend availability
+  - teardown stack
 
-## Current CI State
-- Workflows present:
-  - `.github/workflows/migration-verify.yml`
-  - `.github/workflows/ci.yml`
-- `ci.yml` implemented jobs:
-  - `quality-fast` (dependency consistency, syntax compile check, Django check, migrations check)
-  - `tests-linux-full` (PostGIS-backed full `pytest -q`)
-  - `tests-windows-smoke` (Windows smoke checks with settings and script/utility tests)
-  - `security-baseline` (dependency audit, secret scan, deploy checks)
-- Remaining gap:
-  - No dedicated SAST/static-code-security analyzer job yet.
+## Testing Gaps
+- Expand frontend test surface beyond shell-level assertions:
+  - dashboard data rendering
+  - indicator explorer filters
+  - map viewer interaction behavior
+- Add integration tests for indicator CSV import path exposed via API (future increment).
+- Add performance tests for spatial feature query bounding and pagination.
+- Add SAST/static security analyzer stage (Bandit/Semgrep or equivalent) in CI.
 
-## Testing Gaps to Close
-- Replace temporary Windows/Python 3.13 `tmp_path` compatibility shim with an upstream-supported pytest path once available.
-- Route-policy matrix tests for all staff-only mutating/reporting routes.
-- Deeper semantic export contract tests (not only payload shape).
-- Longitudinal migration tests (upgrade from selected previous schema snapshots).
-
-## Acceptance Criteria for "Tighten & Proceed" CI Baseline
-- PRs must pass:
-  - quality-fast
-  - tests-linux-full
-  - migration-verify (existing workflow)
-  - security-baseline
-- Windows smoke job must remain green for critical governance flows.
-- Any temporary test-infra shims must be tracked with retirement criteria.
-
+## Minimal Contributor Test Plan
+1. Backend: `pytest -q`
+2. Frontend: `cd frontend && npm run build && npm run test`
+3. Docker smoke: `docker compose --profile minimal up -d --build`
+4. Health checks:
+   - `http://127.0.0.1:8000/health/`
+   - `http://127.0.0.1:8081/health/`
