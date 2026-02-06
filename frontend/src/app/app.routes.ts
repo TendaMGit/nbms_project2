@@ -4,6 +4,7 @@ import { IndicatorDetailPageComponent } from './pages/indicator-detail-page.comp
 import { IndicatorExplorerPageComponent } from './pages/indicator-explorer-page.component';
 import { MapViewerPageComponent } from './pages/map-viewer-page.component';
 import { ReportingPageComponent } from './pages/reporting-page.component';
+import { SystemHealthPageComponent } from './pages/system-health-page.component';
 import { TemplatePacksPageComponent } from './pages/template-packs-page.component';
 
 export const routes: Routes = [
@@ -37,5 +38,10 @@ export const routes: Routes = [
     path: 'template-packs',
     component: TemplatePacksPageComponent,
     data: { title: 'MEA Template Packs', sectionKey: 'section_ii' }
+  },
+  {
+    path: 'system-health',
+    component: SystemHealthPageComponent,
+    data: { title: 'System Health', sectionKey: 'section_i' }
   }
 ];

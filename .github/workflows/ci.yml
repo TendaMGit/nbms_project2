@@ -134,12 +134,34 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install pip-audit
+          pip install pip-audit bandit
+      - name: SAST (Bandit)
+        run: bandit -q -r src scripts -x src/nbms_app/tests,frontend -lll -ii
       - name: Dependency audit
         continue-on-error: true
         run: pip-audit --progress-spinner off
       - name: Secret scan
         uses: gitleaks/gitleaks-action@v2
+      - name: Container and dependency scan baseline (Trivy FS)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Build backend image for scan
+        run: docker build -f docker/backend/Dockerfile -t nbms-backend-ci .
+      - name: Container image scan baseline (Trivy)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          image-ref: nbms-backend-ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
       - name: Deploy checks
         run: python manage.py check --deploy
 

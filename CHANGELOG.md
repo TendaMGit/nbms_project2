@@ -3,6 +3,15 @@
 ## Unreleased
 
 Highlights:
+- Phase 1 hardening increment:
+  - Added request-ID propagation end-to-end (`X-Request-ID`) with middleware and log correlation.
+  - Added structured JSON logging option (`DJANGO_LOG_JSON=1`) and request-id log filter.
+  - Added production CSP baseline and security header middleware.
+  - Added authenticated/staff-only system health API (`/api/system/health`) and Angular System Health page.
+  - Expanded rate limits for exports, public API reads, and metrics endpoints.
+  - Expanded CI security baseline with Bandit SAST and Trivy filesystem/image scans.
+  - Added backup/restore helper scripts for PostGIS + MinIO with runbook (`docs/ops/BACKUP_RESTORE.md`).
+  - Added audit coverage tests for critical transitions (export submit/approve/release; indicator/dataset publish).
 - Added Angular primary app (`frontend/`) with dashboard, indicator explorer/detail, spatial map viewer, reporting launcher, and template-pack pages.
 - Added SPA/BFF API layer under `/api/*`:
   - auth/help: `/api/auth/me`, `/api/auth/csrf`, `/api/help/sections`

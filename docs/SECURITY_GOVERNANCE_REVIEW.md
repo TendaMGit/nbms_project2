@@ -3,6 +3,30 @@
 ## Executive Summary
 NBMS has a strong governance baseline (RBAC/ABAC filters, object-level permissions via guardian, consent records, audit signals, export approvals). The newest risk surface is the expanded `/api/*` layer for Angular: controls are mostly correct, but endpoint-by-endpoint policy standardization and deeper CI security checks remain ongoing work.
 
+## 2026-02-06 Hardening Increment (Phase 1)
+
+Implemented:
+- Request-ID correlation and propagation:
+  - Middleware: `src/nbms_app/middleware_request_id.py`
+  - Logging filter/formatter: `src/nbms_app/logging_utils.py`
+  - nginx forward header: `docker/frontend/nginx.conf`
+- Security header hardening:
+  - CSP + cookie/session hardening in `src/config/settings/prod.py`
+  - Security header middleware in `src/nbms_app/middleware_security.py`
+- Session fixation mitigation:
+  - one-time post-auth session key cycle in `SessionSecurityMiddleware`
+  - test coverage in `src/nbms_app/tests/test_session_security.py`
+- Rate limit expansion:
+  - exports, public API reads, metrics/system health in `src/config/settings/base.py`
+  - middleware coverage in `src/nbms_app/tests/test_rate_limiting.py`
+- Operational visibility:
+  - staff-only system health API `GET /api/system/health` in `src/nbms_app/api_spa.py`
+  - Angular System Health UI page (`frontend/src/app/pages/system-health-page.component.ts`)
+- CI security baseline expansion:
+  - Bandit SAST + Trivy filesystem/image scans in `.github/workflows/ci.yml`
+- Critical workflow audit coverage tests:
+  - `src/nbms_app/tests/test_audit_transition_coverage.py`
+
 ## RBAC + Object-Level Access Findings
 
 ### What is implemented
@@ -82,10 +106,9 @@ NBMS has a strong governance baseline (RBAC/ABAC filters, object-level permissio
 - CSRF middleware and Django auth defaults enabled in `src/config/settings/base.py`.
 
 ### Gaps
-- No CSP headers configured in settings.
 - No explicit CORS policy module configured.
 - Metrics storage is in-memory only (`src/nbms_app/services/metrics.py`), so counts are process-local.
-- SAST is still missing; baseline secret/dependency checks are now in CI.
+- SAST baseline exists (Bandit), but Semgrep-style rule coverage is still missing.
 - Frontend dependency and bundle integrity policies are not yet pinned by lockfile verification in backend CI jobs.
 
 ## Immediate Fixes Applied in This Tightening Pass

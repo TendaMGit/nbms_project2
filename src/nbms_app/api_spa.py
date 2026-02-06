@@ -1,7 +1,11 @@
 from collections import defaultdict
 from datetime import timedelta
 
+from django.conf import settings
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.files.storage import default_storage
+from django.db import connections
 from django.db.models import Count, Q
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -159,6 +163,44 @@ def _default_pack_response_payload(section):
     return {field.get("key"): "" for field in schema_fields if field.get("key")}
 
 
+def _service_status(service, status, detail=None):
+    payload = {"service": service, "status": status}
+    if detail:
+        payload["detail"] = detail
+    return payload
+
+
+def _database_health():
+    try:
+        with connections["default"].cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return _service_status("database", "ok")
+    except Exception as exc:  # noqa: BLE001
+        return _service_status("database", "error", str(exc))
+
+
+def _storage_health():
+    if not getattr(settings, "USE_S3", False):
+        return _service_status("storage", "disabled", "USE_S3=0")
+    try:
+        default_storage.listdir("")
+        return _service_status("storage", "ok")
+    except Exception as exc:  # noqa: BLE001
+        return _service_status("storage", "error", str(exc))
+
+
+def _cache_health():
+    cache_key = "__nbms_health_probe__"
+    try:
+        cache.set(cache_key, "ok", timeout=10)
+        echoed = cache.get(cache_key)
+        if echoed != "ok":
+            return _service_status("cache", "degraded", "Read/write probe did not round-trip.")
+        return _service_status("cache", "ok")
+    except Exception as exc:  # noqa: BLE001
+        return _service_status("cache", "error", str(exc))
+
+
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def api_auth_me(request):
@@ -194,6 +236,48 @@ def api_help_sections(request):
         {
             "version": "2026-02-06",
             "sections": SECTION_FIELD_HELP,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_system_health(request):
+    if not (is_system_admin(request.user) or getattr(request.user, "is_staff", False)):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+    checks = [
+        _database_health(),
+        _storage_health(),
+        _cache_health(),
+    ]
+    is_healthy = all(item["status"] in {"ok", "disabled"} for item in checks)
+    recent_failures = (
+        AuditEvent.objects.filter(
+            action__in=[
+                "reject",
+                "export_reject",
+                "instance_export_blocked_consent",
+                "instance_export_override",
+            ],
+            created_at__gte=timezone.now() - timedelta(days=7),
+        )
+        .order_by("-created_at", "action", "id")[:25]
+    )
+    return Response(
+        {
+            "overall_status": "ok" if is_healthy else "degraded",
+            "services": checks,
+            "recent_failures": [
+                {
+                    "action": event.action,
+                    "event_type": event.event_type,
+                    "object_type": event.object_type,
+                    "object_uuid": str(event.object_uuid) if event.object_uuid else None,
+                    "created_at": event.created_at.isoformat(),
+                }
+                for event in recent_failures
+            ],
         }
     )
 

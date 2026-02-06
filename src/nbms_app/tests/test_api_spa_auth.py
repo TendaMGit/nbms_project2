@@ -40,6 +40,7 @@ def test_api_auth_csrf_returns_token(client):
     payload = response.json()
     assert "csrfToken" in payload
     assert payload["csrfToken"]
+    assert response.cookies.get("csrftoken")
 
 
 def test_api_help_sections_exposes_help_dictionary(client):

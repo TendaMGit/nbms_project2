@@ -29,6 +29,9 @@ def test_prod_secure_defaults_are_enabled(monkeypatch):
     assert prod.SECURE_HSTS_SECONDS == 31536000
     assert prod.SECURE_CONTENT_TYPE_NOSNIFF is True
     assert prod.X_FRAME_OPTIONS == "DENY"
+    assert "default-src 'self'" in prod.CONTENT_SECURITY_POLICY
+    assert prod.SESSION_COOKIE_NAME == "nbms_sessionid"
+    assert prod.SESSION_COOKIE_AGE == 43200
 
 
 def test_prod_proxy_ssl_header_parsing(monkeypatch):
@@ -39,4 +42,3 @@ def test_prod_proxy_ssl_header_parsing(monkeypatch):
     prod = _reload_prod_settings()
 
     assert prod.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
-

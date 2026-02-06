@@ -1,5 +1,52 @@
 # STATE OF REPO - NBMS Project 2
 
+## One Biodiversity Hardening V1 - Phase 0 Baseline (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Base branch/commit: `feat/ui-spatial-indicators-v1` @ `cc22263`
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `324 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py check` -> no issues
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations --check --dry-run` -> no changes detected
+
+Commands executed (docker):
+- `docker compose --profile minimal up -d --build` -> backend/frontend/core services started
+- `docker compose --profile minimal ps` -> backend/frontend/postgis/redis/minio healthy
+- `Invoke-WebRequest http://127.0.0.1:8000/health/` -> `{"status": "ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/` -> `200`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/` -> `{"status": "ok"}`
+
+Baseline status:
+- Host baseline: PASS
+- Docker baseline: PASS
+- Proceeding to Phase 1 hardening
+
+## One Biodiversity Hardening V1 - Phase 1 Hardening (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Commit base for phase: `cc22263`
+
+Commands executed:
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q src/nbms_app/tests/test_request_id.py src/nbms_app/tests/test_rate_limiting.py src/nbms_app/tests/test_api_system_health.py src/nbms_app/tests/test_session_security.py src/nbms_app/tests/test_prod_settings.py src/nbms_app/tests/test_api_spa_auth.py src/nbms_app/tests/test_audit_transition_coverage.py` -> `16 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `334 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py check` -> no issues
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations --check --dry-run` -> no changes detected
+- `npm --prefix frontend run test` -> `2 passed`
+- `npm --prefix frontend run build` -> pass
+- `docker compose --profile minimal up -d --build` -> pass
+- `Invoke-WebRequest http://127.0.0.1:8000/health/` -> `{"status":"ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/` -> `{"status":"ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/help/sections` -> `200`
+
+Implemented in phase:
+- Request-ID middleware and log correlation.
+- CSP/security header middleware and production defaults.
+- Session fixation mitigation (single rekey after auth).
+- Expanded rate limits (exports/public API/metrics).
+- System health API + Angular page.
+- CI security additions: Bandit + Trivy.
+- Backup/restore helper scripts and runbook.
+
 ## UI/Spatial/Indicator Increment Verification (2026-02-06)
 - Branch: `feat/ui-spatial-indicators-v1`
 - Base commit at start of increment: `db98d16`

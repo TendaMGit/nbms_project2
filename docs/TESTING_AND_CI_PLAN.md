@@ -6,7 +6,7 @@
 - Command:
   - `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
 - Result:
-  - `324 passed` (full suite)
+  - `334 passed` (full suite)
 
 ### Frontend
 - Build:
@@ -41,7 +41,10 @@ File: `.github/workflows/ci.yml`
 - `tests-windows-smoke`
   - Windows smoke checks for backend/test tooling
 - `security-baseline`
+  - Bandit SAST (`bandit -lll -ii`)
   - dependency audit
+  - Trivy filesystem scan
+  - Trivy backend container image scan
   - gitleaks secret scan
   - `manage.py check --deploy`
 - `docker-minimal-smoke`
@@ -56,7 +59,8 @@ File: `.github/workflows/ci.yml`
   - map viewer interaction behavior
 - Add integration tests for indicator CSV import path exposed via API (future increment).
 - Add performance tests for spatial feature query bounding and pagination.
-- Add SAST/static security analyzer stage (Bandit/Semgrep or equivalent) in CI.
+- Add Semgrep ruleset on top of Bandit for deeper framework-level checks.
+- Add e2e smoke in CI for Angular runtime through docker proxy (Playwright).
 
 ## Minimal Contributor Test Plan
 1. Backend: `pytest -q`

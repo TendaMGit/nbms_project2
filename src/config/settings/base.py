@@ -56,11 +56,14 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "nbms_app.middleware_request_id.RequestIDMiddleware",
     "django.middleware.common.CommonMiddleware",
     "nbms_app.middleware.RateLimitMiddleware",
     "nbms_app.middleware_metrics.MetricsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "nbms_app.middleware_security.SessionSecurityMiddleware",
+    "nbms_app.middleware_security.SecurityHeadersMiddleware",
     "nbms_app.middleware_audit.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -242,10 +245,31 @@ else:
 
 
 LOG_LEVEL = os.environ.get("DJANGO_LOG_LEVEL", "INFO")
+LOG_JSON = os.environ.get("DJANGO_LOG_JSON", "0").lower() in ("1", "true", "yes")
+LOGGING_FORMATTER = "json" if LOG_JSON else "plain"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {
+        "request_id": {
+            "()": "nbms_app.logging_utils.RequestIdLogFilter",
+        },
+    },
+    "formatters": {
+        "plain": {
+            "format": "%(asctime)s %(levelname)s %(name)s [request_id=%(request_id)s] %(message)s",
+        },
+        "json": {
+            "()": "nbms_app.logging_utils.JsonLogFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["request_id"],
+            "formatter": LOGGING_FORMATTER,
+        }
+    },
     "root": {"handlers": ["console"], "level": LOG_LEVEL},
     "loggers": {"django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False}},
 }
@@ -312,6 +336,29 @@ RATE_LIMITS = {
         "methods": ["POST"],
         "paths": ["/manage/review-queue/"],
         "actions": ["approve", "reject", "publish", "archive"],
+    },
+    "exports": {
+        "rate": os.environ.get("RATE_LIMIT_EXPORTS", "20/60"),
+        "methods": ["POST", "GET"],
+        "paths": [
+            "/exports/",
+            "/api/template-packs/",
+            "/api/indicators/",
+        ],
+    },
+    "public_api": {
+        "rate": os.environ.get("RATE_LIMIT_PUBLIC_API", "600/60"),
+        "methods": ["GET"],
+        "paths": [
+            "/api/indicators",
+            "/api/spatial/layers",
+            "/api/help/sections",
+        ],
+    },
+    "metrics": {
+        "rate": os.environ.get("RATE_LIMIT_METRICS", "30/60"),
+        "methods": ["GET"],
+        "paths": ["/metrics/", "/api/system/health"],
     },
 }
 

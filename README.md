@@ -303,7 +303,10 @@ Reporting and exports:
 
 Security and monitoring:
 - `RATE_LIMIT_LOGIN`, `RATE_LIMIT_PASSWORD_RESET`, `RATE_LIMIT_WORKFLOW`
+- `RATE_LIMIT_EXPORTS`, `RATE_LIMIT_PUBLIC_API`, `RATE_LIMIT_METRICS`
 - `METRICS_TOKEN` (optional; protects /metrics when set)
+- `DJANGO_LOG_JSON` (set `1` for JSON logs with request correlation)
+- `CONTENT_SECURITY_POLICY`, `CONTENT_SECURITY_POLICY_REPORT_ONLY`
 
 ## Settings
 
@@ -320,6 +323,14 @@ Security and monitoring:
 
 - ORT NR7 v2 (gated): `/exports/instances/<uuid>/ort-nr7-v2.json`
 - Gating: readiness + instance approvals + consent checks (IPLC-sensitive content)
+
+## Operations
+
+- System health API (staff/system-admin): `/api/system/health`
+- Backup/restore helpers:
+  - PowerShell: `scripts/backup_stack.ps1`, `scripts/restore_stack.ps1`
+  - POSIX: `scripts/backup_stack.sh`, `scripts/restore_stack.sh`
+  - Runbook: `docs/ops/BACKUP_RESTORE.md`
 
 ## Reference catalog UI
 

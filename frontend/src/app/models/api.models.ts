@@ -124,3 +124,21 @@ export interface TemplatePack {
   description: string;
   section_count: number;
 }
+
+export interface SystemHealthServiceStatus {
+  service: string;
+  status: string;
+  detail?: string;
+}
+
+export interface SystemHealthSummary {
+  overall_status: 'ok' | 'degraded';
+  services: SystemHealthServiceStatus[];
+  recent_failures: Array<{
+    action: string;
+    event_type: string;
+    object_type: string;
+    object_uuid: string | null;
+    created_at: string;
+  }>;
+}

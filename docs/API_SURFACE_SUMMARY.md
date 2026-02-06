@@ -21,6 +21,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/auth/me` (`IsAuthenticated`)
 - `GET /api/auth/csrf` (`AllowAny`)
 - `GET /api/help/sections` (`AllowAny`)
+- `GET /api/system/health` (`IsAuthenticated`, staff/system-admin only)
 
 ### Dashboard
 - `GET /api/dashboard/summary` (`IsAuthenticated`)
@@ -69,3 +70,6 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
 ## Notes
 - OpenAPI schema class is configured (`drf_spectacular`) but schema-serving routes are not yet exposed in `src/config/urls.py`.
 - `/api/*` provides the Angular primary UI data surface.
+- Request correlation:
+  - All responses include `X-Request-ID` from `src/nbms_app/middleware_request_id.py`.
+  - Frontend nginx forwards `X-Request-ID` to backend (`docker/frontend/nginx.conf`).

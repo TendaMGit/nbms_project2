@@ -44,7 +44,8 @@ export class App {
     { route: '/indicators', label: 'Indicator Explorer', icon: 'insights' },
     { route: '/map', label: 'Spatial Viewer', icon: 'map' },
     { route: '/reporting', label: 'Reporting', icon: 'assignment' },
-    { route: '/template-packs', label: 'MEA Packs', icon: 'account_tree' }
+    { route: '/template-packs', label: 'MEA Packs', icon: 'account_tree' },
+    { route: '/system-health', label: 'System Health', icon: 'monitor_heart' }
   ];
 
   readonly me$ = this.authService.getMe();

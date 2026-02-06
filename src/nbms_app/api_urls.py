@@ -7,6 +7,7 @@ urlpatterns = [
     path("auth/me", api_spa.api_auth_me, name="api_auth_me"),
     path("auth/csrf", api_spa.api_auth_csrf, name="api_auth_csrf"),
     path("help/sections", api_spa.api_help_sections, name="api_help_sections"),
+    path("system/health", api_spa.api_system_health, name="api_system_health"),
     path("dashboard/summary", api_spa.api_dashboard_summary, name="api_dashboard_summary"),
     path("indicators", api_spa.api_indicator_list, name="api_indicator_list"),
     path("indicators/<uuid:indicator_uuid>", api_spa.api_indicator_detail, name="api_indicator_detail"),
