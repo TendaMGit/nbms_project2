@@ -328,6 +328,14 @@ Security and monitoring:
 ## Operations
 
 - System health API (staff/system-admin): `/api/system/health`
+- Programme ops API:
+  - `/api/programmes`
+  - `/api/programmes/<uuid>`
+  - `/api/programmes/<uuid>/runs`
+  - `/api/programmes/runs/<uuid>`
+- Programme ops commands:
+  - `python manage.py seed_programme_ops_v1`
+  - `python manage.py run_monitoring_programmes --limit 10`
 - Backup/restore helpers:
   - PowerShell: `scripts/backup_stack.ps1`, `scripts/restore_stack.ps1`
   - POSIX: `scripts/backup_stack.sh`, `scripts/restore_stack.sh`
@@ -368,4 +376,4 @@ intentionally want multiple active configurations.
 ## Known limitations
 
 - Report pack is HTML only; use print-to-PDF for now.
-- Background jobs (Celery) are not wired yet.
+- Programme scheduler is command-driven; optional always-on worker profile is planned.

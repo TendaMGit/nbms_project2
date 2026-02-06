@@ -3,6 +3,23 @@
 ## Unreleased
 
 Highlights:
+- Phase 3 monitoring programme operations uplift:
+  - Extended `MonitoringProgramme` with operational controls (`refresh_cadence`, scheduler fields, pipeline/rules JSON, lineage notes, operating institutions).
+  - Added programme steward assignments and ABAC-aware steward visibility/edit support.
+  - Added programme run runtime models:
+    - `MonitoringProgrammeRun`
+    - `MonitoringProgrammeRunStep`
+    - `MonitoringProgrammeAlert`
+  - Added programme operations API endpoints:
+    - `GET /api/programmes`
+    - `GET /api/programmes/{uuid}`
+    - `POST /api/programmes/{uuid}/runs`
+    - `GET|POST /api/programmes/runs/{uuid}`
+  - Added programme operations Angular workspace in `frontend/src/app/pages/programme-ops-page.component.ts`.
+  - Added management commands:
+    - `seed_programme_ops_v1`
+    - `run_monitoring_programmes`
+  - Added programme ops tests (`test_api_programme_ops.py`, `test_programme_ops_commands.py`) and frontend component test.
 - Phase 2 NR7 authoring uplift:
   - Added Angular NR7 Report Builder workspace in `frontend/src/app/pages/reporting-page.component.ts` with:
     - section completion nav,

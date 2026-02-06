@@ -6,7 +6,10 @@
 - Command:
   - `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
 - Result:
-  - `337 passed` (full suite)
+  - `344 passed` (full suite)
+  - includes new programme-ops API + command tests:
+    - `src/nbms_app/tests/test_api_programme_ops.py`
+    - `src/nbms_app/tests/test_programme_ops_commands.py`
 
 ### Frontend
 - Build:
@@ -15,7 +18,7 @@
   - `cd frontend && npm run test`
 - Result:
   - build passes
-  - `4 passed` (Angular app + NR7/system-health component tests)
+  - `5 passed` (Angular app + NR7/system-health/programme-ops component tests)
 
 ### Docker smoke
 - Command:
@@ -23,7 +26,8 @@
 - Verified:
   - backend health: `http://127.0.0.1:8000/health/`
   - frontend proxy health: `http://127.0.0.1:8081/health/`
-  - API surface through proxy: `http://127.0.0.1:8081/api/help/sections`
+- API surface through proxy: `http://127.0.0.1:8081/api/help/sections`
+  - Angular route availability check: `http://127.0.0.1:8081/programmes`
 
 ## CI Pipeline (implemented)
 File: `.github/workflows/ci.yml`

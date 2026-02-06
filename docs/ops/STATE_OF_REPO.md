@@ -1,5 +1,34 @@
 # STATE OF REPO - NBMS Project 2
 
+## One Biodiversity Hardening V1 - Phase 3 Programme Ops (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Base commit for phase: `14bbbff`
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations nbms_app` -> created `0032_monitoringprogramme_data_quality_rules_json_and_more`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q src/nbms_app/tests/test_api_programme_ops.py src/nbms_app/tests/test_programme_ops_commands.py` -> `7 passed`
+- `npm --prefix frontend run test` -> `4 files, 5 tests passed`
+- `npm --prefix frontend run build` -> pass
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `344 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py migrate` -> applied `0031` and `0032` on host DB
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py seed_programme_ops_v1` -> seeded NBMS core + BIRDIE integration programmes
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py run_monitoring_programmes --limit 5` -> command executed (0 due runs)
+
+Commands executed (docker):
+- `docker compose --profile minimal up -d --build` -> backend/frontend/core services healthy
+- `curl.exe http://127.0.0.1:8000/health/` -> `{"status":"ok"}`
+- `curl.exe http://127.0.0.1:8081/health/` -> `{"status":"ok"}`
+- `curl.exe -I http://127.0.0.1:8081/programmes` -> `HTTP/1.1 200 OK`
+
+Implemented in phase:
+- Added monitoring programme operations runtime models and migration (`MonitoringProgrammeSteward`, `MonitoringProgrammeRun`, `MonitoringProgrammeRunStep`, `MonitoringProgrammeAlert`).
+- Added programme ops service runner + queue (`src/nbms_app/services/programme_ops.py`).
+- Added programme ops API endpoints and ABAC steward-aware filtering.
+- Added Angular Programme Ops page with run-now/dry-run controls and run/alert panels.
+- Added seed + scheduler commands (`seed_programme_ops_v1`, `run_monitoring_programmes`).
+- Added ADR `docs/adr/0007-programme-job-runner-lineage-model.md`.
+
 ## One Biodiversity Hardening V1 - Phase 0 Baseline (2026-02-06)
 - Branch: `feat/one-biodiversity-hardening-v1`
 - Base branch/commit: `feat/ui-spatial-indicators-v1` @ `cc22263`

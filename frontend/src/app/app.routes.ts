@@ -3,6 +3,7 @@ import { DashboardPageComponent } from './pages/dashboard-page.component';
 import { IndicatorDetailPageComponent } from './pages/indicator-detail-page.component';
 import { IndicatorExplorerPageComponent } from './pages/indicator-explorer-page.component';
 import { MapViewerPageComponent } from './pages/map-viewer-page.component';
+import { ProgrammeOpsPageComponent } from './pages/programme-ops-page.component';
 import { ReportingPageComponent } from './pages/reporting-page.component';
 import { SystemHealthPageComponent } from './pages/system-health-page.component';
 import { TemplatePacksPageComponent } from './pages/template-packs-page.component';
@@ -28,6 +29,11 @@ export const routes: Routes = [
     path: 'map',
     component: MapViewerPageComponent,
     data: { title: 'Spatial Viewer', sectionKey: 'section_iv' }
+  },
+  {
+    path: 'programmes',
+    component: ProgrammeOpsPageComponent,
+    data: { title: 'Programme Operations', sectionKey: 'section_iii' }
   },
   {
     path: 'nr7-builder',

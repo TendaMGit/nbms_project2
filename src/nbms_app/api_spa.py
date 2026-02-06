@@ -29,6 +29,13 @@ from nbms_app.models import (
     IndicatorMethodologyVersionLink,
     InstanceExportApproval,
     LifecycleStatus,
+    MonitoringProgramme,
+    MonitoringProgrammeAlert,
+    MonitoringProgrammeRun,
+    MonitoringProgrammeRunStep,
+    ProgrammeAlertState,
+    ProgrammeRunStatus,
+    ProgrammeRunType,
     ReportTemplatePack,
     ReportTemplatePackResponse,
     ReportTemplatePackSection,
@@ -48,12 +55,14 @@ from nbms_app.services.authorization import (
     is_system_admin,
     user_has_role,
 )
+from nbms_app.services.catalog_access import filter_monitoring_programmes_for_user
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
 from nbms_app.services.nr7_builder import (
     build_nr7_preview_payload,
     build_nr7_validation_summary,
     render_nr7_pdf_bytes,
 )
+from nbms_app.services.programme_ops import execute_programme_run, queue_programme_run, user_can_manage_programme
 from nbms_app.services.readiness import get_instance_readiness
 from nbms_app.services.section_progress import scoped_national_targets
 from nbms_app.services.spatial_access import (
@@ -164,6 +173,68 @@ def _require_instance_scope(user, instance):
     if not approvals_exist:
         return True
     return scoped_national_targets(instance, user).exists()
+
+
+def _programme_queryset_for_user(user):
+    return filter_monitoring_programmes_for_user(
+        MonitoringProgramme.objects.select_related("lead_org", "sensitivity_class", "agreement").prefetch_related(
+            "partners",
+            "operating_institutions",
+            "steward_assignments__user",
+        ),
+        user,
+    ).order_by("programme_code", "uuid")
+
+
+def _programme_run_payload(run):
+    return {
+        "uuid": str(run.uuid),
+        "run_type": run.run_type,
+        "trigger": run.trigger,
+        "status": run.status,
+        "dry_run": run.dry_run,
+        "requested_by": run.requested_by.username if run.requested_by_id else None,
+        "started_at": run.started_at.isoformat() if run.started_at else None,
+        "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+        "input_summary_json": run.input_summary_json,
+        "output_summary_json": run.output_summary_json,
+        "lineage_json": run.lineage_json,
+        "log_excerpt": run.log_excerpt,
+        "error_message": run.error_message,
+        "created_at": run.created_at.isoformat(),
+        "steps": [
+            {
+                "ordering": step.ordering,
+                "step_key": step.step_key,
+                "step_type": step.step_type,
+                "status": step.status,
+                "started_at": step.started_at.isoformat() if step.started_at else None,
+                "finished_at": step.finished_at.isoformat() if step.finished_at else None,
+                "details_json": step.details_json,
+            }
+            for step in run.steps.all().order_by("ordering", "id")
+        ],
+    }
+
+
+def _programme_summary_payload(programme):
+    latest_run = programme.runs.order_by("-created_at", "-id").first()
+    open_alerts = programme.alerts.filter(state=ProgrammeAlertState.OPEN).count()
+    return {
+        "uuid": str(programme.uuid),
+        "programme_code": programme.programme_code,
+        "title": programme.title,
+        "programme_type": programme.programme_type,
+        "refresh_cadence": programme.refresh_cadence,
+        "scheduler_enabled": programme.scheduler_enabled,
+        "next_run_at": programme.next_run_at.isoformat() if programme.next_run_at else None,
+        "last_run_at": programme.last_run_at.isoformat() if programme.last_run_at else None,
+        "lead_org": programme.lead_org.name if programme.lead_org_id else None,
+        "open_alert_count": open_alerts,
+        "latest_run_status": latest_run.status if latest_run else None,
+        "dataset_link_count": programme.dataset_links.filter(is_active=True).count(),
+        "indicator_link_count": programme.indicator_links.filter(is_active=True).count(),
+    }
 
 
 def _default_pack_response_payload(section):
@@ -393,6 +464,142 @@ def api_dashboard_summary(request):
             "trend_signals": trend_signals,
         }
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_programme_list(request):
+    queryset = _programme_queryset_for_user(request.user)
+    status_filter = (request.GET.get("status") or "").strip().lower()
+    if status_filter:
+        queryset = queryset.filter(runs__status=status_filter)
+    search = (request.GET.get("search") or "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(programme_code__icontains=search)
+            | Q(title__icontains=search)
+            | Q(description__icontains=search)
+        )
+    rows = [_programme_summary_payload(programme) for programme in queryset]
+    return Response({"programmes": rows})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_programme_detail(request, programme_uuid):
+    programme = get_object_or_404(_programme_queryset_for_user(request.user), uuid=programme_uuid)
+    runs = (
+        programme.runs.select_related("requested_by")
+        .prefetch_related("steps")
+        .order_by("-created_at", "-id")[:20]
+    )
+    alerts = (
+        programme.alerts.select_related("run", "created_by", "resolved_by")
+        .order_by("state", "-created_at", "code")[:50]
+    )
+    stewards = (
+        programme.steward_assignments.filter(is_active=True)
+        .select_related("user")
+        .order_by("-is_primary", "role", "user__username")
+    )
+    return Response(
+        {
+            "programme": {
+                **_programme_summary_payload(programme),
+                "description": programme.description,
+                "geographic_scope": programme.geographic_scope,
+                "taxonomic_scope": programme.taxonomic_scope,
+                "ecosystem_scope": programme.ecosystem_scope,
+                "consent_required": programme.consent_required,
+                "sensitivity_class": (
+                    programme.sensitivity_class.sensitivity_code if programme.sensitivity_class_id else None
+                ),
+                "agreement_code": programme.agreement.agreement_code if programme.agreement_id else None,
+                "pipeline_definition_json": programme.pipeline_definition_json,
+                "data_quality_rules_json": programme.data_quality_rules_json,
+                "lineage_notes": programme.lineage_notes,
+                "website_url": programme.website_url,
+                "operating_institutions": [
+                    {"id": org.id, "name": org.name, "org_code": org.org_code}
+                    for org in programme.operating_institutions.all().order_by("name", "id")
+                ],
+                "partners": [
+                    {"id": org.id, "name": org.name, "org_code": org.org_code}
+                    for org in programme.partners.all().order_by("name", "id")
+                ],
+                "stewards": [
+                    {
+                        "user_id": assignment.user_id,
+                        "username": assignment.user.username,
+                        "role": assignment.role,
+                        "is_primary": assignment.is_primary,
+                    }
+                    for assignment in stewards
+                ],
+            },
+            "runs": [_programme_run_payload(run) for run in runs],
+            "alerts": [
+                {
+                    "uuid": str(alert.uuid),
+                    "severity": alert.severity,
+                    "state": alert.state,
+                    "code": alert.code,
+                    "message": alert.message,
+                    "details_json": alert.details_json,
+                    "run_uuid": str(alert.run.uuid) if alert.run_id else None,
+                    "created_by": alert.created_by.username if alert.created_by_id else None,
+                    "created_at": alert.created_at.isoformat(),
+                    "resolved_at": alert.resolved_at.isoformat() if alert.resolved_at else None,
+                    "resolved_by": alert.resolved_by.username if alert.resolved_by_id else None,
+                }
+                for alert in alerts
+            ],
+            "can_manage": user_can_manage_programme(request.user, programme),
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_programme_run_create(request, programme_uuid):
+    programme = get_object_or_404(_programme_queryset_for_user(request.user), uuid=programme_uuid)
+    if not user_can_manage_programme(request.user, programme):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+
+    run_type = (request.data.get("run_type") or ProgrammeRunType.FULL).strip().lower()
+    if run_type not in ProgrammeRunType.values:
+        return Response({"detail": "Invalid run_type."}, status=status.HTTP_400_BAD_REQUEST)
+    dry_run = bool(request.data.get("dry_run", False))
+    execute_now = bool(request.data.get("execute_now", True))
+    run = queue_programme_run(
+        programme=programme,
+        requested_by=request.user,
+        run_type=run_type,
+        dry_run=dry_run,
+        execute_now=execute_now,
+        request_id=request.headers.get("X-Request-ID", ""),
+    )
+    run = MonitoringProgrammeRun.objects.select_related("requested_by").prefetch_related("steps").get(pk=run.pk)
+    return Response(_programme_run_payload(run), status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def api_programme_run_detail(request, run_uuid):
+    run = get_object_or_404(
+        MonitoringProgrammeRun.objects.select_related("programme", "requested_by").prefetch_related("steps"),
+        uuid=run_uuid,
+        programme__in=_programme_queryset_for_user(request.user),
+    )
+    programme = run.programme
+    if request.method == "POST":
+        if not user_can_manage_programme(request.user, programme):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        if run.status == ProgrammeRunStatus.RUNNING:
+            return Response({"detail": "Run is already executing."}, status=status.HTTP_409_CONFLICT)
+        run = execute_programme_run(run=run, actor=request.user)
+        run.refresh_from_db()
+    return Response(_programme_run_payload(run))
 
 
 @api_view(["GET"])

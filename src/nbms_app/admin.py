@@ -37,7 +37,11 @@ from nbms_app.models import (
     MethodologyDatasetLink,
     MethodologyIndicatorLink,
     MethodologyVersion,
+    MonitoringProgrammeAlert,
     MonitoringProgramme,
+    MonitoringProgrammeRun,
+    MonitoringProgrammeRunStep,
+    MonitoringProgrammeSteward,
     ProgrammeDatasetLink,
     ProgrammeIndicatorLink,
     DataAgreement,
@@ -356,6 +360,11 @@ class ProgrammeIndicatorLinkInline(admin.TabularInline):
     extra = 0
 
 
+class MonitoringProgrammeStewardInline(admin.TabularInline):
+    model = MonitoringProgrammeSteward
+    extra = 0
+
+
 class MethodologyDatasetLinkInline(admin.TabularInline):
     model = MethodologyDatasetLink
     extra = 0
@@ -414,11 +423,20 @@ class DatasetCatalogAdmin(admin.ModelAdmin):
 
 @admin.register(MonitoringProgramme)
 class MonitoringProgrammeAdmin(admin.ModelAdmin):
-    list_display = ("programme_code", "title", "programme_type", "lead_org", "is_active")
+    list_display = (
+        "programme_code",
+        "title",
+        "programme_type",
+        "lead_org",
+        "refresh_cadence",
+        "scheduler_enabled",
+        "last_run_at",
+        "is_active",
+    )
     search_fields = ("programme_code", "title")
-    list_filter = ("programme_type", "is_active")
-    inlines = [ProgrammeDatasetLinkInline, ProgrammeIndicatorLinkInline]
-    filter_horizontal = ("partners",)
+    list_filter = ("programme_type", "refresh_cadence", "scheduler_enabled", "is_active")
+    inlines = [MonitoringProgrammeStewardInline, ProgrammeDatasetLinkInline, ProgrammeIndicatorLinkInline]
+    filter_horizontal = ("partners", "operating_institutions")
 
 
 @admin.register(Methodology)
@@ -441,6 +459,44 @@ class ProgrammeIndicatorLinkAdmin(admin.ModelAdmin):
     list_display = ("programme", "indicator", "relationship_type", "role", "is_active")
     search_fields = ("programme__programme_code", "indicator__code")
     list_filter = ("relationship_type", "is_active")
+
+
+@admin.register(MonitoringProgrammeSteward)
+class MonitoringProgrammeStewardAdmin(admin.ModelAdmin):
+    list_display = ("programme", "user", "role", "is_primary", "is_active", "created_at")
+    search_fields = ("programme__programme_code", "user__username", "user__email")
+    list_filter = ("role", "is_primary", "is_active")
+
+
+@admin.register(MonitoringProgrammeRun)
+class MonitoringProgrammeRunAdmin(admin.ModelAdmin):
+    list_display = (
+        "programme",
+        "run_type",
+        "trigger",
+        "status",
+        "dry_run",
+        "requested_by",
+        "started_at",
+        "finished_at",
+        "created_at",
+    )
+    search_fields = ("programme__programme_code", "requested_by__username", "uuid")
+    list_filter = ("run_type", "trigger", "status", "dry_run")
+
+
+@admin.register(MonitoringProgrammeRunStep)
+class MonitoringProgrammeRunStepAdmin(admin.ModelAdmin):
+    list_display = ("run", "ordering", "step_key", "step_type", "status", "started_at", "finished_at")
+    search_fields = ("run__programme__programme_code", "run__uuid", "step_key")
+    list_filter = ("step_type", "status")
+
+
+@admin.register(MonitoringProgrammeAlert)
+class MonitoringProgrammeAlertAdmin(admin.ModelAdmin):
+    list_display = ("programme", "severity", "state", "code", "created_at", "resolved_at")
+    search_fields = ("programme__programme_code", "code", "message")
+    list_filter = ("severity", "state")
 
 
 @admin.register(MethodologyDatasetLink)

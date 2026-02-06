@@ -30,6 +30,22 @@ Implemented:
   - instance-scoped, authenticated reporting APIs (`/api/reporting/instances*`) in `src/nbms_app/api_spa.py`
   - QA checks composed from readiness + explicit required-field validation (`src/nbms_app/services/nr7_builder.py`)
 
+## 2026-02-06 Programme Ops Governance Increment (Phase 3)
+
+Implemented:
+- Programme ops ABAC/no-leak endpoints:
+  - `/api/programmes`, `/api/programmes/{uuid}`, `/api/programmes/{uuid}/runs`, `/api/programmes/runs/{uuid}`
+  - object lookups resolve through filtered programme querysets (`src/nbms_app/api_spa.py`).
+- Steward-aware authorization:
+  - `filter_monitoring_programmes_for_user` and `can_edit_monitoring_programme` now include active steward assignments (`src/nbms_app/services/catalog_access.py`).
+- Operational auditability:
+  - run queue/start/complete/fail events are written through `record_audit_event` in `src/nbms_app/services/programme_ops.py`.
+- Lineage and QA traceability:
+  - `MonitoringProgrammeRun`, `MonitoringProgrammeRunStep`, and `MonitoringProgrammeAlert` store run-level provenance and alerts.
+- Regression tests:
+  - `src/nbms_app/tests/test_api_programme_ops.py`
+  - `src/nbms_app/tests/test_programme_ops_commands.py`
+
 ## RBAC + Object-Level Access Findings
 
 ### What is implemented

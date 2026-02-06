@@ -9,6 +9,22 @@ urlpatterns = [
     path("help/sections", api_spa.api_help_sections, name="api_help_sections"),
     path("system/health", api_spa.api_system_health, name="api_system_health"),
     path("dashboard/summary", api_spa.api_dashboard_summary, name="api_dashboard_summary"),
+    path("programmes", api_spa.api_programme_list, name="api_programme_list"),
+    path(
+        "programmes/<uuid:programme_uuid>",
+        api_spa.api_programme_detail,
+        name="api_programme_detail",
+    ),
+    path(
+        "programmes/<uuid:programme_uuid>/runs",
+        api_spa.api_programme_run_create,
+        name="api_programme_run_create",
+    ),
+    path(
+        "programmes/runs/<uuid:run_uuid>",
+        api_spa.api_programme_run_detail,
+        name="api_programme_run_detail",
+    ),
     path("reporting/instances", api_spa.api_reporting_instances, name="api_reporting_instances"),
     path(
         "reporting/instances/<uuid:instance_uuid>/nr7/summary",

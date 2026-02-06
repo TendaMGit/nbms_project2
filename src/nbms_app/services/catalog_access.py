@@ -74,10 +74,11 @@ def filter_monitoring_programmes_for_user(queryset, user):
         return queryset.filter(
             sensitivity_class__access_level_default=AccessLevel.PUBLIC,
             is_active=True,
-        )
+        ).distinct()
     public_q = Q(sensitivity_class__access_level_default=AccessLevel.PUBLIC)
     org_q = Q(lead_org_id=org_id) | Q(partners__id=org_id)
-    return queryset.filter(is_active=True).filter(public_q | org_q).distinct()
+    steward_q = Q(steward_assignments__user=user, steward_assignments__is_active=True)
+    return queryset.filter(is_active=True).filter(public_q | org_q | steward_q).distinct()
 
 
 def filter_methodologies_for_user(queryset, user):
@@ -106,10 +107,10 @@ def can_edit_monitoring_programme(user, programme):
     if not user or isinstance(user, AnonymousUser):
         return False
     org_id = getattr(user, "organisation_id", None)
-    if not org_id:
-        return False
     partner_ids = set(programme.partners.values_list("id", flat=True))
-    return org_id == programme.lead_org_id or org_id in partner_ids
+    if org_id and (org_id == programme.lead_org_id or org_id in partner_ids):
+        return True
+    return programme.steward_assignments.filter(user=user, is_active=True).exists()
 
 
 def can_edit_methodology(user, methodology):

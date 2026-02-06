@@ -154,6 +154,86 @@ export interface ReportingInstanceSummary {
   readiness_score: number | null;
 }
 
+export interface ProgrammeSummary {
+  uuid: string;
+  programme_code: string;
+  title: string;
+  programme_type: string;
+  refresh_cadence: string;
+  scheduler_enabled: boolean;
+  next_run_at: string | null;
+  last_run_at: string | null;
+  lead_org: string | null;
+  open_alert_count: number;
+  latest_run_status: string | null;
+  dataset_link_count: number;
+  indicator_link_count: number;
+}
+
+export interface ProgrammeRunStep {
+  ordering: number;
+  step_key: string;
+  step_type: string;
+  status: string;
+  started_at: string | null;
+  finished_at: string | null;
+  details_json: Record<string, unknown>;
+}
+
+export interface ProgrammeRun {
+  uuid: string;
+  run_type: string;
+  trigger: string;
+  status: string;
+  dry_run: boolean;
+  requested_by: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  input_summary_json: Record<string, unknown>;
+  output_summary_json: Record<string, unknown>;
+  lineage_json: Record<string, unknown>;
+  log_excerpt: string;
+  error_message: string;
+  created_at: string;
+  steps: ProgrammeRunStep[];
+}
+
+export interface ProgrammeAlert {
+  uuid: string;
+  severity: string;
+  state: string;
+  code: string;
+  message: string;
+  details_json: Record<string, unknown>;
+  run_uuid: string | null;
+  created_by: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolved_by: string | null;
+}
+
+export interface ProgrammeDetailResponse {
+  programme: ProgrammeSummary & {
+    description: string;
+    geographic_scope: string;
+    taxonomic_scope: string;
+    ecosystem_scope: string;
+    consent_required: boolean;
+    sensitivity_class: string | null;
+    agreement_code: string | null;
+    pipeline_definition_json: Record<string, unknown>;
+    data_quality_rules_json: Record<string, unknown>;
+    lineage_notes: string;
+    website_url: string;
+    operating_institutions: Array<{ id: number; name: string; org_code: string }>;
+    partners: Array<{ id: number; name: string; org_code: string }>;
+    stewards: Array<{ user_id: number; username: string; role: string; is_primary: boolean }>;
+  };
+  runs: ProgrammeRun[];
+  alerts: ProgrammeAlert[];
+  can_manage: boolean;
+}
+
 export interface Nr7BuilderSummary {
   instance: {
     uuid: string;

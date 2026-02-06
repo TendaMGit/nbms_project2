@@ -26,6 +26,13 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 ### Dashboard
 - `GET /api/dashboard/summary` (`IsAuthenticated`)
 
+### Monitoring Programme Operations
+- `GET /api/programmes` (`IsAuthenticated`, ABAC-filtered via monitoring programme access policy)
+- `GET /api/programmes/{uuid}` (`IsAuthenticated`, ABAC object scope with no-leak 404 behavior)
+- `POST /api/programmes/{uuid}/runs` (`IsAuthenticated`, steward/lead/partner/system-admin manage permission required)
+- `GET /api/programmes/runs/{uuid}` (`IsAuthenticated`, ABAC-filtered by parent programme)
+- `POST /api/programmes/runs/{uuid}` (`IsAuthenticated`, rerun action; steward/lead/partner/system-admin manage permission required)
+
 ### Reporting (NR7 builder)
 - `GET /api/reporting/instances` (`IsAuthenticated`, staff/system-admin + instance scope)
 - `GET /api/reporting/instances/{uuid}/nr7/summary` (`IsAuthenticated`, instance scope)
@@ -78,3 +85,6 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
 - Request correlation:
   - All responses include `X-Request-ID` from `src/nbms_app/middleware_request_id.py`.
   - Frontend nginx forwards `X-Request-ID` to backend (`docker/frontend/nginx.conf`).
+- Programme operations runtime:
+  - Command-based scheduler runner: `python manage.py run_monitoring_programmes`
+  - Seeded programme ops baseline: `python manage.py seed_programme_ops_v1`

@@ -221,6 +221,66 @@ class RelationshipType(models.TextChoices):
     DERIVED = "derived", "Derived"
 
 
+class ProgrammeRefreshCadence(models.TextChoices):
+    MANUAL = "manual", "Manual"
+    DAILY = "daily", "Daily"
+    WEEKLY = "weekly", "Weekly"
+    MONTHLY = "monthly", "Monthly"
+    QUARTERLY = "quarterly", "Quarterly"
+    ANNUAL = "annual", "Annual"
+    AD_HOC = "ad_hoc", "Ad hoc"
+
+
+class ProgrammeStewardRole(models.TextChoices):
+    OWNER = "owner", "Owner"
+    STEWARD = "steward", "Steward"
+    OPERATOR = "operator", "Operator"
+    REVIEWER = "reviewer", "Reviewer"
+
+
+class ProgrammeRunType(models.TextChoices):
+    FULL = "full", "Full"
+    INGEST = "ingest", "Ingest"
+    VALIDATE = "validate", "Validate"
+    COMPUTE = "compute", "Compute"
+    PUBLISH = "publish", "Publish"
+
+
+class ProgrammeRunTrigger(models.TextChoices):
+    MANUAL = "manual", "Manual"
+    SCHEDULED = "scheduled", "Scheduled"
+    INTEGRATION = "integration", "Integration"
+
+
+class ProgrammeRunStatus(models.TextChoices):
+    QUEUED = "queued", "Queued"
+    RUNNING = "running", "Running"
+    SUCCEEDED = "succeeded", "Succeeded"
+    FAILED = "failed", "Failed"
+    BLOCKED = "blocked", "Blocked"
+    CANCELLED = "cancelled", "Cancelled"
+
+
+class ProgrammeStepType(models.TextChoices):
+    INGEST = "ingest", "Ingest"
+    VALIDATE = "validate", "Validate"
+    COMPUTE = "compute", "Compute"
+    PUBLISH = "publish", "Publish"
+
+
+class ProgrammeAlertSeverity(models.TextChoices):
+    INFO = "info", "Info"
+    WARNING = "warning", "Warning"
+    ERROR = "error", "Error"
+    CRITICAL = "critical", "Critical"
+
+
+class ProgrammeAlertState(models.TextChoices):
+    OPEN = "open", "Open"
+    ACKNOWLEDGED = "acknowledged", "Acknowledged"
+    RESOLVED = "resolved", "Resolved"
+
+
 class ReportingCycle(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -488,6 +548,17 @@ class MonitoringProgramme(TimeStampedModel):
         null=True,
     )
     partners = models.ManyToManyField(Organisation, related_name="partner_monitoring_programmes", blank=True)
+    operating_institutions = models.ManyToManyField(
+        Organisation,
+        related_name="operating_monitoring_programmes",
+        blank=True,
+    )
+    stewards = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="MonitoringProgrammeSteward",
+        related_name="stewarded_monitoring_programmes",
+        blank=True,
+    )
     start_year = models.PositiveIntegerField(blank=True, null=True)
     end_year = models.PositiveIntegerField(blank=True, null=True)
     geographic_scope = models.CharField(max_length=255, blank=True)
@@ -497,6 +568,17 @@ class MonitoringProgramme(TimeStampedModel):
     objectives = models.TextField(blank=True)
     sampling_design_summary = models.TextField(blank=True)
     update_frequency = models.CharField(max_length=20, choices=UpdateFrequency.choices, blank=True)
+    refresh_cadence = models.CharField(
+        max_length=20,
+        choices=ProgrammeRefreshCadence.choices,
+        default=ProgrammeRefreshCadence.MANUAL,
+    )
+    scheduler_enabled = models.BooleanField(default=False)
+    next_run_at = models.DateTimeField(blank=True, null=True)
+    last_run_at = models.DateTimeField(blank=True, null=True)
+    pipeline_definition_json = models.JSONField(default=dict, blank=True)
+    data_quality_rules_json = models.JSONField(default=dict, blank=True)
+    lineage_notes = models.TextField(blank=True)
     qa_process_summary = models.TextField(blank=True)
     sensitivity_class = models.ForeignKey(
         SensitivityClass,
@@ -525,6 +607,156 @@ class MonitoringProgramme(TimeStampedModel):
 
     def __str__(self):
         return f"{self.programme_code} - {self.title}"
+
+
+class MonitoringProgrammeSteward(TimeStampedModel):
+    programme = models.ForeignKey(
+        MonitoringProgramme,
+        on_delete=models.CASCADE,
+        related_name="steward_assignments",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="monitoring_programme_assignments",
+    )
+    role = models.CharField(max_length=20, choices=ProgrammeStewardRole.choices, default=ProgrammeStewardRole.STEWARD)
+    is_primary = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["programme", "user", "role"], name="uq_programme_steward_assignment"),
+        ]
+        indexes = [
+            models.Index(fields=["programme", "is_active"]),
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["role"]),
+        ]
+
+    def __str__(self):
+        return f"{self.programme.programme_code}:{self.user_id}:{self.role}"
+
+
+class MonitoringProgrammeRun(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    programme = models.ForeignKey(
+        MonitoringProgramme,
+        on_delete=models.CASCADE,
+        related_name="runs",
+    )
+    run_type = models.CharField(max_length=20, choices=ProgrammeRunType.choices, default=ProgrammeRunType.FULL)
+    trigger = models.CharField(max_length=20, choices=ProgrammeRunTrigger.choices, default=ProgrammeRunTrigger.MANUAL)
+    status = models.CharField(max_length=20, choices=ProgrammeRunStatus.choices, default=ProgrammeRunStatus.QUEUED)
+    dry_run = models.BooleanField(default=False)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="requested_programme_runs",
+        blank=True,
+        null=True,
+    )
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    input_summary_json = models.JSONField(default=dict, blank=True)
+    output_summary_json = models.JSONField(default=dict, blank=True)
+    artifacts_json = models.JSONField(default=list, blank=True)
+    lineage_json = models.JSONField(default=dict, blank=True)
+    log_excerpt = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    request_id = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["programme", "created_at"]),
+            models.Index(fields=["programme", "status"]),
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["run_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.programme.programme_code}:{self.uuid}:{self.status}"
+
+
+class MonitoringProgrammeRunStep(TimeStampedModel):
+    run = models.ForeignKey(
+        MonitoringProgrammeRun,
+        on_delete=models.CASCADE,
+        related_name="steps",
+    )
+    ordering = models.PositiveIntegerField(default=0)
+    step_key = models.CharField(max_length=50)
+    step_type = models.CharField(max_length=20, choices=ProgrammeStepType.choices)
+    status = models.CharField(max_length=20, choices=ProgrammeRunStatus.choices, default=ProgrammeRunStatus.QUEUED)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    details_json = models.JSONField(default=dict, blank=True)
+    log_excerpt = models.TextField(blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["run", "ordering"], name="uq_programme_run_step_ordering"),
+            models.UniqueConstraint(fields=["run", "step_key"], name="uq_programme_run_step_key"),
+        ]
+        indexes = [
+            models.Index(fields=["run", "ordering"]),
+            models.Index(fields=["status"]),
+        ]
+        ordering = ["ordering", "id"]
+
+    def __str__(self):
+        return f"{self.run_id}:{self.step_key}:{self.status}"
+
+
+class MonitoringProgrammeAlert(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    programme = models.ForeignKey(
+        MonitoringProgramme,
+        on_delete=models.CASCADE,
+        related_name="alerts",
+    )
+    run = models.ForeignKey(
+        MonitoringProgrammeRun,
+        on_delete=models.SET_NULL,
+        related_name="alerts",
+        blank=True,
+        null=True,
+    )
+    severity = models.CharField(
+        max_length=20,
+        choices=ProgrammeAlertSeverity.choices,
+        default=ProgrammeAlertSeverity.WARNING,
+    )
+    state = models.CharField(max_length=20, choices=ProgrammeAlertState.choices, default=ProgrammeAlertState.OPEN)
+    code = models.CharField(max_length=100)
+    message = models.TextField()
+    details_json = models.JSONField(default=dict, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_programme_alerts",
+        blank=True,
+        null=True,
+    )
+    resolved_at = models.DateTimeField(blank=True, null=True)
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="resolved_programme_alerts",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["programme", "state"]),
+            models.Index(fields=["programme", "severity"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.programme.programme_code}:{self.code}:{self.state}"
 
 
 class Methodology(TimeStampedModel):
