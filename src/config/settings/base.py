@@ -365,6 +365,11 @@ RATE_LIMITS = {
 METRICS_TOKEN = os.environ.get("METRICS_TOKEN", "")
 METRICS_ALLOW_QUERY_TOKEN = os.environ.get("METRICS_ALLOW_QUERY_TOKEN", "0").lower() in ("1", "true", "yes")
 
+BIRDIE_BASE_URL = os.environ.get("BIRDIE_BASE_URL", "")
+BIRDIE_API_TOKEN = os.environ.get("BIRDIE_API_TOKEN", "")
+BIRDIE_TIMEOUT_SECONDS = int(os.environ.get("BIRDIE_TIMEOUT_SECONDS", "20"))
+BIRDIE_USE_FIXTURE = os.environ.get("BIRDIE_USE_FIXTURE", "1").lower() in ("1", "true", "yes")
+
 LOGIN_URL = "two_factor:login"
 LOGIN_REDIRECT_URL = "/"
 LOGOUT_REDIRECT_URL = "/"

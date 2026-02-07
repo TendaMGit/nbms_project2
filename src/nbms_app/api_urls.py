@@ -25,6 +25,11 @@ urlpatterns = [
         api_spa.api_programme_run_detail,
         name="api_programme_run_detail",
     ),
+    path(
+        "integrations/birdie/dashboard",
+        api_spa.api_birdie_dashboard,
+        name="api_birdie_dashboard",
+    ),
     path("reporting/instances", api_spa.api_reporting_instances, name="api_reporting_instances"),
     path(
         "reporting/instances/<uuid:instance_uuid>/nr7/summary",
@@ -54,6 +59,16 @@ urlpatterns = [
         name="api_indicator_validation",
     ),
     path(
+        "indicators/<uuid:indicator_uuid>/methods",
+        api_spa.api_indicator_methods,
+        name="api_indicator_methods",
+    ),
+    path(
+        "indicators/<uuid:indicator_uuid>/methods/<uuid:profile_uuid>/run",
+        api_spa.api_indicator_method_run,
+        name="api_indicator_method_run",
+    ),
+    path(
         "indicators/<uuid:indicator_uuid>/transition",
         api_spa.api_indicator_transition,
         name="api_indicator_transition",
@@ -76,8 +91,43 @@ urlpatterns = [
         name="api_template_pack_instance_responses",
     ),
     path(
+        "template-packs/<str:pack_code>/instances/<uuid:instance_uuid>/validate",
+        api_spa.api_template_pack_validate,
+        name="api_template_pack_validate",
+    ),
+    path(
+        "template-packs/<str:pack_code>/instances/<uuid:instance_uuid>/export.pdf",
+        api_spa.api_template_pack_pdf,
+        name="api_template_pack_pdf",
+    ),
+    path(
         "template-packs/<str:pack_code>/instances/<uuid:instance_uuid>/export",
         api_spa.api_template_pack_export,
         name="api_template_pack_export",
+    ),
+    path(
+        "report-products",
+        api_spa.api_report_product_list,
+        name="api_report_product_list",
+    ),
+    path(
+        "report-products/runs",
+        api_spa.api_report_product_runs,
+        name="api_report_product_runs",
+    ),
+    path(
+        "report-products/<str:product_code>/preview",
+        api_spa.api_report_product_preview,
+        name="api_report_product_preview",
+    ),
+    path(
+        "report-products/<str:product_code>/export.html",
+        api_spa.api_report_product_html,
+        name="api_report_product_html",
+    ),
+    path(
+        "report-products/<str:product_code>/export.pdf",
+        api_spa.api_report_product_pdf,
+        name="api_report_product_pdf",
     ),
 ]

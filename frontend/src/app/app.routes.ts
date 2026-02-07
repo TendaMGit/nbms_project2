@@ -1,9 +1,11 @@
 import { Routes } from '@angular/router';
+import { BirdieProgrammePageComponent } from './pages/birdie-programme-page.component';
 import { DashboardPageComponent } from './pages/dashboard-page.component';
 import { IndicatorDetailPageComponent } from './pages/indicator-detail-page.component';
 import { IndicatorExplorerPageComponent } from './pages/indicator-explorer-page.component';
 import { MapViewerPageComponent } from './pages/map-viewer-page.component';
 import { ProgrammeOpsPageComponent } from './pages/programme-ops-page.component';
+import { ReportProductsPageComponent } from './pages/report-products-page.component';
 import { ReportingPageComponent } from './pages/reporting-page.component';
 import { SystemHealthPageComponent } from './pages/system-health-page.component';
 import { TemplatePacksPageComponent } from './pages/template-packs-page.component';
@@ -36,6 +38,11 @@ export const routes: Routes = [
     data: { title: 'Programme Operations', sectionKey: 'section_iii' }
   },
   {
+    path: 'programmes/birdie',
+    component: BirdieProgrammePageComponent,
+    data: { title: 'BIRDIE Dashboard', sectionKey: 'section_iii' }
+  },
+  {
     path: 'nr7-builder',
     component: ReportingPageComponent,
     data: { title: 'NR7 Report Builder', sectionKey: 'section_v' }
@@ -49,5 +56,10 @@ export const routes: Routes = [
     path: 'system-health',
     component: SystemHealthPageComponent,
     data: { title: 'System Health', sectionKey: 'section_i' }
+  },
+  {
+    path: 'report-products',
+    component: ReportProductsPageComponent,
+    data: { title: 'Report Products', sectionKey: 'section_v' }
   }
 ];

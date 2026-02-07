@@ -1,0 +1,34 @@
+{
+  "species": [
+    {"species_code": "ANAHER", "common_name": "Grey Heron", "scientific_name": "Ardea cinerea", "guild": "wader"},
+    {"species_code": "PHORUB", "common_name": "Red-knobbed Coot", "scientific_name": "Fulica cristata", "guild": "waterfowl"},
+    {"species_code": "ANAPLA", "common_name": "Yellow-billed Duck", "scientific_name": "Anas undulata", "guild": "waterfowl"},
+    {"species_code": "EGRGAR", "common_name": "Little Egret", "scientific_name": "Egretta garzetta", "guild": "wader"}
+  ],
+  "sites": [
+    {"site_code": "BIRDIE-WC-001", "site_name": "Berg River Estuary", "province_code": "WC", "convention_type": "ramsar", "latitude": -33.178, "longitude": 18.210},
+    {"site_code": "BIRDIE-EC-001", "site_name": "St Lucia Wetland", "province_code": "KZN", "convention_type": "ramsar", "latitude": -28.373, "longitude": 32.411},
+    {"site_code": "BIRDIE-GP-001", "site_name": "Marievale Wetland", "province_code": "GP", "convention_type": "iba", "latitude": -26.402, "longitude": 28.519}
+  ],
+  "abundance_trends": [
+    {"site_code": "BIRDIE-WC-001", "species_code": "ANAHER", "year": 2021, "value": 0.48, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-WC-001", "species_code": "ANAHER", "year": 2022, "value": 0.53, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-WC-001", "species_code": "ANAHER", "year": 2023, "value": 0.56, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-EC-001", "species_code": "PHORUB", "year": 2021, "value": 0.62, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-EC-001", "species_code": "PHORUB", "year": 2022, "value": 0.60, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-EC-001", "species_code": "PHORUB", "year": 2023, "value": 0.66, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-GP-001", "species_code": "ANAPLA", "year": 2021, "value": 0.35, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-GP-001", "species_code": "ANAPLA", "year": 2022, "value": 0.37, "model_version": "ssm-2025.1"},
+    {"site_code": "BIRDIE-GP-001", "species_code": "ANAPLA", "year": 2023, "value": 0.39, "model_version": "ssm-2025.1"}
+  ],
+  "occupancy_predictions": [
+    {"site_code": "BIRDIE-WC-001", "species_code": "ANAHER", "year": 2023, "psi": 0.74},
+    {"site_code": "BIRDIE-EC-001", "species_code": "PHORUB", "year": 2023, "psi": 0.68},
+    {"site_code": "BIRDIE-GP-001", "species_code": "ANAPLA", "year": 2023, "psi": 0.52}
+  ],
+  "wcv_scores": [
+    {"site_code": "BIRDIE-WC-001", "year": 2023, "category": "high", "value": 82.0},
+    {"site_code": "BIRDIE-EC-001", "year": 2023, "category": "high", "value": 78.0},
+    {"site_code": "BIRDIE-GP-001", "year": 2023, "category": "medium", "value": 61.0}
+  ]
+}

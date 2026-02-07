@@ -13,7 +13,7 @@ NBMS now supports runtime template packs so additional MEA reporting structures 
 
 ## Current Packs
 - `cbd_ort_nr7_v2` (primary)
-- `ramsar_v1` (scaffold)
+- `ramsar_v1` (COP14-oriented runtime pack)
 - `cites_v1` (scaffold)
 - `cms_v1` (scaffold)
 
@@ -28,6 +28,20 @@ Seed command:
   - `POST /api/template-packs/{pack_code}/instances/{instance_uuid}/responses`
 - Export:
   - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export`
+- Validation:
+  - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/validate`
+- PDF:
+  - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export.pdf`
+
+## Ramsar Runtime Shape (`ramsar_v1`)
+- `section_1_institutional`
+  - reporting party and focal point details.
+- `section_2_narrative`
+  - wetland context, pressures, and policy updates.
+- `section_3_implementation_indicators`
+  - questionnaire rows with response + optional links to indicators/programmes/evidence.
+- `section_4_annex_targets`
+  - optional target alignment summary and linked code lists.
 
 ## Export Handler Plug-in
 Registry:

@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.utils import timezone
 
 from nbms_app.models import (
+    IndicatorMethodProfile,
     MonitoringProgramme,
     MonitoringProgrammeAlert,
     MonitoringProgrammeRun,
@@ -18,6 +19,7 @@ from nbms_app.models import (
     ProgrammeRunType,
     ProgrammeStepType,
 )
+from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.catalog_access import can_edit_monitoring_programme
@@ -194,6 +196,32 @@ def execute_programme_run(*, run, actor=None):
             "dataset_link_count": dataset_link_count,
             "indicator_link_count": indicator_link_count,
         }
+
+        if step["type"] == ProgrammeStepType.INGEST and programme.programme_code == "NBMS-BIRDIE-INTEGRATION":
+            if run.dry_run:
+                step_details["integration"] = {"source": "BIRDIE", "dry_run": True}
+            else:
+                from nbms_app.integrations.birdie.service import ingest_birdie_snapshot
+
+                ingest_summary = ingest_birdie_snapshot(actor=actor)
+                step_details["integration"] = {"source": "BIRDIE", "summary": ingest_summary}
+
+        if step["type"] == ProgrammeStepType.COMPUTE and programme.programme_code == "NBMS-BIRDIE-INTEGRATION":
+            profiles = IndicatorMethodProfile.objects.filter(
+                indicator__code__startswith="BIRDIE-",
+                is_active=True,
+            ).order_by("indicator__code", "method_type", "id")[:20]
+            method_runs = []
+            for profile in profiles:
+                method_run = run_method_profile(profile=profile, user=actor, params={"programme_run": str(run.uuid)})
+                method_runs.append(
+                    {
+                        "profile_uuid": str(profile.uuid),
+                        "indicator_code": profile.indicator.code,
+                        "status": method_run.status,
+                    }
+                )
+            step_details["method_runs"] = method_runs
 
         if step["type"] == ProgrammeStepType.VALIDATE:
             problems = []

@@ -3,6 +3,64 @@
 ## Unreleased
 
 Highlights:
+- Phase 7 report product framework:
+  - Added report product runtime models:
+    - `ReportProductTemplate`
+    - `ReportProductRun`
+  - Added report product services and seeded templates:
+    - `nba_v1`
+    - `gmo_v1`
+    - `invasive_v1`
+  - Added report product APIs:
+    - `GET /api/report-products`
+    - `GET /api/report-products/runs`
+    - `GET /api/report-products/{code}/preview`
+    - `GET /api/report-products/{code}/export.html`
+    - `GET /api/report-products/{code}/export.pdf`
+  - Added Angular Report Products workspace (`/report-products`).
+- Phase 6 BIRDIE integration module:
+  - Added integration persistence models:
+    - `IntegrationDataAsset` (bronze/silver/gold lineage)
+    - `BirdieSpecies`
+    - `BirdieSite`
+    - `BirdieModelOutput`
+  - Added BIRDIE integration package:
+    - `src/nbms_app/integrations/birdie/client.py`
+    - `src/nbms_app/integrations/birdie/service.py`
+  - Added command:
+    - `python manage.py seed_birdie_integration`
+  - Added API endpoint:
+    - `GET /api/integrations/birdie/dashboard`
+  - Added Angular BIRDIE dashboard page (`/programmes/birdie`).
+- Phase 5 Ramsar pack hardening:
+  - Upgraded `ramsar_v1` from scaffold to COP14-oriented section schema (institutional, narrative, implementation questions, annex targets).
+  - Added template pack runtime validation service with required-field and reference checks (`src/nbms_app/services/template_packs.py`).
+  - Added template pack PDF export endpoint:
+    - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export.pdf`
+  - Added template pack QA endpoint:
+    - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/validate`
+  - Replaced Angular MEA list-only page with an interactive pack editor + QA panel.
+- Added Playwright e2e smoke setup for docker runtime:
+  - `frontend/playwright.config.ts`
+  - `frontend/e2e/smoke.spec.ts`
+  - CI now runs playwright smoke in `docker-minimal-smoke` job.
+- Phase 4 GBF indicator readiness increment:
+  - Added full GBF COP16/31 indicator catalog seeding command:
+    - `python manage.py seed_gbf_indicators`
+    - seeds 13 headline + 22 binary indicators and framework mappings.
+  - Added indicator method runtime schema:
+    - `IndicatorMethodProfile`
+    - `IndicatorMethodRun`
+  - Added indicator method SDK with cache/provenance support in `src/nbms_app/services/indicator_method_sdk.py`.
+  - Added method implementations:
+    - `binary_questionnaire_aggregator`
+    - `csv_import_aggregation`
+    - `spatial_overlay_area_by_province`
+  - Added indicator method APIs:
+    - `GET /api/indicators/{uuid}/methods`
+    - `POST /api/indicators/{uuid}/methods/{profile_uuid}/run`
+  - Added method readiness exposure in indicator explorer/list payloads and Angular readiness filter/chips.
+  - Added external reference capture in `docs/external/` with COP16/31, GBF repository, BIRDIE, DaRT, and Ramsar notes.
 - Phase 3 monitoring programme operations uplift:
   - Extended `MonitoringProgramme` with operational controls (`refresh_cadence`, scheduler fields, pipeline/rules JSON, lineage notes, operating institutions).
   - Added programme steward assignments and ABAC-aware steward visibility/edit support.

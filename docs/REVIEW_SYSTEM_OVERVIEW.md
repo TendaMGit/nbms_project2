@@ -1,6 +1,6 @@
 # REVIEW_SYSTEM_OVERVIEW
 
-## As-Built System Map (2026-02-06)
+## As-Built System Map (2026-02-07)
 
 ### Runtime layers
 - Backend: Django 5.x + DRF (`src/config`, `src/nbms_app`)
@@ -25,6 +25,15 @@
   - layer/feature ABAC filtering: `src/nbms_app/services/spatial_access.py`
 - Multi-MEA runtime:
   - pack exporter registry: `src/nbms_app/services/template_pack_registry.py`
+- Template pack QA/PDF runtime:
+  - `src/nbms_app/services/template_packs.py`
+- Indicator method runtime:
+  - `src/nbms_app/indicator_methods/`
+  - `src/nbms_app/services/indicator_method_sdk.py`
+- BIRDIE integration:
+  - `src/nbms_app/integrations/birdie/`
+- Report products:
+  - `src/nbms_app/services/report_products.py`
 
 ### Frontend module map
 - App shell + route layout: `frontend/src/app/app.ts`, `frontend/src/app/app.html`
@@ -33,7 +42,9 @@
   - indicator explorer + detail: `frontend/src/app/pages/indicator-explorer-page.component.ts`, `frontend/src/app/pages/indicator-detail-page.component.ts`
   - spatial viewer: `frontend/src/app/pages/map-viewer-page.component.ts`
   - reporting entry point: `frontend/src/app/pages/reporting-page.component.ts`
-  - template packs: `frontend/src/app/pages/template-packs-page.component.ts`
+  - template packs editor: `frontend/src/app/pages/template-packs-page.component.ts`
+  - BIRDIE dashboard: `frontend/src/app/pages/birdie-programme-page.component.ts`
+  - report products: `frontend/src/app/pages/report-products-page.component.ts`
 - API services: `frontend/src/app/services/*.ts`
 
 ## Main Workflows
@@ -65,8 +76,31 @@
   - `ReportTemplatePack`, `ReportTemplatePackSection`, `ReportTemplatePackResponse`
 - Seeded packs:
   - `cbd_ort_nr7_v2` (primary)
-  - `ramsar_v1`, `cites_v1`, `cms_v1` scaffold packs
-- Runtime APIs for section retrieval, response save/load, and export handler dispatch.
+  - `ramsar_v1` (COP14-oriented section schema)
+  - `cites_v1`, `cms_v1` scaffold packs
+- Runtime APIs for section retrieval, response save/load, validation, JSON export, and PDF export.
+
+### 5) BIRDIE connector workflow
+- Integration client and ingestion service persist lineage in:
+  - `IntegrationDataAsset` (`bronze`/`silver`/`gold`)
+  - `BirdieSpecies`, `BirdieSite`, `BirdieModelOutput`
+- Command:
+  - `python manage.py seed_birdie_integration`
+- Programme integration:
+  - `NBMS-BIRDIE-INTEGRATION` run pipeline with ingest/compute hooks in `programme_ops.py`
+- API/UI:
+  - `/api/integrations/birdie/dashboard`
+  - Angular BIRDIE dashboard route `/programmes/birdie`
+
+### 6) Report product workflow
+- Runtime models:
+  - `ReportProductTemplate`, `ReportProductRun`
+- Seeded product templates:
+  - `nba_v1`, `gmo_v1`, `invasive_v1`
+- APIs:
+  - `/api/report-products*` for list/preview/run history and HTML/PDF exports
+- UI:
+  - Angular report products builder route `/report-products`
 
 ## Key Tradeoffs
 - Chosen now:
@@ -75,8 +109,8 @@
   - GeoJSON API-first spatial delivery before full PostGIS geometry API refactor
 - Deferred:
   - direct ORT submission adapters
-  - full Ramsar/CITES/CMS export schemas
-  - automated indicator computation runners per methodology script
+  - full CITES/CMS question-bank and export schemas
+  - high-volume async execution for all indicator methods/connectors
 
 ## Current Architecture Risks
 - Large `views.py` remains a maintenance hotspot despite policy registry progress.

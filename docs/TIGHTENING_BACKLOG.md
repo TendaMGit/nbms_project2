@@ -7,6 +7,10 @@
   - Spatial layer registry + feature store + GeoJSON APIs + ABAC tests.
   - Initial indicator workflow seed pack (4 end-to-end indicators) with methodology/data/evidence/programme links.
   - Multi-MEA template pack runtime scaffolding (CBD primary; Ramsar/CITES/CMS scaffolds).
+  - Ramsar pack hardening with QA + PDF export endpoints and interactive Angular editor.
+  - BIRDIE connector module with bronze/silver/gold lineage persistence and dashboard API/UI.
+  - Report product framework (NBA/GMO/Invasive templates with HTML/PDF exports).
+  - Playwright smoke e2e in CI docker-minimal job.
   - Docker-first root compose profile with backend+frontend+core services.
   - CI expansion with frontend and Docker smoke jobs.
 
@@ -39,13 +43,13 @@
   - PR-B: endpoint + UI hookup
 
 ### P0-3: Export contract uplift for multi-MEA packs
-- Rationale: non-CBD packs currently return scaffold payloads only.
+- Rationale: Ramsar now has structured runtime export; CITES/CMS remain scaffold-level.
 - Affected files:
   - `src/nbms_app/services/template_pack_registry.py`
   - pack-specific contract validators (new)
   - `src/nbms_app/tests/test_api_template_packs.py`
 - Acceptance criteria:
-  - Ramsar/CITES/CMS packs have explicit minimal contracts and validation tests.
+  - CITES/CMS packs have explicit minimal contracts and validation tests (Ramsar complete).
 - Suggested PR slice:
   - PR-A: contract schemas
   - PR-B: validation integration
@@ -70,7 +74,7 @@
   - Angular can edit/save all Section I-V structured responses with existing export parity.
 
 ### P1-3: Frontend test depth
-- Rationale: frontend currently has minimal shell tests.
+- Rationale: frontend baseline improved (component tests + smoke e2e) but still lacks deep workflow interaction coverage.
 - Affected files:
   - `frontend/src/app/**/*.spec.ts`
   - CI workflow thresholds
@@ -87,7 +91,7 @@
   - create once, reuse across cycles/MEAs with deterministic replay.
 
 ### P2-2: SAST and supply-chain policy in CI
-- Rationale: current security baseline has audits/scans but not static code security.
+- Status: largely complete (Bandit + Trivy + gitleaks in CI); remaining work is policy tuning and gate strictness.
 - Affected files:
   - `.github/workflows/ci.yml`
 - Acceptance criteria:

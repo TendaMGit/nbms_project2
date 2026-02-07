@@ -172,8 +172,14 @@ jobs:
       - frontend-build
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       - name: Prepare environment
         run: cp .env.example .env
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
       - name: Build and start minimal profile
         run: docker compose --profile minimal up -d --build
       - name: Wait for backend health
@@ -194,6 +200,14 @@ jobs:
             sleep 5
           done
           curl -fsS http://127.0.0.1:8081/api/help/sections >/dev/null
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Playwright smoke
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8081
+        run: npm run e2e
       - name: Teardown
         if: always()
         run: docker compose down -v

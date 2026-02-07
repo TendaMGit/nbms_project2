@@ -1,5 +1,53 @@
 # STATE OF REPO - NBMS Project 2
 
+## One Biodiversity Hardening V1 - Phases 4-7 Completion Slice (2026-02-07)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Working baseline advanced from uncommitted Phase 4 state to integrated hardening slice.
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `352 passed`
+- `$env:PYTHONPATH="$PWD\src"; python manage.py check` -> no issues
+- `$env:PYTHONPATH="$PWD\src"; python manage.py makemigrations nbms_app` -> created `0034_birdiesite_birdiespecies_integrationdataasset_and_more`
+- `$env:PYTHONPATH="$PWD\src"; python manage.py makemigrations --check --dry-run` -> no changes detected
+- `$env:PYTHONPATH="$PWD\src"; python manage.py migrate` -> applied `0034`
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_gbf_indicators` -> seeded `13` headline + `22` binary GBF indicators
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_mea_template_packs` -> seeded `4` packs, `15` sections
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_birdie_integration` -> ingested BIRDIE snapshot (`species=4, sites=3, abundance=9, occupancy=3, wcv=3`)
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_report_products` -> seeded `nba_v1`, `gmo_v1`, `invasive_v1`
+
+Commands executed (frontend local):
+- `npm --prefix frontend install` -> updated lockfile and installed Playwright dependency
+- `npm --prefix frontend run test` -> `7 files, 8 tests passed`
+- `npm --prefix frontend run build` -> pass
+- `npx --prefix frontend playwright install chromium` -> browser installed
+- `npm --prefix frontend run e2e` -> `1 passed`
+
+Commands executed (docker minimal):
+- `docker compose --profile minimal up -d --build` -> backend/frontend/core services healthy
+- `docker compose ps` -> backend/frontend/postgis/redis/minio healthy
+- `curl.exe http://127.0.0.1:8000/health/` -> `{"status": "ok"}`
+- `curl.exe http://127.0.0.1:8081/health/` -> `{"status": "ok"}`
+- `curl.exe http://127.0.0.1:8081/` -> Angular shell served (`NBMS Workspace`)
+
+Implemented in this slice:
+- Phase 4:
+  - Completed GBF catalog readiness with `IndicatorMethodProfile`, `IndicatorMethodRun`, method SDK, and APIs.
+- Phase 5:
+  - Hardened Ramsar pack with COP14-style sections, QA endpoint, deterministic exporter, and PDF export.
+  - Added interactive Angular template-pack editor with section QA workflow.
+- Phase 6:
+  - Implemented BIRDIE connector module and ingestion command with bronze/silver/gold lineage persistence.
+  - Added BIRDIE dashboard API and Angular dashboard page with site/species/provenance panels.
+- Phase 7:
+  - Added report product framework for NBA/GMO/Invasive shells with HTML/PDF export endpoints and Angular workspace.
+  - Added Playwright smoke e2e for docker-served frontend.
+
+ADRs added:
+- `docs/adr/0008-gbf-indicator-catalog-import-strategy.md`
+- `docs/adr/0009-birdie-integration-connector-pattern.md`
+- `docs/adr/0010-report-product-framework.md`
+
 ## One Biodiversity Hardening V1 - Phase 3 Programme Ops (2026-02-06)
 - Branch: `feat/one-biodiversity-hardening-v1`
 - Base commit for phase: `14bbbff`

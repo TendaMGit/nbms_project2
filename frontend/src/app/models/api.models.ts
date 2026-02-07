@@ -39,6 +39,8 @@ export interface IndicatorListItem {
   last_updated_on: string | null;
   updated_at: string;
   tags: string[];
+  method_readiness_state: string;
+  method_types: string[];
   coverage: { geography: string; time_start_year: number | null; time_end_year: number | null };
 }
 
@@ -61,6 +63,37 @@ export interface IndicatorDetailResponse {
   }>;
   evidence: Array<{ uuid: string; title: string; evidence_type: string; source_url: string }>;
   series: Array<{ uuid: string; title: string; unit: string; value_type: string; status: string; sensitivity: string }>;
+  method_profiles: Array<{
+    uuid: string;
+    method_type: string;
+    implementation_key: string;
+    readiness_state: string;
+    readiness_notes: string;
+    last_success_at: string | null;
+  }>;
+}
+
+export interface IndicatorMethodProfileResponse {
+  indicator_uuid: string;
+  profiles: Array<{
+    uuid: string;
+    method_type: string;
+    implementation_key: string;
+    summary: string;
+    required_inputs_json: unknown[];
+    disaggregation_requirements_json: unknown[];
+    readiness_state: string;
+    readiness_notes: string;
+    last_run_at: string | null;
+    last_success_at: string | null;
+    recent_runs: Array<{
+      uuid: string;
+      status: string;
+      started_at: string | null;
+      finished_at: string | null;
+      requested_by: string | null;
+    }>;
+  }>;
 }
 
 export interface IndicatorDatasetItem {
@@ -123,6 +156,43 @@ export interface TemplatePack {
   version: string;
   description: string;
   section_count: number;
+}
+
+export interface TemplatePackSection {
+  uuid: string;
+  code: string;
+  title: string;
+  ordering: number;
+  schema_json: Record<string, unknown>;
+}
+
+export interface TemplatePackResponseRow {
+  section_code: string;
+  section_title: string;
+  response_json: Record<string, unknown>;
+  updated_by: string | null;
+  updated_at: string | null;
+}
+
+export interface TemplatePackValidationSummary {
+  pack_code: string;
+  instance_uuid: string;
+  generated_at: string;
+  overall_ready: boolean;
+  qa_items: Array<{
+    severity: string;
+    section: string;
+    field?: string;
+    code: string;
+    message: string;
+  }>;
+  sections: Array<{
+    code: string;
+    title: string;
+    completion: number;
+    missing_fields: string[];
+    warning_count: number;
+  }>;
 }
 
 export interface SystemHealthServiceStatus {
@@ -260,4 +330,47 @@ export interface Nr7BuilderSummary {
   preview_payload: Record<string, unknown> | null;
   preview_error: string | null;
   links: Record<string, string>;
+}
+
+export interface BirdieDashboardResponse {
+  programme: ProgrammeSummary;
+  site_reports: Array<{
+    site_code: string;
+    site_name: string;
+    province_code: string;
+    last_year: number | null;
+    abundance_index: number | null;
+    richness: number | null;
+    trend: string;
+  }>;
+  species_reports: Array<{
+    species_code: string;
+    common_name: string;
+    guild: string;
+    last_year: number | null;
+    last_value: number | null;
+    trend: string;
+  }>;
+  map_layers: Array<{ slug: string; name: string; indicator_code: string | null }>;
+  provenance: Array<{
+    dataset_key: string;
+    captured_at: string;
+    payload_hash: string;
+    source_endpoint: string;
+  }>;
+}
+
+export interface ReportProductSummary {
+  uuid: string;
+  code: string;
+  title: string;
+  version: string;
+  description: string;
+}
+
+export interface ReportProductPreviewResponse {
+  template: { code: string; title: string; version: string };
+  payload: Record<string, unknown>;
+  html_preview: string;
+  run_uuid: string;
 }

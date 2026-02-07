@@ -77,6 +77,15 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
                 <mat-option value="iplc_sensitive">IPLC sensitive</mat-option>
               </mat-select>
             </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Readiness</mat-label>
+              <mat-select [formControl]="filters.controls.method_readiness">
+                <mat-option value="">Any</mat-option>
+                <mat-option value="ready">Ready</mat-option>
+                <mat-option value="partial">Partial</mat-option>
+                <mat-option value="blocked">Blocked</mat-option>
+              </mat-select>
+            </mat-form-field>
           </mat-expansion-panel>
           <mat-expansion-panel>
             <mat-expansion-panel-header>
@@ -127,6 +136,10 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
             <mat-chip-set>
               <mat-chip>{{ item.status }}</mat-chip>
               <mat-chip>{{ item.sensitivity }}</mat-chip>
+              <mat-chip class="readiness-chip" [class]="'readiness-' + item.method_readiness_state">
+                {{ item.method_readiness_state }}
+              </mat-chip>
+              <mat-chip *ngFor="let method of item.method_types">{{ method }}</mat-chip>
               <mat-chip *ngFor="let tag of item.tags">{{ tag }}</mat-chip>
             </mat-chip-set>
           </mat-card-content>
@@ -171,6 +184,18 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
         text-decoration: none;
       }
 
+      .readiness-ready {
+        background: #c7edcf;
+      }
+
+      .readiness-partial {
+        background: #ffe2b6;
+      }
+
+      .readiness-blocked {
+        background: #ffd2d2;
+      }
+
       @media (max-width: 980px) {
         .explorer-layout {
           grid-template-columns: 1fr;
@@ -187,6 +212,7 @@ export class IndicatorExplorerPageComponent {
     framework: new FormControl<string>(''),
     status: new FormControl<string>('published'),
     sensitivity: new FormControl<string>(''),
+    method_readiness: new FormControl<string>(''),
     geography: new FormControl<string>(''),
     year_from: new FormControl<number | null>(null),
     year_to: new FormControl<number | null>(null),
@@ -200,6 +226,7 @@ export class IndicatorExplorerPageComponent {
       framework: filters.framework ?? undefined,
       status: filters.status ?? undefined,
       sensitivity: filters.sensitivity ?? undefined,
+      method_readiness: filters.method_readiness ?? undefined,
       geography: filters.geography ?? undefined,
       year_from: filters.year_from ?? undefined,
       year_to: filters.year_to ?? undefined,

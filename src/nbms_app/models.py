@@ -188,6 +188,29 @@ class QaStatus(models.TextChoices):
     DEPRECATED = "deprecated", "Deprecated"
 
 
+class IndicatorMethodType(models.TextChoices):
+    MANUAL = "manual", "Manual"
+    CSV_IMPORT = "csv_import", "CSV import"
+    API_CONNECTOR = "api_connector", "API connector"
+    SCRIPTED_PYTHON = "scripted_python", "Scripted Python"
+    SCRIPTED_R_CONTAINER = "scripted_r_container", "Scripted R container"
+    SPATIAL_OVERLAY = "spatial_overlay", "Spatial overlay"
+    SEEA_ACCOUNTING = "seea_accounting", "SEEA accounting"
+    BINARY_QUESTIONNAIRE = "binary_questionnaire", "Binary questionnaire"
+
+
+class IndicatorMethodReadiness(models.TextChoices):
+    READY = "ready", "Ready"
+    PARTIAL = "partial", "Partial"
+    BLOCKED = "blocked", "Blocked"
+
+
+class IndicatorMethodRunStatus(models.TextChoices):
+    SUCCEEDED = "succeeded", "Succeeded"
+    FAILED = "failed", "Failed"
+    BLOCKED = "blocked", "Blocked"
+
+
 class AgreementType(models.TextChoices):
     MOU = "MOU", "MOU"
     DATA_SHARING = "data_sharing", "Data sharing"
@@ -279,6 +302,19 @@ class ProgrammeAlertState(models.TextChoices):
     OPEN = "open", "Open"
     ACKNOWLEDGED = "acknowledged", "Acknowledged"
     RESOLVED = "resolved", "Resolved"
+
+
+class IntegrationDataLayer(models.TextChoices):
+    BRONZE = "bronze", "Bronze"
+    SILVER = "silver", "Silver"
+    GOLD = "gold", "Gold"
+
+
+class ReportProductStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    GENERATED = "generated", "Generated"
+    FAILED = "failed", "Failed"
+    PUBLISHED = "published", "Published"
 
 
 class ReportingCycle(TimeStampedModel):
@@ -1482,6 +1518,84 @@ class Indicator(TimeStampedModel):
         ]
 
 
+class IndicatorMethodProfile(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    indicator = models.ForeignKey(
+        Indicator,
+        on_delete=models.CASCADE,
+        related_name="method_profiles",
+    )
+    method_type = models.CharField(max_length=40, choices=IndicatorMethodType.choices)
+    implementation_key = models.CharField(max_length=120, blank=True)
+    summary = models.TextField(blank=True)
+    required_inputs_json = models.JSONField(default=list, blank=True)
+    disaggregation_requirements_json = models.JSONField(default=list, blank=True)
+    output_schema_json = models.JSONField(default=dict, blank=True)
+    readiness_state = models.CharField(
+        max_length=20,
+        choices=IndicatorMethodReadiness.choices,
+        default=IndicatorMethodReadiness.BLOCKED,
+    )
+    readiness_notes = models.TextField(blank=True)
+    last_run_at = models.DateTimeField(blank=True, null=True)
+    last_success_at = models.DateTimeField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["indicator", "method_type", "implementation_key"],
+                name="uq_indicator_method_profile",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["method_type", "is_active"]),
+            models.Index(fields=["readiness_state"]),
+        ]
+
+    def __str__(self):
+        impl = self.implementation_key or self.method_type
+        return f"{self.indicator.code}:{impl}"
+
+
+class IndicatorMethodRun(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    profile = models.ForeignKey(
+        IndicatorMethodProfile,
+        on_delete=models.CASCADE,
+        related_name="runs",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=IndicatorMethodRunStatus.choices,
+        default=IndicatorMethodRunStatus.BLOCKED,
+    )
+    parameters_json = models.JSONField(default=dict, blank=True)
+    input_hash = models.CharField(max_length=128, blank=True)
+    output_json = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="indicator_method_runs",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["profile", "created_at"]),
+            models.Index(fields=["status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.profile_id}:{self.status}"
+
+
 class Framework(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -2610,3 +2724,174 @@ class ReportTemplatePackResponse(TimeStampedModel):
 
     def __str__(self):
         return f"{self.reporting_instance_id}:{self.section_id}"
+
+
+class IntegrationDataAsset(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    source_system = models.CharField(max_length=80)
+    layer = models.CharField(max_length=20, choices=IntegrationDataLayer.choices)
+    dataset_key = models.CharField(max_length=120)
+    record_key = models.CharField(max_length=160)
+    payload_json = models.JSONField(default=dict, blank=True)
+    payload_hash = models.CharField(max_length=64, blank=True)
+    source_endpoint = models.CharField(max_length=255, blank=True)
+    source_version = models.CharField(max_length=80, blank=True)
+    is_restricted = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_system", "layer", "dataset_key", "record_key"],
+                name="uq_integration_asset_record",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["source_system", "layer"]),
+            models.Index(fields=["dataset_key", "record_key"]),
+            models.Index(fields=["is_restricted"]),
+        ]
+
+    def __str__(self):
+        return f"{self.source_system}:{self.layer}:{self.dataset_key}:{self.record_key}"
+
+
+class BirdieSpecies(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    species_code = models.CharField(max_length=80, unique=True)
+    common_name = models.CharField(max_length=255)
+    scientific_name = models.CharField(max_length=255, blank=True)
+    guild = models.CharField(max_length=120, blank=True)
+    is_restricted = models.BooleanField(default=False)
+    source_ref = models.CharField(max_length=255, blank=True)
+    metadata_json = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["species_code"]
+
+    def __str__(self):
+        return self.species_code
+
+
+class BirdieSite(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    site_code = models.CharField(max_length=80, unique=True)
+    site_name = models.CharField(max_length=255)
+    province_code = models.CharField(max_length=20, blank=True)
+    convention_type = models.CharField(max_length=120, blank=True)
+    latitude = models.FloatField(blank=True, null=True)
+    longitude = models.FloatField(blank=True, null=True)
+    is_restricted = models.BooleanField(default=False)
+    metadata_json = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["site_code"]
+
+    def __str__(self):
+        return self.site_code
+
+
+class BirdieModelOutput(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    species = models.ForeignKey(
+        BirdieSpecies,
+        on_delete=models.SET_NULL,
+        related_name="outputs",
+        blank=True,
+        null=True,
+    )
+    site = models.ForeignKey(
+        BirdieSite,
+        on_delete=models.SET_NULL,
+        related_name="outputs",
+        blank=True,
+        null=True,
+    )
+    indicator = models.ForeignKey(
+        "Indicator",
+        on_delete=models.SET_NULL,
+        related_name="birdie_outputs",
+        blank=True,
+        null=True,
+    )
+    metric_code = models.CharField(max_length=80)
+    year = models.PositiveIntegerField()
+    value_numeric = models.DecimalField(max_digits=18, decimal_places=6, blank=True, null=True)
+    value_text = models.TextField(blank=True)
+    value_json = models.JSONField(default=dict, blank=True)
+    model_version = models.CharField(max_length=80, blank=True)
+    provenance_json = models.JSONField(default=dict, blank=True)
+    is_restricted = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["species", "site", "metric_code", "year"],
+                name="uq_birdie_output_row",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["metric_code", "year"]),
+            models.Index(fields=["site", "year"]),
+            models.Index(fields=["indicator", "year"]),
+        ]
+        ordering = ["metric_code", "year", "id"]
+
+    def __str__(self):
+        return f"{self.metric_code}:{self.year}"
+
+
+class ReportProductTemplate(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    code = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    version = models.CharField(max_length=30, default="v1")
+    description = models.TextField(blank=True)
+    export_handler = models.CharField(max_length=120, blank=True)
+    schema_json = models.JSONField(default=dict, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["code"]),
+            models.Index(fields=["is_active"]),
+        ]
+
+    def __str__(self):
+        return f"{self.code}:{self.version}"
+
+
+class ReportProductRun(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    template = models.ForeignKey(
+        ReportProductTemplate,
+        on_delete=models.CASCADE,
+        related_name="runs",
+    )
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.SET_NULL,
+        related_name="report_product_runs",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=ReportProductStatus.choices, default=ReportProductStatus.DRAFT)
+    generated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="report_product_runs",
+        blank=True,
+        null=True,
+    )
+    payload_json = models.JSONField(default=dict, blank=True)
+    html_content = models.TextField(blank=True)
+    error_message = models.TextField(blank=True)
+    generated_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["template", "created_at"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.template.code}:{self.uuid}:{self.status}"

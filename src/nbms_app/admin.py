@@ -33,6 +33,8 @@ from nbms_app.models import (
     Indicator,
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
+    IndicatorMethodProfile,
+    IndicatorMethodRun,
     Methodology,
     MethodologyDatasetLink,
     MethodologyIndicatorLink,
@@ -42,6 +44,15 @@ from nbms_app.models import (
     MonitoringProgrammeRun,
     MonitoringProgrammeRunStep,
     MonitoringProgrammeSteward,
+    BirdieModelOutput,
+    BirdieSite,
+    BirdieSpecies,
+    IntegrationDataAsset,
+    ReportProductRun,
+    ReportProductTemplate,
+    ReportTemplatePack,
+    ReportTemplatePackResponse,
+    ReportTemplatePackSection,
     ProgrammeDatasetLink,
     ProgrammeIndicatorLink,
     DataAgreement,
@@ -595,6 +606,90 @@ class IndicatorDataPointAdmin(admin.ModelAdmin):
     list_display = ("series", "year", "value_numeric", "value_text", "dataset_release", "created_at")
     search_fields = ("series__indicator__code", "series__framework_indicator__code")
     list_filter = ("year", "dataset_release")
+
+
+@admin.register(IndicatorMethodProfile)
+class IndicatorMethodProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        "indicator",
+        "method_type",
+        "implementation_key",
+        "readiness_state",
+        "last_success_at",
+        "is_active",
+    )
+    search_fields = ("indicator__code", "implementation_key", "summary")
+    list_filter = ("method_type", "readiness_state", "is_active")
+
+
+@admin.register(IndicatorMethodRun)
+class IndicatorMethodRunAdmin(admin.ModelAdmin):
+    list_display = ("profile", "status", "requested_by", "started_at", "finished_at", "created_at")
+    search_fields = ("profile__indicator__code", "profile__implementation_key", "uuid")
+    list_filter = ("status",)
+
+
+@admin.register(BirdieSpecies)
+class BirdieSpeciesAdmin(admin.ModelAdmin):
+    list_display = ("species_code", "common_name", "scientific_name", "guild", "is_restricted", "updated_at")
+    search_fields = ("species_code", "common_name", "scientific_name", "guild")
+    list_filter = ("guild", "is_restricted")
+
+
+@admin.register(BirdieSite)
+class BirdieSiteAdmin(admin.ModelAdmin):
+    list_display = ("site_code", "site_name", "province_code", "convention_type", "is_restricted")
+    search_fields = ("site_code", "site_name", "province_code", "convention_type")
+    list_filter = ("province_code", "convention_type", "is_restricted")
+
+
+@admin.register(BirdieModelOutput)
+class BirdieModelOutputAdmin(admin.ModelAdmin):
+    list_display = ("metric_code", "year", "site", "species", "indicator", "value_numeric", "is_restricted")
+    search_fields = ("metric_code", "site__site_code", "species__species_code", "indicator__code")
+    list_filter = ("metric_code", "year", "is_restricted")
+
+
+@admin.register(IntegrationDataAsset)
+class IntegrationDataAssetAdmin(admin.ModelAdmin):
+    list_display = ("source_system", "layer", "dataset_key", "record_key", "is_restricted", "updated_at")
+    search_fields = ("source_system", "dataset_key", "record_key", "source_endpoint")
+    list_filter = ("source_system", "layer", "is_restricted")
+
+
+@admin.register(ReportTemplatePack)
+class ReportTemplatePackAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "mea_code", "version", "is_active", "updated_at")
+    search_fields = ("code", "title", "mea_code")
+    list_filter = ("mea_code", "is_active")
+
+
+@admin.register(ReportTemplatePackSection)
+class ReportTemplatePackSectionAdmin(admin.ModelAdmin):
+    list_display = ("pack", "code", "title", "ordering", "is_active")
+    search_fields = ("pack__code", "code", "title")
+    list_filter = ("pack__mea_code", "is_active")
+
+
+@admin.register(ReportTemplatePackResponse)
+class ReportTemplatePackResponseAdmin(admin.ModelAdmin):
+    list_display = ("section", "reporting_instance", "updated_by", "updated_at")
+    search_fields = ("section__pack__code", "section__code", "reporting_instance__uuid")
+    list_filter = ("section__pack__mea_code",)
+
+
+@admin.register(ReportProductTemplate)
+class ReportProductTemplateAdmin(admin.ModelAdmin):
+    list_display = ("code", "title", "version", "is_active", "updated_at")
+    search_fields = ("code", "title")
+    list_filter = ("is_active",)
+
+
+@admin.register(ReportProductRun)
+class ReportProductRunAdmin(admin.ModelAdmin):
+    list_display = ("template", "status", "reporting_instance", "generated_by", "generated_at", "created_at")
+    search_fields = ("template__code", "uuid", "reporting_instance__uuid")
+    list_filter = ("status",)
 
 
 @admin.register(BinaryIndicatorQuestion)

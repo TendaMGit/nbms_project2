@@ -19,6 +19,9 @@ from rest_framework.response import Response
 
 from nbms_app.models import (
     AuditEvent,
+    BirdieModelOutput,
+    BirdieSite,
+    BirdieSpecies,
     Dataset,
     Indicator,
     IndicatorDataPoint,
@@ -26,6 +29,8 @@ from nbms_app.models import (
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
+    IndicatorMethodProfile,
+    IndicatorMethodRun,
     IndicatorMethodologyVersionLink,
     InstanceExportApproval,
     LifecycleStatus,
@@ -36,12 +41,15 @@ from nbms_app.models import (
     ProgrammeAlertState,
     ProgrammeRunStatus,
     ProgrammeRunType,
+    ReportProductTemplate,
+    ReportProductRun,
     ReportTemplatePack,
     ReportTemplatePackResponse,
     ReportTemplatePackSection,
     ReportingInstance,
     ReportingStatus,
     SpatialLayer,
+    IntegrationDataAsset,
     SensitivityLevel,
 )
 from nbms_app.section_help import SECTION_FIELD_HELP, build_section_help_payload
@@ -57,6 +65,7 @@ from nbms_app.services.authorization import (
 )
 from nbms_app.services.catalog_access import filter_monitoring_programmes_for_user
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
+from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.nr7_builder import (
     build_nr7_preview_payload,
     build_nr7_validation_summary,
@@ -71,6 +80,18 @@ from nbms_app.services.spatial_access import (
     spatial_feature_collection,
 )
 from nbms_app.services.template_pack_registry import resolve_pack_exporter
+from nbms_app.services.template_packs import (
+    build_default_response_payload,
+    build_pack_validation,
+    render_pack_pdf_bytes,
+)
+from nbms_app.services.report_products import (
+    build_report_product_payload,
+    generate_report_product_run,
+    render_report_product_html,
+    render_report_product_pdf_bytes,
+    seed_default_report_products,
+)
 from nbms_app.services.workflows import approve, publish, reject, submit_for_review
 
 
@@ -92,6 +113,15 @@ def _capabilities(user):
             or is_system_admin(user)
         ),
     }
+
+
+def _can_run_indicator_methods(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    return bool(
+        user_has_role(user, ROLE_INDICATOR_LEAD, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, ROLE_ADMIN)
+        or is_system_admin(user)
+    )
 
 
 def _indicator_base_queryset(user):
@@ -121,6 +151,17 @@ def _indicator_payload(indicator):
             tags.append(f"{fw_target.framework.code}:{fw_target.code}")
         elif fw_indicator:
             tags.append(f"{fw_indicator.framework.code}:{fw_indicator.code}")
+    method_profiles = (
+        IndicatorMethodProfile.objects.filter(indicator=indicator, is_active=True)
+        .order_by("method_type", "implementation_key", "uuid")
+    )
+    readiness_rank = {"ready": 2, "partial": 1, "blocked": 0}
+    readiness_state = "blocked"
+    if method_profiles.exists():
+        readiness_state = max(
+            [profile.readiness_state for profile in method_profiles],
+            key=lambda value: readiness_rank.get(value, -1),
+        )
     return {
         "uuid": str(indicator.uuid),
         "code": indicator.code,
@@ -143,6 +184,8 @@ def _indicator_payload(indicator):
         "last_updated_on": indicator.last_updated_on.isoformat() if indicator.last_updated_on else None,
         "updated_at": indicator.updated_at.isoformat(),
         "tags": sorted(set(tags)),
+        "method_readiness_state": readiness_state,
+        "method_types": sorted(set(method_profiles.values_list("method_type", flat=True))),
         "coverage": {
             "geography": indicator.coverage_geography or indicator.spatial_coverage,
             "time_start_year": indicator.coverage_time_start_year,
@@ -238,8 +281,7 @@ def _programme_summary_payload(programme):
 
 
 def _default_pack_response_payload(section):
-    schema_fields = section.schema_json.get("fields", [])
-    return {field.get("key"): "" for field in schema_fields if field.get("key")}
+    return build_default_response_payload(section)
 
 
 def _service_status(service, status, detail=None):
@@ -604,6 +646,126 @@ def api_programme_run_detail(request, run_uuid):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def api_birdie_dashboard(request):
+    programme = get_object_or_404(
+        _programme_queryset_for_user(request.user).filter(programme_code="NBMS-BIRDIE-INTEGRATION")
+    )
+    allow_restricted = bool(is_system_admin(request.user) or getattr(request.user, "is_staff", False))
+
+    sites_qs = BirdieSite.objects.order_by("province_code", "site_code")
+    species_qs = BirdieSpecies.objects.order_by("species_code")
+    outputs_qs = BirdieModelOutput.objects.select_related("site", "species").order_by(
+        "metric_code",
+        "year",
+        "site__site_code",
+        "species__species_code",
+    )
+    if not allow_restricted:
+        sites_qs = sites_qs.filter(is_restricted=False)
+        species_qs = species_qs.filter(is_restricted=False)
+        outputs_qs = outputs_qs.filter(is_restricted=False)
+
+    site_reports = []
+    outputs_by_site = defaultdict(list)
+    for row in outputs_qs.filter(metric_code="waterbird_abundance_trend"):
+        if row.site_id:
+            outputs_by_site[row.site_id].append(row)
+    richness_by_site = defaultdict(dict)
+    for row in outputs_qs.filter(metric_code="species_richness_trend"):
+        if row.site_id and row.value_numeric is not None:
+            richness_by_site[row.site_id][row.year] = float(row.value_numeric)
+
+    for site in sites_qs:
+        rows = outputs_by_site.get(site.id, [])
+        latest = rows[-1] if rows else None
+        previous = rows[-2] if len(rows) > 1 else None
+        trend = "flat"
+        if latest and previous and latest.value_numeric is not None and previous.value_numeric is not None:
+            if latest.value_numeric > previous.value_numeric:
+                trend = "up"
+            elif latest.value_numeric < previous.value_numeric:
+                trend = "down"
+        site_reports.append(
+            {
+                "site_code": site.site_code,
+                "site_name": site.site_name,
+                "province_code": site.province_code,
+                "last_year": latest.year if latest else None,
+                "abundance_index": float(latest.value_numeric) if latest and latest.value_numeric is not None else None,
+                "richness": richness_by_site.get(site.id, {}).get(latest.year if latest else None),
+                "trend": trend,
+            }
+        )
+
+    species_reports = []
+    outputs_by_species = defaultdict(list)
+    for row in outputs_qs.filter(metric_code="waterbird_abundance_trend"):
+        if row.species_id:
+            outputs_by_species[row.species_id].append(row)
+    for species in species_qs:
+        rows = outputs_by_species.get(species.id, [])
+        latest = rows[-1] if rows else None
+        previous = rows[-2] if len(rows) > 1 else None
+        trend = "flat"
+        if latest and previous and latest.value_numeric is not None and previous.value_numeric is not None:
+            if latest.value_numeric > previous.value_numeric:
+                trend = "up"
+            elif latest.value_numeric < previous.value_numeric:
+                trend = "down"
+        species_reports.append(
+            {
+                "species_code": species.species_code,
+                "common_name": species.common_name,
+                "guild": species.guild,
+                "last_year": latest.year if latest else None,
+                "last_value": float(latest.value_numeric) if latest and latest.value_numeric is not None else None,
+                "trend": trend,
+            }
+        )
+
+    layers = filter_spatial_layers_for_user(
+        SpatialLayer.objects.filter(slug__startswith="birdie-").select_related("indicator"),
+        request.user,
+    ).order_by("name", "slug")
+    provenance_rows = (
+        IntegrationDataAsset.objects.filter(source_system="BIRDIE", layer="bronze")
+        .order_by("dataset_key", "-updated_at")
+    )
+    seen_datasets = set()
+    provenance = []
+    for row in provenance_rows:
+        if row.dataset_key in seen_datasets:
+            continue
+        seen_datasets.add(row.dataset_key)
+        provenance.append(
+            {
+                "dataset_key": row.dataset_key,
+                "captured_at": row.updated_at.isoformat(),
+                "payload_hash": row.payload_hash,
+                "source_endpoint": row.source_endpoint,
+            }
+        )
+
+    return Response(
+        {
+            "programme": _programme_summary_payload(programme),
+            "site_reports": site_reports,
+            "species_reports": species_reports,
+            "map_layers": [
+                {
+                    "slug": layer.slug,
+                    "name": layer.name,
+                    "indicator_code": layer.indicator.code if layer.indicator_id else None,
+                }
+                for layer in layers
+            ],
+            "provenance": provenance,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def api_reporting_instances(request):
     if not (is_system_admin(request.user) or getattr(request.user, "is_staff", False)):
         return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
@@ -730,6 +892,10 @@ def api_indicator_list(request):
     if sensitivity:
         queryset = queryset.filter(sensitivity=sensitivity)
 
+    method_readiness = (request.GET.get("method_readiness") or "").strip().lower()
+    if method_readiness:
+        queryset = queryset.filter(method_profiles__is_active=True, method_profiles__readiness_state=method_readiness)
+
     geography = (request.GET.get("geography") or "").strip()
     if geography:
         queryset = queryset.filter(
@@ -780,6 +946,12 @@ def api_indicator_list(request):
         "sensitivities": list(
             queryset.values("sensitivity").annotate(total=Count("id")).order_by("sensitivity")
         ),
+        "method_readiness": list(
+            IndicatorMethodProfile.objects.filter(indicator__in=queryset, is_active=True)
+            .values("readiness_state")
+            .annotate(total=Count("id"))
+            .order_by("readiness_state")
+        ),
     }
 
     return Response(
@@ -813,6 +985,10 @@ def api_indicator_detail(request, indicator_uuid):
         indicator_data_series_for_user(request.user)
         .filter(indicator=indicator)
         .order_by("title", "uuid")
+    )
+    method_profiles = (
+        IndicatorMethodProfile.objects.filter(indicator=indicator, is_active=True)
+        .order_by("method_type", "implementation_key", "uuid")
     )
 
     return Response(
@@ -851,6 +1027,17 @@ def api_indicator_detail(request, indicator_uuid):
                     "sensitivity": item.sensitivity,
                 }
                 for item in series
+            ],
+            "method_profiles": [
+                {
+                    "uuid": str(profile.uuid),
+                    "method_type": profile.method_type,
+                    "implementation_key": profile.implementation_key,
+                    "readiness_state": profile.readiness_state,
+                    "readiness_notes": profile.readiness_notes,
+                    "last_success_at": profile.last_success_at.isoformat() if profile.last_success_at else None,
+                }
+                for profile in method_profiles
             ],
         }
     )
@@ -980,6 +1167,80 @@ def api_indicator_validation(request, indicator_uuid):
             if any(item["state"] == "blocked" for item in checks)
             else ("warning" if any(item["state"] == "warning" for item in checks) else "ok"),
             "checks": checks,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_indicator_methods(request, indicator_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    profiles = (
+        IndicatorMethodProfile.objects.filter(indicator=indicator, is_active=True)
+        .order_by("method_type", "implementation_key", "uuid")
+    )
+    profile_ids = list(profiles.values_list("id", flat=True))
+    recent_runs = (
+        IndicatorMethodRun.objects.filter(profile_id__in=profile_ids)
+        .select_related("profile", "requested_by")
+        .order_by("-created_at", "-id")[:40]
+    )
+    runs_by_profile = defaultdict(list)
+    for run in recent_runs:
+        runs_by_profile[run.profile_id].append(run)
+    return Response(
+        {
+            "indicator_uuid": str(indicator.uuid),
+            "profiles": [
+                {
+                    "uuid": str(profile.uuid),
+                    "method_type": profile.method_type,
+                    "implementation_key": profile.implementation_key,
+                    "summary": profile.summary,
+                    "required_inputs_json": profile.required_inputs_json,
+                    "disaggregation_requirements_json": profile.disaggregation_requirements_json,
+                    "readiness_state": profile.readiness_state,
+                    "readiness_notes": profile.readiness_notes,
+                    "last_run_at": profile.last_run_at.isoformat() if profile.last_run_at else None,
+                    "last_success_at": profile.last_success_at.isoformat() if profile.last_success_at else None,
+                    "recent_runs": [
+                        {
+                            "uuid": str(run.uuid),
+                            "status": run.status,
+                            "started_at": run.started_at.isoformat() if run.started_at else None,
+                            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+                            "requested_by": run.requested_by.username if run.requested_by_id else None,
+                        }
+                        for run in runs_by_profile.get(profile.id, [])
+                    ],
+                }
+                for profile in profiles
+            ],
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_indicator_method_run(request, indicator_uuid, profile_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    profile = get_object_or_404(
+        IndicatorMethodProfile.objects.filter(indicator=indicator, is_active=True),
+        uuid=profile_uuid,
+    )
+    if not _can_run_indicator_methods(request.user):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    params = request.data.get("params") or {}
+    use_cache = bool(request.data.get("use_cache", True))
+    run = run_method_profile(profile=profile, user=request.user, params=params, use_cache=use_cache)
+    return Response(
+        {
+            "run_uuid": str(run.uuid),
+            "status": run.status,
+            "output_json": run.output_json,
+            "error_message": run.error_message,
+            "profile_uuid": str(profile.uuid),
+            "indicator_uuid": str(indicator.uuid),
         }
     )
 
@@ -1142,6 +1403,11 @@ def api_template_pack_instance_responses(request, pack_code, instance_uuid):
     if request.method == "POST":
         section_code = (request.data.get("section_code") or "").strip()
         response_json = request.data.get("response_json") or {}
+        if not isinstance(response_json, dict):
+            return Response(
+                {"detail": "response_json must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         section = get_object_or_404(
             ReportTemplatePackSection.objects.filter(pack=pack, is_active=True),
             code=section_code,
@@ -1202,6 +1468,34 @@ def api_template_pack_instance_responses(request, pack_code, instance_uuid):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def api_template_pack_validate(request, pack_code, instance_uuid):
+    pack = get_object_or_404(ReportTemplatePack.objects.filter(is_active=True), code=pack_code)
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _require_instance_scope(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    validation = build_pack_validation(pack=pack, instance=instance, user=request.user)
+    return Response(validation)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_template_pack_pdf(request, pack_code, instance_uuid):
+    pack = get_object_or_404(ReportTemplatePack.objects.filter(is_active=True), code=pack_code)
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _require_instance_scope(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        pdf_bytes = render_pack_pdf_bytes(pack=pack, instance=instance, user=request.user)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    filename = f"{pack.code}_{instance.uuid}.pdf"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def api_template_pack_export(request, pack_code, instance_uuid):
     pack = get_object_or_404(ReportTemplatePack.objects.filter(is_active=True), code=pack_code)
     instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
@@ -1213,3 +1507,114 @@ def api_template_pack_export(request, pack_code, instance_uuid):
         return Response({"detail": "No exporter registered for this pack."}, status=status.HTTP_400_BAD_REQUEST)
     payload = exporter(instance, request.user)
     return Response(payload)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_report_product_list(request):
+    seed_default_report_products()
+    templates = ReportProductTemplate.objects.filter(is_active=True).order_by("code")
+    return Response(
+        {
+            "report_products": [
+                {
+                    "uuid": str(template.uuid),
+                    "code": template.code,
+                    "title": template.title,
+                    "version": template.version,
+                    "description": template.description,
+                }
+                for template in templates
+            ]
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_report_product_preview(request, product_code):
+    template = get_object_or_404(ReportProductTemplate.objects.filter(is_active=True), code=product_code)
+    instance_uuid = (request.GET.get("instance_uuid") or "").strip()
+    instance = None
+    if instance_uuid:
+        instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+        if not _require_instance_scope(request.user, instance):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    payload = build_report_product_payload(template=template, instance=instance, user=request.user)
+    html = render_report_product_html(template=template, payload=payload)
+    run = generate_report_product_run(template=template, instance=instance, user=request.user)
+    return Response(
+        {
+            "template": {
+                "code": template.code,
+                "title": template.title,
+                "version": template.version,
+            },
+            "payload": payload,
+            "html_preview": html,
+            "run_uuid": str(run.uuid),
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_report_product_html(request, product_code):
+    template = get_object_or_404(ReportProductTemplate.objects.filter(is_active=True), code=product_code)
+    instance_uuid = (request.GET.get("instance_uuid") or "").strip()
+    instance = None
+    if instance_uuid:
+        instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+        if not _require_instance_scope(request.user, instance):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    payload = build_report_product_payload(template=template, instance=instance, user=request.user)
+    html = render_report_product_html(template=template, payload=payload)
+    return HttpResponse(html, content_type="text/html; charset=utf-8")
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_report_product_pdf(request, product_code):
+    template = get_object_or_404(ReportProductTemplate.objects.filter(is_active=True), code=product_code)
+    instance_uuid = (request.GET.get("instance_uuid") or "").strip()
+    instance = None
+    if instance_uuid:
+        instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+        if not _require_instance_scope(request.user, instance):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    payload = build_report_product_payload(template=template, instance=instance, user=request.user)
+    try:
+        pdf_bytes = render_report_product_pdf_bytes(template=template, payload=payload)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    filename = f"{template.code}_{instance.uuid if instance else 'global'}.pdf"
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_report_product_runs(request):
+    queryset = ReportProductRun.objects.select_related("template", "reporting_instance", "generated_by").order_by(
+        "-created_at",
+        "-id",
+    )[:50]
+    if not (is_system_admin(request.user) or getattr(request.user, "is_staff", False)):
+        queryset = queryset.filter(generated_by=request.user)
+    return Response(
+        {
+            "runs": [
+                {
+                    "uuid": str(row.uuid),
+                    "template_code": row.template.code,
+                    "status": row.status,
+                    "reporting_instance_uuid": str(row.reporting_instance.uuid) if row.reporting_instance_id else None,
+                    "generated_by": row.generated_by.username if row.generated_by_id else None,
+                    "generated_at": row.generated_at.isoformat() if row.generated_at else None,
+                    "created_at": row.created_at.isoformat(),
+                }
+                for row in queryset
+            ]
+        }
+    )

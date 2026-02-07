@@ -4,7 +4,13 @@ import pytest
 from django.core.management import call_command
 from django.utils import timezone
 
-from nbms_app.models import MonitoringProgramme, MonitoringProgrammeRun, Organisation, ProgrammeRefreshCadence
+from nbms_app.models import (
+    IntegrationDataAsset,
+    MonitoringProgramme,
+    MonitoringProgrammeRun,
+    Organisation,
+    ProgrammeRefreshCadence,
+)
 
 
 pytestmark = pytest.mark.django_db
@@ -43,3 +49,12 @@ def test_run_monitoring_programmes_processes_due_programmes():
     runs = MonitoringProgrammeRun.objects.filter(programme=programme).order_by("-created_at")
     assert runs.exists()
     assert runs.first().status in {"succeeded", "blocked"}
+
+
+def test_seed_birdie_integration_command_is_idempotent():
+    call_command("seed_birdie_integration")
+    call_command("seed_birdie_integration")
+
+    programme = MonitoringProgramme.objects.get(programme_code="NBMS-BIRDIE-INTEGRATION")
+    assert programme.indicator_links.filter(is_active=True).count() >= 4
+    assert IntegrationDataAsset.objects.filter(source_system="BIRDIE", layer="bronze").exists()

@@ -44,8 +44,10 @@ export class App {
     { route: '/indicators', label: 'Indicator Explorer', icon: 'insights' },
     { route: '/map', label: 'Spatial Viewer', icon: 'map' },
     { route: '/programmes', label: 'Programme Ops', icon: 'lan' },
+    { route: '/programmes/birdie', label: 'BIRDIE', icon: 'water' },
     { route: '/nr7-builder', label: 'NR7 Builder', icon: 'assignment' },
     { route: '/template-packs', label: 'MEA Packs', icon: 'account_tree' },
+    { route: '/report-products', label: 'Report Products', icon: 'auto_stories' },
     { route: '/system-health', label: 'System Health', icon: 'monitor_heart' }
   ];
 

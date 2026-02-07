@@ -3,6 +3,24 @@
 ## Executive Summary
 NBMS has a strong governance baseline (RBAC/ABAC filters, object-level permissions via guardian, consent records, audit signals, export approvals). The newest risk surface is the expanded `/api/*` layer for Angular: controls are mostly correct, but endpoint-by-endpoint policy standardization and deeper CI security checks remain ongoing work.
 
+## 2026-02-07 Hardening Increment (Phases 4-7)
+
+Implemented:
+- GBF method runtime governance:
+  - `IndicatorMethodProfile` + `IndicatorMethodRun` add explicit execution readiness and run history.
+  - SDK runner writes audit events per method run (`indicator_method_run`).
+- Ramsar template-pack controls:
+  - endpoint-level instance scope remains enforced in `/api/template-packs/*`.
+  - added pack QA endpoint and PDF export endpoint with existing instance-scope checks.
+- BIRDIE integration governance:
+  - BIRDIE dashboard endpoint is authenticated and scoped through programme ABAC filters.
+  - lineage model (`IntegrationDataAsset`) records source/layer/hash for traceability.
+- Report product governance:
+  - report-product preview/export endpoints are authenticated.
+  - optional instance binding is validated through `_require_instance_scope`.
+- CI hardening expansion:
+  - docker smoke now includes Playwright e2e smoke against nginx-served SPA.
+
 ## 2026-02-06 Hardening Increment (Phase 1)
 
 Implemented:

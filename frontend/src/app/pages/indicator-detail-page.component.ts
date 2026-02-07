@@ -59,6 +59,17 @@ import { IndicatorService } from '../services/indicator.service';
       </mat-card>
 
       <mat-card>
+        <mat-card-title>Method Readiness</mat-card-title>
+        <mat-card-content>
+          <mat-list>
+            <mat-list-item *ngFor="let profile of detail.method_profiles">
+              {{ profile.method_type }} ({{ profile.implementation_key }}) - {{ profile.readiness_state }}
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card>
         <mat-card-title>Evidence</mat-card-title>
         <mat-card-content>
           <mat-list>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ template.title }} {{ template.version }}</title>
+  <style>
+    body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1f2d27; }
+    h1, h2, h3 { color: #14503f; }
+    h1 { font-size: 18pt; margin-bottom: 4px; }
+    h2 { font-size: 14pt; margin-top: 14px; }
+    .meta { color: #4a6859; margin-bottom: 10px; }
+    .qa { border: 1px solid #d8e7df; background: #f3faf6; padding: 8px; margin: 10px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    th, td { border: 1px solid #d6e4dc; padding: 4px 6px; vertical-align: top; }
+    th { background: #eef6f1; text-align: left; }
+    ul { margin: 8px 0 8px 18px; }
+  </style>
+</head>
+<body>
+  <h1>{{ template.title }}</h1>
+  <div class="meta">
+    <div><strong>Template:</strong> {{ template.code }} ({{ template.version }})</div>
+    <div><strong>Generated:</strong> {{ generated_at }}</div>
+    <div><strong>Reporting instance:</strong> {{ payload.reporting_instance_uuid|default:"Not bound" }}</div>
+  </div>
+
+  <div class="qa">
+    <strong>QA status:</strong> {% if payload.qa.overall_ready %}Ready{% else %}Blocked{% endif %}
+    {% if payload.qa.items %}
+      <ul>
+        {% for item in payload.qa.items %}
+          <li>[{{ item.severity }}] {{ item.message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  </div>
+
+  <h2>Outline</h2>
+  <ul>
+    {% for section in payload.sections %}
+      <li>{{ section.title }}</li>
+    {% endfor %}
+  </ul>
+
+  <h2>Indicator Table</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Code</th>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Target</th>
+        <th>Last update</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in payload.indicator_table %}
+        <tr>
+          <td>{{ row.code }}</td>
+          <td>{{ row.title }}</td>
+          <td>{{ row.indicator_type }}</td>
+          <td>{{ row.national_target_code }}</td>
+          <td>{{ row.last_updated_on }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="5">No indicator rows available.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Map Layers</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>Type</th>
+        <th>Indicator</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in payload.map_layers %}
+        <tr>
+          <td>{{ row.name }} ({{ row.slug }})</td>
+          <td>{{ row.source_type }}</td>
+          <td>{{ row.indicator_code }}</td>
+        </tr>
+      {% empty %}
+        <tr>
+          <td colspan="3">No map layers available.</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</body>
+</html>

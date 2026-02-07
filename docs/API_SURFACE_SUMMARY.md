@@ -32,6 +32,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `POST /api/programmes/{uuid}/runs` (`IsAuthenticated`, steward/lead/partner/system-admin manage permission required)
 - `GET /api/programmes/runs/{uuid}` (`IsAuthenticated`, ABAC-filtered by parent programme)
 - `POST /api/programmes/runs/{uuid}` (`IsAuthenticated`, rerun action; steward/lead/partner/system-admin manage permission required)
+- `GET /api/integrations/birdie/dashboard` (`IsAuthenticated`, BIRDIE programme scope)
 
 ### Reporting (NR7 builder)
 - `GET /api/reporting/instances` (`IsAuthenticated`, staff/system-admin + instance scope)
@@ -44,6 +45,8 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/indicators/{uuid}/datasets` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/series` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/validation` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}/methods` (`AllowAny`, ABAC-filtered)
+- `POST /api/indicators/{uuid}/methods/{profile_uuid}/run` (`IsAuthenticated`, role-gated)
 - `POST /api/indicators/{uuid}/transition` (`IsAuthenticated`, workflow/role-gated)
 
 ### Spatial
@@ -54,7 +57,16 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/template-packs` (`IsAuthenticated`)
 - `GET /api/template-packs/{pack_code}/sections` (`IsAuthenticated`)
 - `GET|POST /api/template-packs/{pack_code}/instances/{instance_uuid}/responses` (`IsAuthenticated`, instance-scope check)
+- `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/validate` (`IsAuthenticated`, instance-scope check)
+- `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export.pdf` (`IsAuthenticated`, instance-scope check)
 - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export` (`IsAuthenticated`, exporter registry driven)
+
+### Report products
+- `GET /api/report-products` (`IsAuthenticated`)
+- `GET /api/report-products/runs` (`IsAuthenticated`, staff/system-admin broad view; user-scoped fallback)
+- `GET /api/report-products/{code}/preview` (`IsAuthenticated`; optional `instance_uuid` scope check)
+- `GET /api/report-products/{code}/export.html` (`IsAuthenticated`; optional `instance_uuid` scope check)
+- `GET /api/report-products/{code}/export.pdf` (`IsAuthenticated`; optional `instance_uuid` scope check)
 
 ## DRF API (`/api/v1/*`, read-only)
 Source: `src/nbms_app/api.py`.
@@ -88,3 +100,8 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
 - Programme operations runtime:
   - Command-based scheduler runner: `python manage.py run_monitoring_programmes`
   - Seeded programme ops baseline: `python manage.py seed_programme_ops_v1`
+- BIRDIE connector runtime:
+  - `python manage.py seed_birdie_integration`
+  - Bronze/silver/gold lineage in `IntegrationDataAsset`
+- Report product runtime:
+  - `python manage.py seed_report_products`

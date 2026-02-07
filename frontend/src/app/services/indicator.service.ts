@@ -4,6 +4,7 @@ import {
   IndicatorDatasetsResponse,
   IndicatorDetailResponse,
   IndicatorListResponse,
+  IndicatorMethodProfileResponse,
   IndicatorSeriesResponse
 } from '../models/api.models';
 import { ApiClientService } from './api-client.service';
@@ -32,5 +33,20 @@ export class IndicatorService {
     return this.api.get<{ overall_state: string; checks: Array<{ state: string; notes: string[] }> }>(
       `indicators/${uuid}/validation`
     );
+  }
+
+  methods(uuid: string) {
+    return this.api.get<IndicatorMethodProfileResponse>(`indicators/${uuid}/methods`);
+  }
+
+  runMethod(uuid: string, profileUuid: string, payload: { params?: Record<string, unknown>; use_cache?: boolean } = {}) {
+    return this.api.post<{
+      run_uuid: string;
+      status: string;
+      output_json: Record<string, unknown>;
+      error_message: string;
+      profile_uuid: string;
+      indicator_uuid: string;
+    }>(`indicators/${uuid}/methods/${profileUuid}/run`, payload);
   }
 }

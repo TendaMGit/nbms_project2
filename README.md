@@ -16,6 +16,9 @@ including governance, consent checks, and instance-scoped approvals.
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
 - ORT NR7 v2 export (gated) at `/exports/instances/<uuid>/ort-nr7-v2.json`
+- Ramsar/CITES/CMS template-pack runtime (Ramsar includes QA + PDF export)
+- BIRDIE connector ingest with bronze/silver/gold lineage persistence
+- Report product framework for NBA/GMO/Invasive shells (HTML/PDF)
 - Manager report pack preview (HTML)
 - Reference catalog UI for programmes, datasets, methodologies, agreements, and sensitivity classes
 
@@ -74,6 +77,10 @@ docker compose --profile spatial up -d --build
 scripts\bootstrap.ps1
 python manage.py bootstrap_roles
 python manage.py seed_reporting_defaults
+python manage.py seed_mea_template_packs
+python manage.py seed_gbf_indicators
+python manage.py seed_birdie_integration
+python manage.py seed_report_products
 ```
 
 4) Start backend and run smoke checks:
@@ -87,6 +94,8 @@ Docker-first URLs:
 - Angular app + reverse proxy: `http://localhost:8081/`
 - Backend direct: `http://localhost:8000/`
 - Health through frontend proxy: `http://localhost:8081/health/`
+- BIRDIE dashboard route: `http://localhost:8081/programmes/birdie`
+- Report products route: `http://localhost:8081/report-products`
 
 ## Quickstart (Windows no-Docker fallback)
 
@@ -307,6 +316,12 @@ Security and monitoring:
 - `METRICS_TOKEN` (optional; protects /metrics when set)
 - `DJANGO_LOG_JSON` (set `1` for JSON logs with request correlation)
 - `CONTENT_SECURITY_POLICY`, `CONTENT_SECURITY_POLICY_REPORT_ONLY`
+
+BIRDIE integration:
+- `BIRDIE_BASE_URL` (optional live API base URL)
+- `BIRDIE_API_TOKEN` (optional bearer token)
+- `BIRDIE_TIMEOUT_SECONDS`
+- `BIRDIE_USE_FIXTURE` (`1` default; deterministic fixture fallback)
 
 ## Settings
 

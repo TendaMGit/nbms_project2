@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ pack.title }} - {{ instance.version_label }}</title>
+  <style>
+    body { font-family: DejaVu Sans, sans-serif; font-size: 10pt; color: #1f2d27; }
+    h1, h2, h3 { margin: 0 0 8px; color: #14503f; }
+    h1 { font-size: 18pt; }
+    h2 { font-size: 14pt; margin-top: 14px; }
+    h3 { font-size: 11pt; margin-top: 10px; }
+    .meta { margin-bottom: 10px; color: #3f5a4f; }
+    .qa { border: 1px solid #d8e7df; background: #f3faf6; padding: 8px; margin: 10px 0; }
+    .qa-item { margin-bottom: 4px; }
+    .blocker { color: #a4281f; }
+    .warning { color: #925f0b; }
+    .section { page-break-inside: avoid; margin-bottom: 14px; border-top: 1px solid #d6e4dc; padding-top: 10px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th, td { border: 1px solid #d6e4dc; padding: 4px 6px; vertical-align: top; }
+    th { background: #eef6f1; text-align: left; }
+    .small { color: #567365; font-size: 8pt; }
+    ul { margin: 6px 0 6px 18px; }
+  </style>
+</head>
+<body>
+  <h1>{{ pack.title }}</h1>
+  <div class="meta">
+    <div><strong>Pack:</strong> {{ pack.code }} ({{ pack.version }})</div>
+    <div><strong>MEA:</strong> {{ pack.mea_code }}</div>
+    <div><strong>Reporting instance:</strong> {{ instance.uuid }} ({{ instance.version_label }})</div>
+    <div><strong>Generated:</strong> {{ generated_at }}</div>
+  </div>
+
+  <div class="qa">
+    <div><strong>Readiness:</strong> {% if validation.overall_ready %}Ready{% else %}Not ready{% endif %}</div>
+    {% if validation.qa_items %}
+      {% for item in validation.qa_items %}
+        <div class="qa-item {% if item.severity == 'BLOCKER' %}blocker{% else %}warning{% endif %}">
+          [{{ item.severity }}] {{ item.section }}{% if item.field %}.{{ item.field }}{% endif %} - {{ item.message }}
+        </div>
+      {% endfor %}
+    {% else %}
+      <div class="qa-item">No QA issues detected.</div>
+    {% endif %}
+  </div>
+
+  {% for section in sections %}
+    <div class="section">
+      <h2>{{ section.title }}</h2>
+      <div class="small">Code: {{ section.code }}</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>Value</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for field in section.field_rows %}
+            <tr>
+              <td>{{ field.label }} ({{ field.key }})</td>
+              <td>
+                {% if field.type == "questionnaire" %}
+                  {% if field.questionnaire_rows %}
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Question</th>
+                          <th>Response</th>
+                          <th>Notes</th>
+                          <th>Linked indicators</th>
+                          <th>Linked programmes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {% for row in field.questionnaire_rows %}
+                          <tr>
+                            <td>{{ row.question_code }} - {{ row.question_title }}</td>
+                            <td>{{ row.response|default:"" }}</td>
+                            <td>{{ row.notes|default:"" }}</td>
+                            <td>{{ row.linked_indicator_codes|default:"" }}</td>
+                            <td>{{ row.linked_programme_codes|default:"" }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  {% else %}
+                    <em>No questionnaire rows captured.</em>
+                  {% endif %}
+                {% else %}
+                  {{ field.value_text }}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endfor %}
+</body>
+</html>

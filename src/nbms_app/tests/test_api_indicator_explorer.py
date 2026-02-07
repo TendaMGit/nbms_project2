@@ -139,6 +139,9 @@ def test_indicator_list_abac_for_anonymous(client):
     codes = [row["code"] for row in payload["results"]]
     assert stack["public"].code in codes
     assert stack["hidden"].code not in codes
+    public_row = next(row for row in payload["results"] if row["code"] == stack["public"].code)
+    assert public_row["method_readiness_state"] == "blocked"
+    assert public_row["method_types"] == []
 
 
 def test_indicator_list_framework_filter(client):
