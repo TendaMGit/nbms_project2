@@ -467,6 +467,141 @@ def execute_programme_run(*, run, actor=None):
                     final_status = ProgrammeRunStatus.BLOCKED
                     run_errors.append(f"Spatial source sync blocked for {blocked_count} source(s).")
 
+        if step["type"] == ProgrammeStepType.INGEST and programme.programme_code == "NBMS-PROG-ECOSYSTEMS":
+            if run.dry_run:
+                step_details["integration"] = {"source": "vegmap_registry", "dry_run": True}
+            else:
+                ingest_log = StringIO()
+                try:
+                    call_command("sync_spatial_sources", "--source-code", "NE_GEOREGIONS_ZA", stdout=ingest_log, stderr=ingest_log)
+                    call_command("sync_vegmap_baseline", "--use-demo-layer", "--vegmap-version", "demo", stdout=ingest_log, stderr=ingest_log)
+                    detail_text = ingest_log.getvalue().strip()
+                    step_details["integration"] = {"source": "vegmap_registry", "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="VEGMAP_REGISTRY_SYNC",
+                        status=ProgrammeQaStatus.PASS,
+                        message="VegMap baseline sync completed for ecosystem programme.",
+                        details_json={"log": detail_text},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    step_state = ProgrammeRunStatus.FAILED
+                    final_status = ProgrammeRunStatus.FAILED
+                    detail_text = ingest_log.getvalue().strip()
+                    run_errors.append(f"Ecosystem programme ingest failed: {exc}")
+                    step_details["integration"] = {"source": "vegmap_registry", "error": str(exc), "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="VEGMAP_REGISTRY_SYNC",
+                        status=ProgrammeQaStatus.FAIL,
+                        message=f"VegMap baseline sync failed: {exc}",
+                        details_json={"log": detail_text},
+                    )
+
+        if step["type"] == ProgrammeStepType.INGEST and programme.programme_code == "NBMS-PROG-TAXA":
+            if run.dry_run:
+                step_details["integration"] = {"source": "taxon_registry", "dry_run": True}
+            else:
+                ingest_log = StringIO()
+                try:
+                    call_command("sync_taxon_backbone", "--seed-demo", "--skip-remote", stdout=ingest_log, stderr=ingest_log)
+                    call_command("sync_specimen_vouchers", "--seed-demo", stdout=ingest_log, stderr=ingest_log)
+                    detail_text = ingest_log.getvalue().strip()
+                    step_details["integration"] = {"source": "taxon_registry", "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="TAXON_REGISTRY_SYNC",
+                        status=ProgrammeQaStatus.PASS,
+                        message="Taxon backbone and voucher sync completed.",
+                        details_json={"log": detail_text},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    step_state = ProgrammeRunStatus.FAILED
+                    final_status = ProgrammeRunStatus.FAILED
+                    detail_text = ingest_log.getvalue().strip()
+                    run_errors.append(f"Taxon programme ingest failed: {exc}")
+                    step_details["integration"] = {"source": "taxon_registry", "error": str(exc), "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="TAXON_REGISTRY_SYNC",
+                        status=ProgrammeQaStatus.FAIL,
+                        message=f"Taxon registry sync failed: {exc}",
+                        details_json={"log": detail_text},
+                    )
+
+        if step["type"] == ProgrammeStepType.INGEST and programme.programme_code == "NBMS-PROG-IAS":
+            if run.dry_run:
+                step_details["integration"] = {"source": "ias_registry", "dry_run": True}
+            else:
+                ingest_log = StringIO()
+                try:
+                    call_command("sync_griis_za", "--seed-demo", stdout=ingest_log, stderr=ingest_log)
+                    detail_text = ingest_log.getvalue().strip()
+                    step_details["integration"] = {"source": "ias_registry", "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="IAS_REGISTRY_SYNC",
+                        status=ProgrammeQaStatus.PASS,
+                        message="IAS baseline sync completed.",
+                        details_json={"log": detail_text},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    step_state = ProgrammeRunStatus.FAILED
+                    final_status = ProgrammeRunStatus.FAILED
+                    detail_text = ingest_log.getvalue().strip()
+                    run_errors.append(f"IAS programme ingest failed: {exc}")
+                    step_details["integration"] = {"source": "ias_registry", "error": str(exc), "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="IAS_REGISTRY_SYNC",
+                        status=ProgrammeQaStatus.FAIL,
+                        message=f"IAS registry sync failed: {exc}",
+                        details_json={"log": detail_text},
+                    )
+
+        if step["type"] == ProgrammeStepType.INGEST and programme.programme_code == "NBMS-PROG-PROTECTED-AREAS":
+            if run.dry_run:
+                step_details["integration"] = {"source": "protected_areas_registry", "dry_run": True}
+            else:
+                ingest_log = StringIO()
+                try:
+                    call_command("sync_spatial_sources", "--source-code", "NE_PROTECTED_LANDS_ZA", stdout=ingest_log, stderr=ingest_log)
+                    call_command("sync_spatial_sources", "--source-code", "NE_ADMIN1_ZA", stdout=ingest_log, stderr=ingest_log)
+                    detail_text = ingest_log.getvalue().strip()
+                    step_details["integration"] = {"source": "protected_areas_registry", "log": detail_text}
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="PROTECTED_AREAS_SYNC",
+                        status=ProgrammeQaStatus.PASS,
+                        message="Protected areas sources synced.",
+                        details_json={"log": detail_text},
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    step_state = ProgrammeRunStatus.FAILED
+                    final_status = ProgrammeRunStatus.FAILED
+                    detail_text = ingest_log.getvalue().strip()
+                    run_errors.append(f"Protected areas ingest failed: {exc}")
+                    step_details["integration"] = {
+                        "source": "protected_areas_registry",
+                        "error": str(exc),
+                        "log": detail_text,
+                    }
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code="PROTECTED_AREAS_SYNC",
+                        status=ProgrammeQaStatus.FAIL,
+                        message=f"Protected areas sync failed: {exc}",
+                        details_json={"log": detail_text},
+                    )
+
         if step["type"] == ProgrammeStepType.COMPUTE and programme.programme_code == "NBMS-BIRDIE-INTEGRATION":
             profiles = IndicatorMethodProfile.objects.filter(
                 indicator__code__startswith="BIRDIE-",
