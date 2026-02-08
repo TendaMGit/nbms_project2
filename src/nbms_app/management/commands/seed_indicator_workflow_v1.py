@@ -22,6 +22,9 @@ from nbms_app.models import (
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
     IndicatorInputRequirement,
+    IndicatorMethodProfile,
+    IndicatorMethodReadiness,
+    IndicatorMethodType,
     IndicatorMethodologyVersionLink,
     IndicatorValueType,
     LifecycleStatus,
@@ -566,6 +569,29 @@ class Command(BaseCommand):
             )
             requirement.last_checked_at = None
             requirement.save(update_fields=["last_checked_at", "updated_at"])
+
+            method_type = IndicatorMethodType.SPATIAL_OVERLAY if indicator.code == "NBMS-GBF-PA-COVERAGE" else IndicatorMethodType.CSV_IMPORT
+            implementation_key = "spatial_overlay_area_by_province" if method_type == IndicatorMethodType.SPATIAL_OVERLAY else "csv_import_aggregation"
+            readiness_notes = (
+                "Ready when admin boundary and protected area layers are synchronized."
+                if method_type == IndicatorMethodType.SPATIAL_OVERLAY
+                else "CSV aggregation profile seeded for tabular indicator workflow."
+            )
+            IndicatorMethodProfile.objects.update_or_create(
+                indicator=indicator,
+                method_type=method_type,
+                implementation_key=implementation_key,
+                defaults={
+                    "summary": f"Seeded method profile for {indicator.code}.",
+                    "required_inputs_json": ["dataset_release", "indicator_data_points"],
+                    "disaggregation_requirements_json": ["year", "province"],
+                    "readiness_state": IndicatorMethodReadiness.PARTIAL,
+                    "readiness_notes": readiness_notes,
+                    "source_system": "nbms_seed",
+                    "source_ref": "indicator_workflow_v1",
+                    "is_active": True,
+                },
+            )
 
         self.stdout.write(
             self.style.SUCCESS(

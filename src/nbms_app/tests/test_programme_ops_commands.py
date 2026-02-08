@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.utils import timezone
 
 from nbms_app.models import (
@@ -58,3 +59,26 @@ def test_seed_birdie_integration_command_is_idempotent():
     programme = MonitoringProgramme.objects.get(programme_code="NBMS-BIRDIE-INTEGRATION")
     assert programme.indicator_links.filter(is_active=True).count() >= 4
     assert IntegrationDataAsset.objects.filter(source_system="BIRDIE", layer="bronze").exists()
+
+
+def test_run_programme_command_executes_selected_programme():
+    org = Organisation.objects.create(name="Command Org", org_code="CMD-ORG")
+    programme = MonitoringProgramme.objects.create(
+        programme_code="NBMS-COMMAND-RUN",
+        title="Command run programme",
+        lead_org=org,
+        refresh_cadence=ProgrammeRefreshCadence.MANUAL,
+        scheduler_enabled=False,
+        pipeline_definition_json={"steps": [{"key": "validate", "type": "validate"}]},
+        data_quality_rules_json={"minimum_dataset_links": 0, "minimum_indicator_links": 0},
+    )
+
+    call_command("run_programme", "--programme-code", programme.programme_code)
+    assert MonitoringProgrammeRun.objects.filter(programme=programme).exists()
+    latest = MonitoringProgrammeRun.objects.filter(programme=programme).order_by("-created_at", "-id").first()
+    assert latest.status in {"succeeded", "blocked"}
+
+
+def test_run_programme_command_errors_on_unknown_programme():
+    with pytest.raises(CommandError):
+        call_command("run_programme", "--programme-code", "MISSING-PROGRAMME")

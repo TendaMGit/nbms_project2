@@ -180,6 +180,7 @@ class Command(BaseCommand):
                     "steps": [
                         {"key": "ingest_sources", "type": "ingest"},
                         {"key": "validate_sources", "type": "validate"},
+                        {"key": "compute_overlay_indicators", "type": "compute"},
                         {"key": "publish_layers", "type": "publish"},
                     ]
                 },

@@ -7,11 +7,13 @@ from django.utils import timezone
 from nbms_app.indicator_methods.base import BaseIndicatorMethod, MethodResult
 from nbms_app.models import (
     BinaryIndicatorResponse,
+    DatasetRelease,
     IndicatorDataPoint,
     IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
     IndicatorValueType,
     LifecycleStatus,
+    MonitoringProgrammeRun,
     SensitivityLevel,
     SpatialFeature,
     SpatialLayer,
@@ -188,6 +190,17 @@ class SpatialOverlayMethod(BaseIndicatorMethod):
             for row in SpatialUnit.objects.filter(unit_type=province_unit_type).order_by("unit_code", "id")
         } if province_unit_type else {}
         now_year = int(context.params.get("year") or timezone.now().year)
+        programme_run_uuid = str(context.params.get("programme_run") or "").strip()
+        programme_run = None
+        if programme_run_uuid:
+            programme_run = MonitoringProgrammeRun.objects.filter(uuid=programme_run_uuid).first()
+        dataset_release = (
+            DatasetRelease.objects.filter(
+                dataset__indicator_links__indicator=context.indicator
+            )
+            .order_by("-release_date", "-id")
+            .first()
+        )
 
         series_code = context.params.get("series_code") or f"SER-{context.indicator.code}-SPATIAL-PA-COVERAGE"
         series, _ = IndicatorDataSeries.objects.update_or_create(
@@ -226,6 +239,8 @@ class SpatialOverlayMethod(BaseIndicatorMethod):
                     "value_numeric": coverage_pct,
                     "value_text": "",
                     "spatial_resolution": "province",
+                    "dataset_release": dataset_release,
+                    "programme_run": programme_run,
                     "source_url": "",
                     "footnote": "Computed via NBMS spatial overlay method.",
                 },
@@ -249,6 +264,8 @@ class SpatialOverlayMethod(BaseIndicatorMethod):
                 "overlay_layer_code": overlay_layer.layer_code,
                 "series_uuid": str(series.uuid),
                 "year": now_year,
+                "programme_run_uuid": str(programme_run.uuid) if programme_run else None,
+                "dataset_release_uuid": str(dataset_release.uuid) if dataset_release else None,
                 "province_coverage": output_rows,
             },
         )

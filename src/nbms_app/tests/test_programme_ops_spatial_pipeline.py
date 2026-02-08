@@ -39,6 +39,7 @@ def test_spatial_baselines_programme_records_qa_and_artefacts(monkeypatch):
     run.refresh_from_db()
 
     assert run.status == ProgrammeRunStatus.SUCCEEDED
-    assert run.artefacts.count() == 1
-    assert run.qa_results.count() == 1
+    assert run.artefacts.count() >= 1
+    assert run.qa_results.count() >= 1
+    assert run.artefacts.filter(label="run-report-json").exists()
     assert run.qa_results.first().status == "pass"

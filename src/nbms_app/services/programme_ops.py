@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import hashlib
+import json
+import os
 from datetime import timedelta
+from io import StringIO
 
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.core.management import call_command
 from django.db import transaction
+from django.db import connection
 from django.db.models import Q
 from django.utils import timezone
 
@@ -14,6 +22,7 @@ from nbms_app.models import (
     MonitoringProgrammeQAResult,
     MonitoringProgrammeRun,
     MonitoringProgrammeRunStep,
+    ProgrammeAlertState,
     ProgrammeAlertSeverity,
     ProgrammeQaStatus,
     ProgrammeRefreshCadence,
@@ -21,12 +30,15 @@ from nbms_app.models import (
     ProgrammeRunTrigger,
     ProgrammeRunType,
     ProgrammeStepType,
+    SpatialFeature,
+    SpatialLayer,
 )
 from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.catalog_access import can_edit_monitoring_programme
 from nbms_app.services.spatial_sources import sync_spatial_sources
+from nbms_app.spatial_fields import GIS_ENABLED
 
 
 CADENCE_DELTA_MAP = {
@@ -114,6 +126,198 @@ def _minimum_rule_int(rules, key, default_value):
         return max(0, int(value))
     except (TypeError, ValueError):
         return default_value
+
+
+def _artifact_from_text(*, run, step, label, text, storage_path, media_type):
+    payload = (text or "").encode("utf-8")
+    checksum = hashlib.sha256(payload).hexdigest()
+    if default_storage.exists(storage_path):
+        default_storage.delete(storage_path)
+    default_storage.save(storage_path, ContentFile(payload))
+    MonitoringProgrammeArtefactRef.objects.update_or_create(
+        run=run,
+        step=step,
+        label=label,
+        defaults={
+            "storage_path": storage_path,
+            "media_type": media_type,
+            "checksum_sha256": checksum,
+            "size_bytes": len(payload),
+            "metadata_json": {"generated_at": timezone.now().isoformat()},
+        },
+    )
+    return checksum
+
+
+def _spatial_invalid_geometry_count(*, layer_id):
+    if not GIS_ENABLED:
+        return 0
+    geom_expr = "COALESCE(geom, ST_SetSRID(ST_GeomFromGeoJSON(geometry_json::text), 4326))"
+    with connection.cursor() as cursor:
+        cursor.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM nbms_app_spatialfeature
+            WHERE layer_id = %s
+              AND ({geom_expr}) IS NOT NULL
+              AND NOT ST_IsValid({geom_expr})
+            """,
+            [layer_id],
+        )
+        row = cursor.fetchone()
+    return int((row or [0])[0] or 0)
+
+
+def _run_spatial_layer_qa(*, run, step):
+    rows = []
+    blocking = False
+    layers = (
+        SpatialLayer.objects.filter(is_active=True, spatial_source__enabled_by_default=True)
+        .select_related("latest_ingestion_run")
+        .order_by("theme", "layer_code", "id")
+        .distinct()
+    )
+    if not layers:
+        MonitoringProgrammeQAResult.objects.create(
+            run=run,
+            step=step,
+            code="SPATIAL_LAYER_REGISTRY_EMPTY",
+            status=ProgrammeQaStatus.WARN,
+            message="No default-enabled spatial layers found for validation.",
+            details_json={},
+        )
+        return {"layers_checked": 0, "rows": rows, "blocking": False}
+
+    for layer in layers:
+        feature_count = SpatialFeature.objects.filter(layer=layer).count()
+        invalid_count = _spatial_invalid_geometry_count(layer_id=layer.id)
+        missing_bbox_count = SpatialFeature.objects.filter(layer=layer).filter(
+            Q(minx__isnull=True) | Q(miny__isnull=True) | Q(maxx__isnull=True) | Q(maxy__isnull=True)
+        ).count()
+        latest_run = layer.latest_ingestion_run
+        qa_status = ProgrammeQaStatus.PASS
+        message = f"{layer.layer_code}: features={feature_count}, invalid={invalid_count}, bbox_missing={missing_bbox_count}"
+        if feature_count <= 0 or invalid_count > 0:
+            qa_status = ProgrammeQaStatus.FAIL
+            blocking = True
+        elif missing_bbox_count > 0:
+            qa_status = ProgrammeQaStatus.WARN
+
+        details = {
+            "layer_code": layer.layer_code,
+            "theme": layer.theme,
+            "feature_count": feature_count,
+            "invalid_geometry_count": invalid_count,
+            "missing_bbox_count": missing_bbox_count,
+            "latest_ingestion_status": latest_run.status if latest_run else None,
+            "latest_ingestion_run_id": latest_run.run_id if latest_run else None,
+        }
+        rows.append(details)
+        MonitoringProgrammeQAResult.objects.create(
+            run=run,
+            step=step,
+            code=f"SPATIAL_LAYER_{layer.layer_code}",
+            status=qa_status,
+            message=message,
+            details_json=details,
+        )
+    return {"layers_checked": len(rows), "rows": rows, "blocking": blocking}
+
+
+def _publish_spatial_layers(*, run, step):
+    output = StringIO()
+    geoserver_enabled = str(os.environ.get("ENABLE_GEOSERVER", "0")).lower() in {"1", "true", "yes"}
+    try:
+        call_command("seed_geoserver_layers", stdout=output, stderr=output)
+        text = output.getvalue().strip()
+        MonitoringProgrammeQAResult.objects.create(
+            run=run,
+            step=step,
+            code="SPATIAL_GEOSERVER_PUBLISH",
+            status=ProgrammeQaStatus.PASS,
+            message="GeoServer publication succeeded.",
+            details_json={"log": text},
+        )
+        storage_path = f"programme_runs/{run.programme.programme_code.lower()}/{run.uuid}/geoserver_publish.log"
+        _artifact_from_text(
+            run=run,
+            step=step,
+            label="geoserver-publish-log",
+            text=text or "GeoServer publish executed.",
+            storage_path=storage_path,
+            media_type="text/plain",
+        )
+        return {"status": ProgrammeRunStatus.SUCCEEDED, "detail": text}
+    except Exception as exc:  # noqa: BLE001
+        message = f"GeoServer publish failed: {exc}"
+        MonitoringProgrammeQAResult.objects.create(
+            run=run,
+            step=step,
+            code="SPATIAL_GEOSERVER_PUBLISH",
+            status=ProgrammeQaStatus.FAIL if geoserver_enabled else ProgrammeQaStatus.WARN,
+            message=message,
+            details_json={"error": str(exc), "log": output.getvalue()},
+        )
+        return {
+            "status": ProgrammeRunStatus.BLOCKED if geoserver_enabled else ProgrammeRunStatus.SUCCEEDED,
+            "detail": message,
+        }
+
+
+def _write_run_report_artefact(*, run):
+    payload = {
+        "generated_at": timezone.now().isoformat(),
+        "programme": {
+            "uuid": str(run.programme.uuid),
+            "programme_code": run.programme.programme_code,
+            "title": run.programme.title,
+        },
+        "run": {
+            "uuid": str(run.uuid),
+            "status": run.status,
+            "run_type": run.run_type,
+            "trigger": run.trigger,
+            "started_at": run.started_at.isoformat() if run.started_at else None,
+            "finished_at": run.finished_at.isoformat() if run.finished_at else None,
+            "dry_run": run.dry_run,
+            "log_excerpt": run.log_excerpt,
+            "error_message": run.error_message,
+            "input_summary_json": run.input_summary_json,
+            "output_summary_json": run.output_summary_json,
+            "lineage_json": run.lineage_json,
+            "steps": [
+                {
+                    "ordering": row.ordering,
+                    "step_key": row.step_key,
+                    "step_type": row.step_type,
+                    "status": row.status,
+                    "started_at": row.started_at.isoformat() if row.started_at else None,
+                    "finished_at": row.finished_at.isoformat() if row.finished_at else None,
+                    "details_json": row.details_json,
+                }
+                for row in run.steps.order_by("ordering", "id")
+            ],
+            "qa_results": [
+                {
+                    "code": row.code,
+                    "status": row.status,
+                    "message": row.message,
+                    "details_json": row.details_json,
+                }
+                for row in run.qa_results.order_by("created_at", "id")
+            ],
+        },
+    }
+    text = json.dumps(payload, indent=2, sort_keys=True)
+    storage_path = f"programme_runs/{run.programme.programme_code.lower()}/{run.uuid}/run_report.json"
+    _artifact_from_text(
+        run=run,
+        step=None,
+        label="run-report-json",
+        text=text,
+        storage_path=storage_path,
+        media_type="application/json",
+    )
 
 
 def queue_programme_run(
@@ -280,6 +484,48 @@ def execute_programme_run(*, run, actor=None):
                 )
             step_details["method_runs"] = method_runs
 
+        if step["type"] == ProgrammeStepType.COMPUTE and programme.programme_code == "NBMS-SPATIAL-BASELINES":
+            profiles = IndicatorMethodProfile.objects.filter(
+                method_type="spatial_overlay",
+                is_active=True,
+            ).order_by("indicator__code", "implementation_key", "id")[:20]
+            method_runs = []
+            for profile in profiles:
+                method_run = run_method_profile(
+                    profile=profile,
+                    user=actor,
+                    params={"programme_run": str(run.uuid), "year": timezone.now().year},
+                )
+                method_runs.append(
+                    {
+                        "profile_uuid": str(profile.uuid),
+                        "indicator_code": profile.indicator.code,
+                        "status": method_run.status,
+                    }
+                )
+                if method_run.status == ProgrammeRunStatus.FAILED:
+                    step_state = ProgrammeRunStatus.FAILED
+                    final_status = ProgrammeRunStatus.FAILED
+                    run_errors.append(
+                        f"Spatial overlay method failed for indicator {profile.indicator.code}."
+                    )
+                elif method_run.status == ProgrammeRunStatus.BLOCKED and step_state != ProgrammeRunStatus.FAILED:
+                    step_state = ProgrammeRunStatus.BLOCKED
+                    final_status = ProgrammeRunStatus.BLOCKED
+                    run_errors.append(
+                        f"Spatial overlay method blocked for indicator {profile.indicator.code}."
+                    )
+            if not method_runs:
+                MonitoringProgrammeQAResult.objects.create(
+                    run=run,
+                    step=step_obj,
+                    code="SPATIAL_OVERLAY_METHODS",
+                    status=ProgrammeQaStatus.WARN,
+                    message="No active SPATIAL_OVERLAY method profiles were found.",
+                    details_json={},
+                )
+            step_details["method_runs"] = method_runs
+
         if step["type"] == ProgrammeStepType.VALIDATE:
             problems = []
             if dataset_link_count < min_datasets:
@@ -309,9 +555,23 @@ def execute_programme_run(*, run, actor=None):
                 "minimum_dataset_links": min_datasets,
                 "minimum_indicator_links": min_indicators,
             }
+            if programme.programme_code == "NBMS-SPATIAL-BASELINES":
+                spatial_qa = _run_spatial_layer_qa(run=run, step=step_obj)
+                step_details["spatial_qa"] = spatial_qa
+                if spatial_qa.get("blocking"):
+                    step_state = ProgrammeRunStatus.BLOCKED
+                    final_status = ProgrammeRunStatus.BLOCKED
+                    run_errors.append("Spatial validation found blocking geometry/feature issues.")
 
         if step["type"] == ProgrammeStepType.PUBLISH and run.dry_run:
             step_details["note"] = "Dry-run mode skipped publication side effects."
+        elif step["type"] == ProgrammeStepType.PUBLISH and programme.programme_code == "NBMS-SPATIAL-BASELINES":
+            publish_result = _publish_spatial_layers(run=run, step=step_obj)
+            step_details["publish"] = publish_result
+            if publish_result.get("status") == ProgrammeRunStatus.BLOCKED:
+                step_state = ProgrammeRunStatus.BLOCKED
+                final_status = ProgrammeRunStatus.BLOCKED
+                run_errors.append(publish_result.get("detail") or "Spatial publication blocked.")
 
         step_obj.status = step_state
         step_obj.finished_at = timezone.now()
@@ -352,7 +612,7 @@ def execute_programme_run(*, run, actor=None):
             "fail": run.qa_results.filter(status=ProgrammeQaStatus.FAIL).count(),
         },
         "artefact_count": run.artefacts.count(),
-        "open_alerts": programme.alerts.filter(state="open").count(),
+        "open_alerts": programme.alerts.filter(state=ProgrammeAlertState.OPEN).count(),
     }
     run.lineage_json = {
         "programme_uuid": str(programme.uuid),
@@ -370,6 +630,9 @@ def execute_programme_run(*, run, actor=None):
             "updated_at",
         ]
     )
+    _write_run_report_artefact(run=run)
+    run.output_summary_json["artefact_count"] = run.artefacts.count()
+    run.save(update_fields=["output_summary_json", "updated_at"])
 
     programme.last_run_at = finished
     programme.next_run_at = resolve_next_run_at(programme.refresh_cadence, from_time=finished)
