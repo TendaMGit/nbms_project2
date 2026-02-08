@@ -1,14 +1,14 @@
 username,org_code,groups,is_staff,is_superuser,visible_routes
-Contributor,SANBI,Contributor,yes,no,/dashboard; /indicators; /map
-IndicatorLead,SANBI,Indicator Lead,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie
-ProgrammeSteward,SAEON,Data Steward,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products
-DatasetSteward,STATS-SA,Data Steward,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products
-Reviewer,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products
-Approver,DFFE,Admin,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products; /system-health
-Publisher,DFFE,Admin,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products; /system-health
-RamsarFocalPoint,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products
-CITESFocalPoint,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products
-CMSFocalPoint,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products
-Auditor,SANBI,Security Officer,yes,no,/dashboard; /indicators; /map
-IPLCRepresentative,IPLC,Community Representative,yes,no,/dashboard; /indicators; /map
-PublicUser,DEMOORG,Viewer,no,no,/dashboard; /indicators; /map
+Contributor,SANBI,Contributor,yes,no,/dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias
+IndicatorLead,SANBI,Indicator Lead,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias
+ProgrammeSteward,SAEON,Data Steward,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products
+DatasetSteward,STATS-SA,Data Steward,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products
+Reviewer,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products
+Approver,DFFE,Admin,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products; /system-health
+Publisher,DFFE,Admin,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products; /system-health
+RamsarFocalPoint,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products
+CITESFocalPoint,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products
+CMSFocalPoint,DFFE,Secretariat,yes,no,/dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products
+Auditor,SANBI,Security Officer,yes,no,/dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias
+IPLCRepresentative,IPLC,Community Representative,yes,no,/dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias
+PublicUser,DEMOORG,Viewer,no,no,/dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias

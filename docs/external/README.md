@@ -2,7 +2,7 @@
 
 This folder tracks authoritative external references used to align NBMS implementation decisions.
 
-Captured on: 2026-02-07
+Captured on: 2026-02-08
 
 Files:
 
@@ -17,6 +17,15 @@ Files:
 - `spatial_sources/dffe_sapad_protected_areas.md`
 - `spatial_sources/natural_earth_geography_regions.md`
 - `spatial_sources/wdpa_optional.md`
+- `registry_standards/README.md`
+- `registry_standards/darwin_core.md`
+- `registry_standards/gbif_taxonomy_interpretation.md`
+- `registry_standards/sanbi_vegmap.md`
+- `registry_standards/iucn_get.md`
+- `registry_standards/iucn_rle.md`
+- `registry_standards/eicat.md`
+- `registry_standards/seicat.md`
+- `registry_standards/griis.md`
 
 Each note includes:
 

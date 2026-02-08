@@ -34,6 +34,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/programmes/runs/{uuid}` (`IsAuthenticated`, ABAC-filtered by parent programme)
 - `POST /api/programmes/runs/{uuid}` (`IsAuthenticated`, rerun action; steward/lead/partner/system-admin manage permission required)
 - `GET /api/programmes/runs/{uuid}/report` (`IsAuthenticated`, ABAC-filtered report JSON download)
+- `GET /api/programmes/templates` (`IsAuthenticated`, template catalog for programme-driven setup)
 - `GET /api/integrations/birdie/dashboard` (`IsAuthenticated`, BIRDIE programme scope)
 
 ### Reporting (NR7 builder)
@@ -78,6 +79,14 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/report-products/{code}/export.html` (`IsAuthenticated`; optional `instance_uuid` scope check)
 - `GET /api/report-products/{code}/export.pdf` (`IsAuthenticated`; optional `instance_uuid` scope check)
 
+### Reference registries
+- `GET /api/registries/ecosystems` (`IsAuthenticated`, ABAC-filtered, pageable, filters: biome/bioregion/version/threat/get_efg)
+- `GET /api/registries/ecosystems/{uuid}` (`IsAuthenticated`, ABAC object scope)
+- `GET /api/registries/taxa` (`IsAuthenticated`, ABAC-filtered, pageable, filters: rank/status/source/has_voucher/native/endemic/search)
+- `GET /api/registries/taxa/{uuid}` (`IsAuthenticated`, ABAC object scope; sensitive voucher locality redacted for non-privileged users)
+- `GET /api/registries/ias` (`IsAuthenticated`, ABAC-filtered, pageable, filters: stage/pathway/habitat/eicat/seicat/search)
+- `GET /api/registries/ias/{uuid}` (`IsAuthenticated`, ABAC object scope)
+
 ## DRF API (`/api/v1/*`, read-only)
 Source: `src/nbms_app/api.py`.
 
@@ -111,6 +120,7 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
   - Command-based scheduler runner: `python manage.py run_monitoring_programmes`
   - Single-programme run entrypoint: `python manage.py run_programme --programme-code <CODE>`
   - Seeded programme ops baseline: `python manage.py seed_programme_ops_v1`
+  - Registry-aligned template seed: `python manage.py seed_programme_templates`
 - Demo/auth bootstrap runtime:
   - `python manage.py ensure_system_admin`
   - `python manage.py seed_demo_users`
@@ -126,5 +136,15 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
 - `python manage.py ingest_spatial_layer --layer-code <CODE> --file <path>`
 - `python manage.py sync_spatial_sources`
 - `python manage.py seed_geoserver_layers`
+- Registry runtime:
+  - `python manage.py sync_vegmap_baseline`
+  - `python manage.py seed_get_reference`
+  - `python manage.py sync_taxon_backbone`
+  - `python manage.py sync_specimen_vouchers`
+  - `python manage.py sync_griis_za`
+  - `python manage.py seed_registry_demo`
+  - `python manage.py seed_vegmap_demo`
+  - `python manage.py seed_taxon_demo`
+  - `python manage.py seed_ias_demo`
 - Report product runtime:
   - `python manage.py seed_report_products`

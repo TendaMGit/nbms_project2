@@ -1,5 +1,33 @@
 # STATE OF REPO - NBMS Project 2
 
+## PHASE 10 REGISTRIES + PROGRAMME TEMPLATES VERIFIED (2026-02-08)
+- Branch: `feat/phase10-registries-programmes`
+- Scope: standards-aligned ecosystem/taxon/IAS registries, programme template catalog, Angular registry explorers, ABAC-sensitive locality masking, and role visibility updates.
+
+Commands executed (host):
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `391 passed, 1 skipped`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `11 files, 12 tests passed`
+- `npm --prefix frontend run e2e` -> `3 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py export_role_visibility_matrix` -> wrote updated markdown+csv
+
+Commands executed (docker, required set):
+- `docker compose --profile spatial up -d --build` -> pass (backend/frontend/postgis/geoserver/minio/redis healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend python manage.py sync_spatial_sources` -> `ready=0, skipped=3, blocked=0, failed=0`
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=6, skipped=0`
+- `docker compose exec backend python manage.py run_programme --programme-code NBMS-SPATIAL-BASELINES` -> `status=succeeded`, run uuid `9822158c-e208-4d9b-b08e-b853a3e299f4`
+- `docker compose exec backend pytest -q` -> `392 passed`
+
+Phase outcome:
+- Registry APIs available:
+  - `/api/registries/ecosystems*`
+  - `/api/registries/taxa*`
+  - `/api/registries/ias*`
+  - `/api/programmes/templates`
+- Sensitive voucher locality redaction verified in API behavior and tests.
+- Role visibility matrix now includes registry and programme-template surfaces.
+
 ## PR-READY REBASE (2026-02-08)
 - Branch: `feat/spatial-programme-overlay-e2e-prready`
 - Source baseline: `feat/spatial-real-data-programmes-v1` (starting from `759b414` + working-tree hardening set)

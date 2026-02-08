@@ -3,6 +3,42 @@
 ## Unreleased
 
 Highlights:
+- Phase 10 reference registries and programme-template runtime:
+  - Added standards-aligned registry entities and migration:
+    - Ecosystems: `IucnGetNode`, `EcosystemType`, `EcosystemTypologyCrosswalk`, `EcosystemRiskAssessment`
+    - Taxa: `TaxonConcept`, `TaxonName`, `TaxonSourceRecord`, `SpecimenVoucher`
+    - IAS: `AlienTaxonProfile`, `IASCountryChecklistRecord`, `EICATAssessment`, `SEICATAssessment`
+    - Programme-driven registry templates: `ProgrammeTemplate`
+  - Added ingestion and seed command set:
+    - `seed_get_reference`
+    - `sync_vegmap_baseline`
+    - `sync_taxon_backbone`
+    - `sync_specimen_vouchers`
+    - `sync_griis_za`
+    - `seed_programme_templates`
+    - `seed_registry_demo`
+  - Extended programme-run orchestration to execute registry pipelines:
+    - `NBMS-PROG-ECOSYSTEMS`
+    - `NBMS-PROG-TAXA`
+    - `NBMS-PROG-IAS`
+    - `NBMS-PROG-PROTECTED-AREAS`
+  - Added registry API surface:
+    - `/api/registries/ecosystems*`
+    - `/api/registries/taxa*`
+    - `/api/registries/ias*`
+    - `/api/programmes/templates`
+  - Added Angular registry pages and programme template catalog page:
+    - `/registries/ecosystems`
+    - `/registries/taxa`
+    - `/registries/ias`
+    - `/programmes/templates`
+  - Added ABAC-sensitive specimen locality masking for non-privileged users.
+  - Added backend and frontend test coverage for registry APIs/commands/pages.
+  - Added docs:
+    - `docs/REGISTRIES_OVERVIEW.md`
+    - `docs/CROSSWALK_EDITOR_RUNBOOK.md`
+    - `docs/adr/0013-registries-standards-programme-templates.md`
+    - `docs/external/registry_standards/*`
 - Spatial operations hardening + role-authenticated e2e stability:
   - Added `issue_e2e_sessions` management command for deterministic authenticated Playwright sessions.
   - Updated `frontend/e2e/bootstrap-users.mjs` to use backend-issued sessions (replacing fragile inline shell session generation).

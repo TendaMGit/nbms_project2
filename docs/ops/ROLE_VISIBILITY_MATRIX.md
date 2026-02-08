@@ -12,7 +12,11 @@ Generated from code registries:
 | Indicator Explorer | /indicators |  | yes |
 | Spatial Viewer | /map | can_view_spatial | no |
 | Programme Ops | /programmes | can_view_programmes | no |
+| Programme Templates | /programmes/templates | can_manage_programme_templates | no |
 | BIRDIE | /programmes/birdie | can_view_birdie | no |
+| Ecosystem Registry | /registries/ecosystems | can_view_registries | no |
+| Taxon Registry | /registries/taxa | can_view_registries | no |
+| IAS Registry | /registries/ias | can_view_registries | no |
 | NR7 Builder | /nr7-builder | can_view_reporting_builder | no |
 | MEA Packs | /template-packs | can_view_template_packs | no |
 | Report Products | /report-products | can_view_report_products | no |
@@ -22,16 +26,16 @@ Generated from code registries:
 
 | username | org | groups | staff? | superuser? | visible_routes |
 |---|---|---|---|---|---|
-| Contributor | SANBI | Contributor | yes | no | /dashboard; /indicators; /map |
-| IndicatorLead | SANBI | Indicator Lead | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie |
-| ProgrammeSteward | SAEON | Data Steward | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products |
-| DatasetSteward | STATS-SA | Data Steward | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products |
-| Reviewer | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products |
-| Approver | DFFE | Admin | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products; /system-health |
-| Publisher | DFFE | Admin | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products; /system-health |
-| RamsarFocalPoint | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products |
-| CITESFocalPoint | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products |
-| CMSFocalPoint | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /nr7-builder; /template-packs; /report-products |
-| Auditor | SANBI | Security Officer | yes | no | /dashboard; /indicators; /map |
-| IPLCRepresentative | IPLC | Community Representative | yes | no | /dashboard; /indicators; /map |
-| PublicUser | DEMOORG | Viewer | no | no | /dashboard; /indicators; /map |
+| Contributor | SANBI | Contributor | yes | no | /dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias |
+| IndicatorLead | SANBI | Indicator Lead | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias |
+| ProgrammeSteward | SAEON | Data Steward | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products |
+| DatasetSteward | STATS-SA | Data Steward | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products |
+| Reviewer | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products |
+| Approver | DFFE | Admin | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products; /system-health |
+| Publisher | DFFE | Admin | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products; /system-health |
+| RamsarFocalPoint | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products |
+| CITESFocalPoint | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products |
+| CMSFocalPoint | DFFE | Secretariat | yes | no | /dashboard; /indicators; /map; /programmes; /programmes/templates; /programmes/birdie; /registries/ecosystems; /registries/taxa; /registries/ias; /nr7-builder; /template-packs; /report-products |
+| Auditor | SANBI | Security Officer | yes | no | /dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias |
+| IPLCRepresentative | IPLC | Community Representative | yes | no | /dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias |
+| PublicUser | DEMOORG | Viewer | no | no | /dashboard; /indicators; /map; /registries/ecosystems; /registries/taxa; /registries/ias |
