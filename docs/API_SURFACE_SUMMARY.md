@@ -19,6 +19,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 
 ### Auth + help
 - `GET /api/auth/me` (`IsAuthenticated`)
+- `GET /api/auth/capabilities` (`IsAuthenticated`)
 - `GET /api/auth/csrf` (`AllowAny`)
 - `GET /api/help/sections` (`AllowAny`)
 - `GET /api/system/health` (`IsAuthenticated`, staff/system-admin only)
@@ -45,6 +46,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/datasets` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/series` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}/map` (`AllowAny`, ABAC-filtered; spatially-joined indicator GeoJSON)
 - `GET /api/indicators/{uuid}/validation` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/methods` (`AllowAny`, ABAC-filtered)
 - `POST /api/indicators/{uuid}/methods/{profile_uuid}/run` (`IsAuthenticated`, role-gated)
@@ -107,7 +109,14 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
   - Frontend nginx forwards `X-Request-ID` to backend (`docker/frontend/nginx.conf`).
 - Programme operations runtime:
   - Command-based scheduler runner: `python manage.py run_monitoring_programmes`
+  - Single-programme run entrypoint: `python manage.py run_programme --programme-code <CODE>`
   - Seeded programme ops baseline: `python manage.py seed_programme_ops_v1`
+- Demo/auth bootstrap runtime:
+  - `python manage.py ensure_system_admin`
+  - `python manage.py seed_demo_users`
+  - `python manage.py list_demo_users`
+  - `python manage.py export_role_visibility_matrix`
+  - `python manage.py issue_e2e_sessions --users <U1> <U2> ...`
 - BIRDIE connector runtime:
   - `python manage.py seed_birdie_integration`
   - Bronze/silver/gold lineage in `IntegrationDataAsset`

@@ -16,6 +16,7 @@ Operational guide for NBMS Spatial Registry, OGC APIs, vector tiles, ingestion, 
 docker compose --profile spatial up -d --build
 docker compose exec backend python manage.py migrate
 docker compose exec backend python manage.py sync_spatial_sources
+docker compose exec backend python manage.py run_programme --programme-code NBMS-SPATIAL-BASELINES
 docker compose exec backend python manage.py seed_geoserver_layers
 docker compose exec backend python manage.py verify_geoserver_smoke
 ```
@@ -73,6 +74,7 @@ Pipeline behavior:
 - upserts into `SpatialFeature`,
 - records `SpatialIngestionRun` + audit event.
 - converts ArcGIS feature JSON feeds to GeoJSON when required before ingest.
+- if source refresh fails but a prior snapshot exists, sync degrades to `skipped` and retains last valid layer snapshot.
 
 ## Ingestion (API)
 
@@ -158,5 +160,6 @@ Capabilities:
 
 - ingest step executes `sync_spatial_sources`,
 - run artefacts and QA results are persisted per step,
+- overlay compute step writes province-disaggregated outputs for protected area coverage indicators,
 - API exposes run report JSON:
   - `GET /api/programmes/runs/{run_uuid}/report`

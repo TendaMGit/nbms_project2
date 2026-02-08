@@ -1,5 +1,56 @@
 # STATE OF REPO - NBMS Project 2
 
+## PR-READY REBASE (2026-02-08)
+- Branch: `feat/spatial-programme-overlay-e2e-prready`
+- Source baseline: `feat/spatial-real-data-programmes-v1` (starting from `759b414` + working-tree hardening set)
+- Commit series grouped by phase:
+  - `feat(spatial): harden source sync and ingest filtering`
+  - `feat(programmes): orchestrate spatial baselines runs with provenance`
+  - `feat(spatial-api): add indicator map endpoints and capability surface`
+  - `feat(frontend): refine map workspace and indicator overlay views`
+  - `feat(demo): add seeded role users and deterministic e2e auth sessions`
+  - `docs(spatial): publish pr-ready runbook/state/api matrix updates` (this docs commit)
+
+Validation commands executed:
+- `docker compose --profile spatial up -d --build` -> pass
+- `docker compose exec backend pytest -q` -> `382 passed, 45 warnings`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `8 passed`
+- `npm --prefix frontend run e2e` -> `3 passed` (anonymous + system admin + role-matrix smoke)
+
+## PHASE 8 OPERATIONAL STABILITY + ROLE E2E VERIFIED (2026-02-08)
+- Branch: `feat/spatial-real-data-programmes-v1`
+- Scope: stabilized authenticated e2e, added deterministic session bootstrap command, hardened spatial source refresh fallback, refreshed role-visibility artefacts.
+
+Commands executed (docker):
+- `docker compose --profile spatial up -d --build` -> pass (backend/frontend/geoserver healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend python manage.py sync_spatial_sources` -> `ready=0, skipped=3, blocked=0, failed=0`
+- `docker compose exec backend python manage.py run_programme --programme-code NBMS-SPATIAL-BASELINES` -> `status=succeeded`
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=6, skipped=0`
+- `docker compose exec backend python manage.py verify_geoserver_smoke` -> pass (`checked_layers=6`)
+- `docker compose exec backend pytest -q` -> `381 passed, 45 warnings`
+- `docker compose exec backend python manage.py export_role_visibility_matrix` -> wrote markdown + CSV artefacts
+
+Commands executed (frontend):
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `8 passed`
+- `npm --prefix frontend run e2e` -> `3 passed` (anonymous + system admin + role visibility matrix)
+
+Operational notes:
+- Added backend command `issue_e2e_sessions` and switched Playwright bootstrap to use it.
+- Spatial sync now retains prior valid snapshot (`skipped`) when source refresh fails transiently.
+- Role visibility docs exported to:
+  - `docs/ops/ROLE_VISIBILITY_MATRIX.md`
+  - `docs/ops/ROLE_VISIBILITY_MATRIX.csv`
+- Layer feature counts (PostGIS check):
+  - `ZA_PROVINCES_NE=51`
+  - `ZA_PROTECTED_AREAS_NE=1626`
+  - `ZA_ECOSYSTEM_PROXY_NE=12`
+- Runtime endpoint probes:
+  - `GET /api/ogc/collections` -> `200`
+  - `GET /api/tiles/ZA_PROVINCES_NE/0/0/0.pbf` -> `200`
+
 ## PHASE 8 SPATIAL REAL-DATA + PROGRAMME OPS VERIFIED (2026-02-08)
 - Branch: `feat/spatial-real-data-programmes-v1`
 - Scope: real-source spatial sync, GeoServer publication verification, map/auth UX hardening, Docker reproducibility re-check.

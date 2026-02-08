@@ -3,6 +3,18 @@
 ## Unreleased
 
 Highlights:
+- Spatial operations hardening + role-authenticated e2e stability:
+  - Added `issue_e2e_sessions` management command for deterministic authenticated Playwright sessions.
+  - Updated `frontend/e2e/bootstrap-users.mjs` to use backend-issued sessions (replacing fragile inline shell session generation).
+  - Hardened spatial source sync fallback:
+    - when upstream refresh fails but a prior snapshot exists, sync returns `skipped` and retains existing valid data.
+  - Added regression test:
+    - `test_sync_spatial_source_reuses_existing_snapshot_when_refresh_fails`.
+  - Added role visibility artefact generation:
+    - `docs/ops/ROLE_VISIBILITY_MATRIX.md`
+    - `docs/ops/ROLE_VISIBILITY_MATRIX.csv`
+  - Added ADR:
+    - `docs/adr/0012-spatial-baselines-overlay-method.md`
 - Spatial registry hardening and interoperability uplift:
   - Added first-class spatial registry entities and ingestion runtime:
     - `SpatialUnitType`, `SpatialUnit`, `SpatialIngestionRun`
