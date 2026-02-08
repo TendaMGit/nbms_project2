@@ -25,6 +25,7 @@ from nbms_app.models import (
     BirdieSpecies,
     Dataset,
     EICATAssessment,
+    EcosystemGoldSummary,
     EcosystemRiskAssessment,
     EcosystemType,
     EcosystemTypologyCrosswalk,
@@ -59,8 +60,10 @@ from nbms_app.models import (
     SpecimenVoucher,
     SpatialLayer,
     TaxonConcept,
+    TaxonGoldSummary,
     TaxonName,
     TaxonSourceRecord,
+    IASGoldSummary,
     IASCountryChecklistRecord,
     IntegrationDataAsset,
     SensitivityLevel,
@@ -88,6 +91,13 @@ from nbms_app.services.nr7_builder import (
 )
 from nbms_app.services.programme_ops import execute_programme_run, queue_programme_run, user_can_manage_programme
 from nbms_app.services.readiness import get_instance_readiness
+from nbms_app.services.registry_marts import latest_snapshot_date
+from nbms_app.services.registry_workflows import (
+    get_registry_object,
+    link_registry_evidence,
+    list_registry_evidence_links,
+    transition_registry_object,
+)
 from nbms_app.services.section_progress import scoped_national_targets
 from nbms_app.services.spatial_access import (
     filter_spatial_layers_for_user,
@@ -201,6 +211,76 @@ def _parse_positive_int(value, default, minimum=1, maximum=200):
     except (TypeError, ValueError):
         return default
     return max(minimum, min(parsed, maximum))
+
+
+def _can_manage_registry_workflows(user):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if is_system_admin(user):
+        return True
+    return bool(user_has_role(user, ROLE_ADMIN, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD))
+
+
+def _registry_gold_model(kind):
+    key = (kind or "").strip().lower()
+    if key == "taxa":
+        return TaxonGoldSummary
+    if key == "ecosystems":
+        return EcosystemGoldSummary
+    if key == "ias":
+        return IASGoldSummary
+    return None
+
+
+def _registry_gold_payload(kind, queryset, limit):
+    key = (kind or "").strip().lower()
+    rows = queryset.order_by("-snapshot_date", "dimension", "dimension_key", "id")[:limit] if key != "taxa" else queryset.order_by("-snapshot_date", "taxon_rank", "id")[:limit]
+    if key == "taxa":
+        return [
+            {
+                "snapshot_date": row.snapshot_date.isoformat(),
+                "taxon_rank": row.taxon_rank,
+                "is_native": row.is_native,
+                "is_endemic": row.is_endemic,
+                "has_voucher": row.has_voucher,
+                "is_ias": row.is_ias,
+                "taxon_count": row.taxon_count,
+                "voucher_count": row.voucher_count,
+                "ias_profile_count": row.ias_profile_count,
+                "organisation": row.organisation.name if row.organisation_id else None,
+            }
+            for row in rows
+        ]
+    if key == "ecosystems":
+        return [
+            {
+                "snapshot_date": row.snapshot_date.isoformat(),
+                "dimension": row.dimension,
+                "dimension_key": row.dimension_key,
+                "dimension_label": row.dimension_label,
+                "ecosystem_count": row.ecosystem_count,
+                "threatened_count": row.threatened_count,
+                "total_area_km2": float(row.total_area_km2),
+                "protected_area_km2": float(row.protected_area_km2),
+                "protected_percent": float(row.protected_percent),
+                "organisation": row.organisation.name if row.organisation_id else None,
+            }
+            for row in rows
+        ]
+    return [
+        {
+            "snapshot_date": row.snapshot_date.isoformat(),
+            "dimension": row.dimension,
+            "dimension_key": row.dimension_key,
+            "dimension_label": row.dimension_label,
+            "eicat_category": row.eicat_category,
+            "seicat_category": row.seicat_category,
+            "profile_count": row.profile_count,
+            "invasive_count": row.invasive_count,
+            "organisation": row.organisation.name if row.organisation_id else None,
+        }
+        for row in rows
+    ]
 
 
 def _can_view_sensitive_locality(user):
@@ -1164,6 +1244,88 @@ def api_indicator_detail(request, indicator_uuid):
             else None
         ),
     }
+    registry_requirement = getattr(indicator, "registry_coverage_requirement", None)
+    registry_counts = {
+        "ecosystems": filter_queryset_for_user(EcosystemType.objects.all(), request.user).count(),
+        "taxa": filter_queryset_for_user(TaxonConcept.objects.all(), request.user).count(),
+        "ias_profiles": filter_queryset_for_user(AlienTaxonProfile.objects.all(), request.user).count(),
+    }
+    if registry_requirement:
+        registry_checks = [
+            {
+                "key": "ecosystems",
+                "required": registry_requirement.require_ecosystem_registry,
+                "minimum": registry_requirement.min_ecosystem_count,
+                "available": registry_counts["ecosystems"],
+            },
+            {
+                "key": "taxa",
+                "required": registry_requirement.require_taxon_registry,
+                "minimum": registry_requirement.min_taxon_count,
+                "available": registry_counts["taxa"],
+            },
+            {
+                "key": "ias_profiles",
+                "required": registry_requirement.require_ias_registry,
+                "minimum": registry_requirement.min_ias_count,
+                "available": registry_counts["ias_profiles"],
+            },
+        ]
+    else:
+        registry_checks = [
+            {"key": "ecosystems", "required": False, "minimum": 0, "available": registry_counts["ecosystems"]},
+            {"key": "taxa", "required": False, "minimum": 0, "available": registry_counts["taxa"]},
+            {"key": "ias_profiles", "required": False, "minimum": 0, "available": registry_counts["ias_profiles"]},
+        ]
+    registry_overall_ready = all(
+        (not row["required"]) or row["available"] >= row["minimum"]
+        for row in registry_checks
+    )
+    registry_readiness = {
+        "overall_ready": registry_overall_ready,
+        "checks": registry_checks,
+        "notes": registry_requirement.notes if registry_requirement else "",
+        "last_checked_at": (
+            registry_requirement.last_checked_at.isoformat() if registry_requirement and registry_requirement.last_checked_at else None
+        ),
+    }
+    used_by_programmes = filter_monitoring_programmes_for_user(
+        MonitoringProgramme.objects.filter(indicator_links__indicator=indicator, indicator_links__is_active=True).distinct(),
+        request.user,
+    ).order_by("programme_code", "id")
+    used_by_targets = (
+        IndicatorFrameworkIndicatorLink.objects.filter(indicator=indicator, is_active=True)
+        .select_related("framework_indicator", "framework_indicator__framework_target", "framework_indicator__framework_target__framework")
+        .order_by("framework_indicator__framework_target__framework__code", "framework_indicator__framework_target__code", "id")
+    )
+    used_by_graph = {
+        "indicator": {"uuid": str(indicator.uuid), "code": indicator.code, "title": indicator.title},
+        "framework_targets": [
+            {
+                "framework_code": row.framework_indicator.framework_target.framework.code if row.framework_indicator and row.framework_indicator.framework_target_id else None,
+                "target_code": row.framework_indicator.framework_target.code if row.framework_indicator and row.framework_indicator.framework_target_id else None,
+                "target_title": row.framework_indicator.framework_target.title if row.framework_indicator and row.framework_indicator.framework_target_id else None,
+            }
+            for row in used_by_targets
+            if row.framework_indicator and row.framework_indicator.framework_target_id
+        ],
+        "programmes": [
+            {
+                "uuid": str(programme.uuid),
+                "programme_code": programme.programme_code,
+                "title": programme.title,
+            }
+            for programme in used_by_programmes
+        ],
+        "report_products": [
+            {
+                "code": row.code,
+                "title": row.title,
+                "version": row.version,
+            }
+            for row in ReportProductTemplate.objects.filter(is_active=True).order_by("code", "id")
+        ],
+    }
 
     return Response(
         {
@@ -1220,7 +1382,9 @@ def api_indicator_detail(request, indicator_uuid):
                 for profile in method_profiles
             ],
             "spatial_readiness": spatial_readiness,
+            "registry_readiness": registry_readiness,
             "pipeline": pipeline,
+            "used_by_graph": used_by_graph,
         }
     )
 
@@ -2403,6 +2567,113 @@ def api_registry_ias_detail(request, profile_uuid):
                 }
                 for row in seicat_rows
             ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_gold_summaries(request):
+    kind = (request.GET.get("kind") or "").strip().lower() or "ecosystems"
+    model = _registry_gold_model(kind)
+    if model is None:
+        return Response({"detail": "Unsupported registry summary kind."}, status=status.HTTP_400_BAD_REQUEST)
+
+    queryset = filter_queryset_for_user(model.objects.select_related("organisation"), request.user)
+
+    snapshot_date = (request.GET.get("snapshot_date") or "").strip()
+    if snapshot_date:
+        queryset = queryset.filter(snapshot_date=snapshot_date)
+    else:
+        latest = latest_snapshot_date(model)
+        if latest:
+            queryset = queryset.filter(snapshot_date=latest)
+
+    organisation_id = (request.GET.get("organisation_id") or "").strip()
+    if organisation_id.isdigit():
+        queryset = queryset.filter(organisation_id=int(organisation_id))
+
+    if kind in {"ecosystems", "ias"}:
+        dimension = (request.GET.get("dimension") or "").strip().lower()
+        if dimension:
+            queryset = queryset.filter(dimension=dimension)
+
+    limit = _parse_positive_int(request.GET.get("limit"), default=200, minimum=1, maximum=1000)
+    rows = _registry_gold_payload(kind, queryset, limit)
+    return Response(
+        {
+            "kind": kind,
+            "count": queryset.count(),
+            "rows": rows,
+        }
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def api_registry_object_evidence(request, object_type, object_uuid):
+    try:
+        _target, obj = get_registry_object(object_type=object_type, object_uuid=object_uuid, user=request.user)
+    except Exception:  # noqa: BLE001
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == "GET":
+        return Response({"evidence_links": list_registry_evidence_links(obj=obj, user=request.user)})
+
+    if not _can_manage_registry_workflows(request.user):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    evidence_uuid = (request.data.get("evidence_uuid") or "").strip()
+    if not evidence_uuid:
+        return Response({"detail": "evidence_uuid is required."}, status=status.HTTP_400_BAD_REQUEST)
+    note = request.data.get("note") or ""
+    try:
+        link = link_registry_evidence(obj=obj, evidence_uuid=evidence_uuid, user=request.user, note=note)
+    except PermissionDenied:
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {
+            "link": {
+                "uuid": str(link.uuid),
+                "evidence_uuid": str(link.evidence.uuid),
+                "title": link.evidence.title,
+                "notes": link.notes,
+            }
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_registry_transition(request, object_type, object_uuid):
+    if not _can_manage_registry_workflows(request.user):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    action = (request.data.get("action") or "").strip().lower()
+    note = request.data.get("note") or ""
+    evidence_uuids = request.data.get("evidence_uuids") or []
+    if not isinstance(evidence_uuids, list):
+        return Response({"detail": "evidence_uuids must be a list."}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        obj = transition_registry_object(
+            object_type=object_type,
+            object_uuid=object_uuid,
+            action=action,
+            user=request.user,
+            note=note,
+            evidence_uuids=evidence_uuids,
+        )
+    except PermissionDenied:
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception:  # noqa: BLE001
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    return Response(
+        {
+            "object_uuid": str(obj.uuid),
+            "status": obj.status,
+            "review_status": getattr(obj, "review_status", ""),
         }
     )
 

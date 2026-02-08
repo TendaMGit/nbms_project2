@@ -409,6 +409,19 @@ class ProgrammeTemplateDomain(models.TextChoices):
     CROSS_DOMAIN = "cross_domain", "Cross domain"
 
 
+class EcosystemGoldDimension(models.TextChoices):
+    PROVINCE = "province", "Province"
+    BIOME = "biome", "Biome"
+    BIOREGION = "bioregion", "Bioregion"
+    THREAT_CATEGORY = "threat_category", "Threat category"
+
+
+class IASGoldDimension(models.TextChoices):
+    HABITAT = "habitat", "Habitat"
+    SYSTEM = "system", "System"
+    PROVINCE = "province", "Province"
+
+
 class ReportingCycle(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -3091,6 +3104,31 @@ class IndicatorInputRequirement(TimeStampedModel):
         return f"{self.indicator.code}:input-requirements"
 
 
+class IndicatorRegistryCoverageRequirement(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    indicator = models.OneToOneField(
+        Indicator,
+        on_delete=models.CASCADE,
+        related_name="registry_coverage_requirement",
+    )
+    require_ecosystem_registry = models.BooleanField(default=False)
+    require_taxon_registry = models.BooleanField(default=False)
+    require_ias_registry = models.BooleanField(default=False)
+    min_ecosystem_count = models.PositiveIntegerField(default=1)
+    min_taxon_count = models.PositiveIntegerField(default=1)
+    min_ias_count = models.PositiveIntegerField(default=1)
+    notes = models.TextField(blank=True)
+    last_checked_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["require_ecosystem_registry", "require_taxon_registry", "require_ias_registry"]),
+        ]
+
+    def __str__(self):
+        return f"{self.indicator.code}:registry-coverage"
+
+
 def _extract_coords(node):
     if isinstance(node, (list, tuple)):
         if len(node) >= 2 and isinstance(node[0], (int, float)) and isinstance(node[1], (int, float)):
@@ -3814,6 +3852,190 @@ class IASCountryChecklistRecord(TimeStampedModel):
 
     def __str__(self):
         return f"{self.country_code}:{self.scientific_name}"
+
+
+class RegistryEvidenceLink(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, related_name="registry_evidence_links")
+    object_uuid = models.UUIDField()
+    evidence = models.ForeignKey(
+        Evidence,
+        on_delete=models.CASCADE,
+        related_name="registry_object_links",
+    )
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_registry_evidence_links",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["content_type", "object_uuid", "evidence"],
+                name="uq_registry_evidence_link",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["content_type", "object_uuid"]),
+            models.Index(fields=["evidence"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["content_type", "object_uuid", "evidence__title", "id"]
+
+    def __str__(self):
+        return f"{self.content_type_id}:{self.object_uuid}:{self.evidence_id}"
+
+
+class TaxonGoldSummary(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    snapshot_date = models.DateField()
+    taxon_rank = models.CharField(max_length=80, blank=True)
+    is_native = models.BooleanField(blank=True, null=True)
+    is_endemic = models.BooleanField(default=False)
+    has_voucher = models.BooleanField(default=False)
+    is_ias = models.BooleanField(default=False)
+    taxon_count = models.PositiveIntegerField(default=0)
+    voucher_count = models.PositiveIntegerField(default=0)
+    ias_profile_count = models.PositiveIntegerField(default=0)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="taxon_gold_summaries",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "snapshot_date",
+                    "taxon_rank",
+                    "is_native",
+                    "is_endemic",
+                    "has_voucher",
+                    "is_ias",
+                    "organisation",
+                ],
+                name="uq_taxon_gold_summary_dims",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["snapshot_date", "taxon_rank"]),
+            models.Index(fields=["is_native", "is_endemic"]),
+            models.Index(fields=["has_voucher", "is_ias"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["-snapshot_date", "taxon_rank", "organisation_id"]
+
+    def __str__(self):
+        return f"{self.snapshot_date}:{self.taxon_rank or 'unknown'}:{self.taxon_count}"
+
+
+class EcosystemGoldSummary(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    snapshot_date = models.DateField()
+    dimension = models.CharField(
+        max_length=30,
+        choices=EcosystemGoldDimension.choices,
+        default=EcosystemGoldDimension.BIOME,
+    )
+    dimension_key = models.CharField(max_length=120)
+    dimension_label = models.CharField(max_length=255, blank=True)
+    ecosystem_count = models.PositiveIntegerField(default=0)
+    threatened_count = models.PositiveIntegerField(default=0)
+    total_area_km2 = models.DecimalField(max_digits=16, decimal_places=3, default=Decimal("0"))
+    protected_area_km2 = models.DecimalField(max_digits=16, decimal_places=3, default=Decimal("0"))
+    protected_percent = models.DecimalField(max_digits=8, decimal_places=3, default=Decimal("0"))
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="ecosystem_gold_summaries",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["snapshot_date", "dimension", "dimension_key", "organisation"],
+                name="uq_ecosystem_gold_summary_dims",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["snapshot_date", "dimension"]),
+            models.Index(fields=["dimension_key"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["-snapshot_date", "dimension", "dimension_key"]
+
+    def __str__(self):
+        return f"{self.snapshot_date}:{self.dimension}:{self.dimension_key}"
+
+
+class IASGoldSummary(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    snapshot_date = models.DateField()
+    dimension = models.CharField(max_length=20, choices=IASGoldDimension.choices, default=IASGoldDimension.HABITAT)
+    dimension_key = models.CharField(max_length=120)
+    dimension_label = models.CharField(max_length=255, blank=True)
+    eicat_category = models.CharField(max_length=3, choices=EicatCategory.choices, default=EicatCategory.NE)
+    seicat_category = models.CharField(max_length=3, choices=SeicatCategory.choices, default=SeicatCategory.NE)
+    profile_count = models.PositiveIntegerField(default=0)
+    invasive_count = models.PositiveIntegerField(default=0)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="ias_gold_summaries",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["snapshot_date", "dimension", "dimension_key", "eicat_category", "seicat_category", "organisation"],
+                name="uq_ias_gold_summary_dims",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["snapshot_date", "dimension"]),
+            models.Index(fields=["dimension_key"]),
+            models.Index(fields=["eicat_category", "seicat_category"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["-snapshot_date", "dimension", "dimension_key", "eicat_category", "seicat_category"]
+
+    def __str__(self):
+        return (
+            f"{self.snapshot_date}:{self.dimension}:{self.dimension_key}:"
+            f"{self.eicat_category}/{self.seicat_category}"
+        )
 
 
 class ProgrammeTemplate(TimeStampedModel):

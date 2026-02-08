@@ -160,6 +160,17 @@ urlpatterns = [
         api_spa.api_registry_ias_detail,
         name="api_registry_ias_detail",
     ),
+    path("registries/gold", api_spa.api_registry_gold_summaries, name="api_registry_gold_summaries"),
+    path(
+        "registries/<str:object_type>/<uuid:object_uuid>/evidence",
+        api_spa.api_registry_object_evidence,
+        name="api_registry_object_evidence",
+    ),
+    path(
+        "registries/<str:object_type>/<uuid:object_uuid>/transition",
+        api_spa.api_registry_transition,
+        name="api_registry_transition",
+    ),
     path(
         "programmes/templates",
         api_spa.api_programme_templates,
