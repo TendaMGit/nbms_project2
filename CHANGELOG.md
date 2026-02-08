@@ -3,6 +3,37 @@
 ## Unreleased
 
 Highlights:
+- Phase 11 registries operationalization:
+  - Added registry workflow governance components:
+    - `RegistryEvidenceLink`
+    - workflow service `src/nbms_app/services/registry_workflows.py`
+    - configurable evidence-gate rule seed command `seed_registry_workflow_rules`
+    - transition/evidence APIs:
+      - `POST /api/registries/{object_type}/{object_uuid}/transition`
+      - `GET|POST /api/registries/{object_type}/{object_uuid}/evidence`
+  - Added registry gold marts:
+    - `TaxonGoldSummary`, `EcosystemGoldSummary`, `IASGoldSummary`
+    - refresh command: `python manage.py refresh_registry_marts`
+    - API: `GET /api/registries/gold`
+  - Added indicator registry coverage requirements:
+    - `IndicatorRegistryCoverageRequirement`
+    - indicator detail/readiness now includes `registry_readiness` and `used_by_graph`.
+  - Extended Indicator Method SDK with registry-consuming methods:
+    - `ecosystem_registry_summary`
+    - `ias_registry_pressure_index`
+    - `taxon_registry_native_voucher_ratio`
+  - Updated GBF seed path (`seed_gbf_indicators`) to attach registry-driven methods/readiness requirements for ecosystem, IAS, and species indicators.
+  - Enhanced report product payload generation:
+    - deterministic `auto_sections` populated from registry marts,
+    - citation and evidence-hook blocks for NBA/GMO/Invasive outputs,
+    - template updated to render auto-populated sections.
+  - Added ADR:
+    - `docs/adr/0014-registry-workflow-gold-marts-and-indicator-integration.md`
+  - Added backend coverage:
+    - `test_registry_workflows_and_marts.py`
+    - `test_refresh_registry_marts_command.py`
+    - `test_indicator_registry_methods.py`
+    - extended indicator/report-product API tests for registry readiness and auto-sections.
 - Phase 10 reference registries and programme-template runtime:
   - Added standards-aligned registry entities and migration:
     - Ecosystems: `IucnGetNode`, `EcosystemType`, `EcosystemTypologyCrosswalk`, `EcosystemRiskAssessment`

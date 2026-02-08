@@ -1,5 +1,35 @@
 # STATE OF REPO - NBMS Project 2
 
+## PHASE 11 REGISTRY WORKFLOWS + MARTS + INDICATOR/REPORT INTEGRATION VERIFIED (2026-02-08)
+- Branch: `feat/phase10-registries-programmes`
+- Scope: registry approval/evidence workflows, gold summary marts, registry-derived indicator methods/readiness, and report-product auto-populated sections.
+
+Commands executed (host):
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations nbms_app` -> created migration `0039_ecosystemgoldsummary_iasgoldsummary_and_more`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `398 passed, 1 skipped`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `11 files, 12 tests passed`
+- `npm --prefix frontend run e2e` -> `3 passed`
+
+Commands executed (docker, validation set):
+- `docker compose --profile spatial up -d --build` -> pass (backend/frontend/postgis/geoserver/minio/redis healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend pytest -q` -> `399 passed`
+- Runtime probes:
+  - `GET /health/` -> `200`
+  - `GET /health/storage/` -> `200`
+
+Phase outcomes:
+- New API surface operational:
+  - `/api/registries/gold`
+  - `/api/registries/{object_type}/{object_uuid}/evidence`
+  - `/api/registries/{object_type}/{object_uuid}/transition`
+- Registry transitions now evidence-gated and audited.
+- Indicator detail payload now includes:
+  - `registry_readiness`
+  - `used_by_graph`
+- Report product payload now includes deterministic `auto_sections` + `citations` + `evidence_hooks`.
+
 ## PHASE 10 REGISTRIES + PROGRAMME TEMPLATES VERIFIED (2026-02-08)
 - Branch: `feat/phase10-registries-programmes`
 - Scope: standards-aligned ecosystem/taxon/IAS registries, programme template catalog, Angular registry explorers, ABAC-sensitive locality masking, and role visibility updates.

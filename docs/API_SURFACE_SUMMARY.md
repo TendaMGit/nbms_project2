@@ -44,7 +44,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 
 ### Indicators
 - `GET /api/indicators` (`AllowAny`, ABAC-filtered)
-- `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered; includes spatial readiness, registry readiness, and used-by graph payloads)
 - `GET /api/indicators/{uuid}/datasets` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/series` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/map` (`AllowAny`, ABAC-filtered; spatially-joined indicator GeoJSON)
@@ -86,6 +86,9 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/registries/taxa/{uuid}` (`IsAuthenticated`, ABAC object scope; sensitive voucher locality redacted for non-privileged users)
 - `GET /api/registries/ias` (`IsAuthenticated`, ABAC-filtered, pageable, filters: stage/pathway/habitat/eicat/seicat/search)
 - `GET /api/registries/ias/{uuid}` (`IsAuthenticated`, ABAC object scope)
+- `GET /api/registries/gold` (`IsAuthenticated`, ABAC-filtered mart summaries; params: `kind`, `snapshot_date`, `dimension`, `limit`)
+- `GET|POST /api/registries/{object_type}/{object_uuid}/evidence` (`IsAuthenticated`; ABAC object scope, role-gated evidence linking)
+- `POST /api/registries/{object_type}/{object_uuid}/transition` (`IsAuthenticated`; role-gated lifecycle workflow actions `submit|approve|publish|reject`)
 
 ## DRF API (`/api/v1/*`, read-only)
 Source: `src/nbms_app/api.py`.
@@ -142,6 +145,8 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
   - `python manage.py sync_taxon_backbone`
   - `python manage.py sync_specimen_vouchers`
   - `python manage.py sync_griis_za`
+  - `python manage.py seed_registry_workflow_rules`
+  - `python manage.py refresh_registry_marts`
   - `python manage.py seed_registry_demo`
   - `python manage.py seed_vegmap_demo`
   - `python manage.py seed_taxon_demo`

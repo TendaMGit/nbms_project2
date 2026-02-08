@@ -1,5 +1,22 @@
 # PR: Spatial Programme + Overlay + E2E + Phase 10 Registries
 
+## Phase 11 Update (Registry Operationalization)
+- Added workflow-governed registry transitions with evidence gates and audit logging:
+  - `/api/registries/{object_type}/{object_uuid}/transition`
+  - `/api/registries/{object_type}/{object_uuid}/evidence`
+- Added registry gold marts and API:
+  - `TaxonGoldSummary`, `EcosystemGoldSummary`, `IASGoldSummary`
+  - `python manage.py refresh_registry_marts`
+  - `GET /api/registries/gold`
+- Added indicator registry readiness linkage:
+  - `IndicatorRegistryCoverageRequirement`
+  - indicator detail now returns `registry_readiness` + `used_by_graph`
+- Added registry-consuming method SDK implementations:
+  - `ecosystem_registry_summary`
+  - `ias_registry_pressure_index`
+  - `taxon_registry_native_voucher_ratio`
+- Updated report products (NBA/GMO/Invasive) to include deterministic mart-derived `auto_sections`, citations, and evidence hooks.
+
 ## Summary
 This PR includes the prior spatial/programme hardening stack and extends it with Phase 10 reference registries and programme templates.  
 It adds ecosystem/taxon/IAS registry models, ingestion commands, ABAC-aware registry APIs, Angular registry explorers, and standards traceability docs.
@@ -43,8 +60,8 @@ npm --prefix frontend run e2e
 
 ## Results
 - Docker spatial stack: up/healthy.
-- Backend tests (docker): `392 passed`.
-- Backend tests (host): `391 passed, 1 skipped`.
+- Backend tests (docker): `399 passed`.
+- Backend tests (host): `398 passed, 1 skipped`.
 - Frontend unit tests: `11 files, 12 tests passed`.
 - Playwright e2e: `3 passed` (anonymous, system admin, role matrix visibility).
 
