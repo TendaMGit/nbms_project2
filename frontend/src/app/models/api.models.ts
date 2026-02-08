@@ -107,11 +107,28 @@ export interface IndicatorDetailResponse {
     notes: string;
     last_checked_at: string | null;
   };
+  registry_readiness?: {
+    overall_ready: boolean;
+    checks: Array<{
+      key: string;
+      required: boolean;
+      minimum: number;
+      available: number;
+    }>;
+    notes: string;
+    last_checked_at: string | null;
+  };
   pipeline?: {
     data_last_refreshed_at: string | null;
     latest_year: number | null;
     latest_pipeline_run_uuid: string | null;
     latest_pipeline_run_status: string | null;
+  };
+  used_by_graph?: {
+    indicator: { uuid: string; code: string; title: string };
+    framework_targets: Array<{ framework_code: string | null; target_code: string | null; target_title: string | null }>;
+    programmes: Array<{ uuid: string; programme_code: string; title: string }>;
+    report_products: Array<{ code: string; title: string; version: string }>;
   };
 }
 

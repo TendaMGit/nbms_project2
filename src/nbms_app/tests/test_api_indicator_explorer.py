@@ -17,10 +17,15 @@ from nbms_app.models import (
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
     IndicatorInputRequirement,
+    IndicatorRegistryCoverageRequirement,
     LifecycleStatus,
+    MonitoringProgramme,
     NationalIndicatorType,
     NationalTarget,
     Organisation,
+    ProgrammeTemplate,
+    ProgrammeTemplateDomain,
+    ReportProductTemplate,
     SensitivityLevel,
     SpatialFeature,
     SpatialLayer,
@@ -353,3 +358,63 @@ def test_indicator_detail_includes_spatial_readiness_panel_data(client):
     assert readiness["overall_ready"] is True
     assert readiness["layer_requirements"][0]["layer_code"] == "ZA_PROVINCES_NE"
     assert readiness["source_requirements"][0]["code"] == "NE_ADMIN1_ZA"
+
+
+def test_indicator_detail_includes_registry_readiness_and_used_by_graph(client):
+    stack = _seed_indicator_stack()
+    indicator = stack["public"]
+    org = stack["org_a"]
+    user = User.objects.create_user(
+        username="indicator-user",
+        password="pass1234",
+        organisation=org,
+        is_staff=True,
+    )
+    client.force_login(user)
+    IndicatorRegistryCoverageRequirement.objects.create(
+        indicator=indicator,
+        require_ecosystem_registry=True,
+        require_taxon_registry=True,
+        require_ias_registry=False,
+        min_ecosystem_count=2,
+        min_taxon_count=1,
+    )
+    MonitoringProgramme.objects.create(
+        programme_code="NBMS-PROG-TAXA",
+        title="Taxa Programme",
+        programme_type="national",
+        lead_org=org,
+        is_active=True,
+    ).indicator_links.create(
+        indicator=indicator,
+        relationship_type="supporting",
+        role="readiness",
+        is_active=True,
+    )
+    ProgrammeTemplate.objects.create(
+        template_code="NBMS-PROG-TAXA",
+        title="Taxa Template",
+        domain=ProgrammeTemplateDomain.TAXA,
+        pipeline_definition_json={"steps": []},
+        required_outputs_json=[],
+        organisation=org,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    ReportProductTemplate.objects.create(
+        code="nba_v1",
+        title="NBA",
+        version="v1",
+        description="NBA shell",
+        schema_json={"sections": ["A", "B"]},
+        export_handler="nba_v1",
+        is_active=True,
+    )
+
+    response = client.get(reverse("api_indicator_detail", args=[indicator.uuid]))
+    assert response.status_code == 200
+    payload = response.json()
+    assert "registry_readiness" in payload
+    assert payload["registry_readiness"]["overall_ready"] is False
+    assert payload["used_by_graph"]["programmes"][0]["programme_code"] == "NBMS-PROG-TAXA"
+    assert payload["used_by_graph"]["report_products"]

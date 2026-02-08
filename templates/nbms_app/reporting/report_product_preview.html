@@ -42,6 +42,40 @@
     {% endfor %}
   </ul>
 
+  <h2>Auto-populated Sections</h2>
+  {% for section in payload.auto_sections %}
+    <h3>{{ section.title }}</h3>
+    <div><strong>Chart hint:</strong> {{ section.chart_hint }}{% if section.snapshot_date %} | <strong>Snapshot:</strong> {{ section.snapshot_date }}{% endif %}</div>
+    <table>
+      <thead>
+        <tr>
+          {% if section.table_rows and section.table_rows.0 %}
+            {% for key, value in section.table_rows.0.items %}
+              <th>{{ key }}</th>
+            {% endfor %}
+          {% else %}
+            <th>Data</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in section.table_rows %}
+          <tr>
+            {% for key, value in row.items %}
+              <td>{{ value }}</td>
+            {% endfor %}
+          </tr>
+        {% empty %}
+          <tr>
+            <td>No rows available.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% empty %}
+    <p>No auto-populated sections available.</p>
+  {% endfor %}
+
   <h2>Indicator Table</h2>
   <table>
     <thead>
@@ -93,5 +127,17 @@
       {% endfor %}
     </tbody>
   </table>
+
+  <h2>Citations and Evidence Hooks</h2>
+  <ul>
+    {% for item in payload.citations %}
+      <li>{{ item.source }}{% if item.snapshot_date %} (snapshot {{ item.snapshot_date }}){% endif %}</li>
+    {% endfor %}
+  </ul>
+  <ul>
+    {% for hook in payload.evidence_hooks %}
+      <li>{{ hook.code }} - {{ hook.description }}</li>
+    {% endfor %}
+  </ul>
 </body>
 </html>

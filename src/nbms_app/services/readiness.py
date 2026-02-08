@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from nbms_app.models import (
+    AlienTaxonProfile,
     ApprovalDecision,
     AccessLevel,
     ConsentRecord,
@@ -17,11 +18,13 @@ from nbms_app.models import (
     DatasetRelease,
     Evidence,
     ExportStatus,
+    EcosystemType,
     FrameworkTarget,
     Indicator,
     IndicatorDataPoint,
     IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
+    IndicatorRegistryCoverageRequirement,
     IndicatorMethodologyVersionLink,
     InstanceExportApproval,
     LifecycleStatus,
@@ -37,6 +40,7 @@ from nbms_app.models import (
     SensitivityLevel,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
+    TaxonConcept,
     ValidationRuleSet,
     ValidationScope,
     MethodologyDatasetLink,
@@ -854,6 +858,54 @@ def get_indicator_readiness(indicator, user, instance=None):
     if not methodology_versions.exists():
         warnings.append(_warning("missing_methodology_version", "No linked methodology version."))
 
+    registry_requirement = (
+        IndicatorRegistryCoverageRequirement.objects.filter(indicator=indicator).first()
+    )
+    registry_counts = {
+        "ecosystems": filter_queryset_for_user(EcosystemType.objects.all(), user).count(),
+        "taxa": filter_queryset_for_user(TaxonConcept.objects.all(), user).count(),
+        "ias_profiles": filter_queryset_for_user(AlienTaxonProfile.objects.all(), user).count(),
+    }
+    registry_checks = []
+    if registry_requirement:
+        registry_checks = [
+            {
+                "key": "ecosystems",
+                "required": registry_requirement.require_ecosystem_registry,
+                "minimum": registry_requirement.min_ecosystem_count,
+                "available": registry_counts["ecosystems"],
+            },
+            {
+                "key": "taxa",
+                "required": registry_requirement.require_taxon_registry,
+                "minimum": registry_requirement.min_taxon_count,
+                "available": registry_counts["taxa"],
+            },
+            {
+                "key": "ias_profiles",
+                "required": registry_requirement.require_ias_registry,
+                "minimum": registry_requirement.min_ias_count,
+                "available": registry_counts["ias_profiles"],
+            },
+        ]
+        for row in registry_checks:
+            label = row["key"].replace("_", " ").title()
+            if not row["required"]:
+                checks.append(_check(f"registry_{row['key']}", f"Registry: {label}", "n/a"))
+                continue
+            if row["available"] >= row["minimum"]:
+                checks.append(_check(f"registry_{row['key']}", f"Registry: {label}", "ok"))
+            else:
+                blockers.append(
+                    _blocker(
+                        f"registry_{row['key']}_insufficient",
+                        f"{label} registry coverage below minimum ({row['available']} < {row['minimum']}).",
+                    )
+                )
+                checks.append(_check(f"registry_{row['key']}", f"Registry: {label}", "missing"))
+    else:
+        checks.append(_check("registry_requirements", "Registry requirements", "n/a"))
+
     checks.append(
         _check("status", "Status", "ok" if indicator.status == LifecycleStatus.PUBLISHED else "incomplete")
     )
@@ -896,11 +948,24 @@ def get_indicator_readiness(indicator, user, instance=None):
         "consent_status": consent_status,
         "consent_required": requires_consent(indicator),
         "eligible_for_export": eligible,
+        "registry_requirement": {
+            "configured": bool(registry_requirement),
+            "checks": registry_checks,
+            "notes": registry_requirement.notes if registry_requirement else "",
+            "last_checked_at": (
+                registry_requirement.last_checked_at.isoformat()
+                if registry_requirement and registry_requirement.last_checked_at
+                else None
+            ),
+        },
     }
     counts = {
         "evidence": evidence_qs.count(),
         "datasets": dataset_qs.count(),
         "methodology_versions": methodology_versions.count(),
+        "registry_ecosystems": registry_counts["ecosystems"],
+        "registry_taxa": registry_counts["taxa"],
+        "registry_ias_profiles": registry_counts["ias_profiles"],
     }
     return _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
 

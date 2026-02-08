@@ -42,4 +42,19 @@ export class RegistryService {
   programmeTemplates(params: Record<string, string | number | boolean | undefined> = {}) {
     return this.api.get<{ templates: ProgrammeTemplateRow[] }>('programmes/templates', params);
   }
+
+  goldSummaries(params: Record<string, string | number | boolean | undefined>) {
+    return this.api.get<{
+      kind: string;
+      count: number;
+      rows: Array<Record<string, unknown>>;
+    }>('registries/gold', params);
+  }
+
+  transitionRegistryObject(objectType: string, objectUuid: string, payload: { action: string; note?: string; evidence_uuids?: string[] }) {
+    return this.api.post<{ object_uuid: string; status: string; review_status: string }>(
+      `registries/${objectType}/${objectUuid}/transition`,
+      payload
+    );
+  }
 }

@@ -4,7 +4,10 @@ from nbms_app.indicator_methods.methods import (
     BinaryQuestionnaireMethod,
     BirdieApiConnectorMethod,
     CsvAggregationMethod,
+    EcosystemRegistrySummaryMethod,
+    IasRegistryPressureMethod,
     SpatialOverlayMethod,
+    TaxonRegistryPopulationMethod,
 )
 
 
@@ -13,6 +16,9 @@ METHOD_REGISTRY = {
     CsvAggregationMethod.key: CsvAggregationMethod(),
     SpatialOverlayMethod.key: SpatialOverlayMethod(),
     BirdieApiConnectorMethod.key: BirdieApiConnectorMethod(),
+    EcosystemRegistrySummaryMethod.key: EcosystemRegistrySummaryMethod(),
+    IasRegistryPressureMethod.key: IasRegistryPressureMethod(),
+    TaxonRegistryPopulationMethod.key: TaxonRegistryPopulationMethod(),
 }
 
 

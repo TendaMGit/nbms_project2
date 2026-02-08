@@ -152,6 +152,48 @@ import { IndicatorService } from '../services/indicator.service';
         </mat-card-content>
       </mat-card>
 
+      <mat-card *ngIf="detail.registry_readiness as readiness">
+        <mat-card-title>Registry Readiness</mat-card-title>
+        <mat-card-content>
+          <p>
+            Overall registry readiness:
+            <strong>{{ readiness.overall_ready ? 'ready' : 'gaps detected' }}</strong>
+          </p>
+          <mat-list>
+            <mat-list-item *ngFor="let row of readiness.checks">
+              {{ row.key }} - required: {{ row.required ? 'yes' : 'no' }} | minimum: {{ row.minimum }} | available:
+              {{ row.available }}
+            </mat-list-item>
+          </mat-list>
+          <p *ngIf="readiness.notes"><strong>Notes:</strong> {{ readiness.notes }}</p>
+          <p><strong>Last checked:</strong> {{ readiness.last_checked_at || 'n/a' }}</p>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card *ngIf="detail.used_by_graph as graph">
+        <mat-card-title>Used By Graph</mat-card-title>
+        <mat-card-content>
+          <h4>Framework targets</h4>
+          <mat-list>
+            <mat-list-item *ngFor="let row of graph.framework_targets">
+              {{ row.framework_code || 'n/a' }} {{ row.target_code || '' }} - {{ row.target_title || 'n/a' }}
+            </mat-list-item>
+          </mat-list>
+          <h4>Monitoring programmes</h4>
+          <mat-list>
+            <mat-list-item *ngFor="let row of graph.programmes">
+              {{ row.programme_code }} - {{ row.title }}
+            </mat-list-item>
+          </mat-list>
+          <h4>Report products</h4>
+          <mat-list>
+            <mat-list-item *ngFor="let row of graph.report_products">
+              {{ row.code }} - {{ row.title }} ({{ row.version }})
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
       <mat-card>
         <mat-card-title>Evidence</mat-card-title>
         <mat-card-content>

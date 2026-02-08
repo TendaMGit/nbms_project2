@@ -51,6 +51,9 @@ def test_report_product_endpoints(client):
     preview_payload = preview_response.json()
     assert preview_payload["template"]["code"] == "nba_v1"
     assert preview_payload["payload"]["schema"] == "nbms.report_product.nba_v1.v1"
+    assert len(preview_payload["payload"]["auto_sections"]) >= 3
+    assert preview_payload["payload"]["citations"]
+    assert preview_payload["payload"]["evidence_hooks"]
     assert preview_payload["run_uuid"]
 
     html_response = client.get(

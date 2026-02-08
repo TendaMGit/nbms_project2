@@ -17,6 +17,7 @@ from nbms_app.models import (
     IndicatorMethodProfile,
     IndicatorMethodReadiness,
     IndicatorMethodType,
+    IndicatorRegistryCoverageRequirement,
     IndicatorValueType,
     LifecycleStatus,
     MonitoringProgramme,
@@ -389,8 +390,97 @@ class Command(BaseCommand):
                     },
                 )
 
+        # Promote three GBF indicators to explicit registry-consuming methods.
+        ecosystem_indicator = Indicator.objects.filter(code="GBF-H-A1-ZA").first()
+        species_indicator = Indicator.objects.filter(code="GBF-H-A3-ZA").first()
+        ias_indicator = Indicator.objects.filter(code="GBF-BI-12-ZA").first()
+        registry_profiles = []
+        if ecosystem_indicator:
+            profile, _ = IndicatorMethodProfile.objects.update_or_create(
+                indicator=ecosystem_indicator,
+                method_type=IndicatorMethodType.SCRIPTED_PYTHON,
+                implementation_key="ecosystem_registry_summary",
+                defaults={
+                    "summary": "Consumes ecosystem registry marts for ecosystem extent/protection signal.",
+                    "required_inputs_json": ["ecosystem_gold_summary"],
+                    "disaggregation_requirements_json": ["province", "biome", "bioregion"],
+                    "readiness_state": IndicatorMethodReadiness.PARTIAL,
+                    "readiness_notes": "Requires refreshed ecosystem registry marts.",
+                    "source_system": "nbms.phase11",
+                    "source_ref": "ecosystem_registry_summary",
+                    "is_active": True,
+                },
+            )
+            registry_profiles.append(profile)
+            IndicatorRegistryCoverageRequirement.objects.update_or_create(
+                indicator=ecosystem_indicator,
+                defaults={
+                    "require_ecosystem_registry": True,
+                    "require_taxon_registry": False,
+                    "require_ias_registry": False,
+                    "min_ecosystem_count": 1,
+                    "notes": "Requires ecosystem registry coverage for ecosystem indicator readiness.",
+                },
+            )
+        if species_indicator:
+            profile, _ = IndicatorMethodProfile.objects.update_or_create(
+                indicator=species_indicator,
+                method_type=IndicatorMethodType.SCRIPTED_PYTHON,
+                implementation_key="taxon_registry_native_voucher_ratio",
+                defaults={
+                    "summary": "Consumes taxon registry marts for species/population readiness signal.",
+                    "required_inputs_json": ["taxon_gold_summary"],
+                    "disaggregation_requirements_json": ["rank", "native", "voucher"],
+                    "readiness_state": IndicatorMethodReadiness.PARTIAL,
+                    "readiness_notes": "Requires refreshed taxon registry marts.",
+                    "source_system": "nbms.phase11",
+                    "source_ref": "taxon_registry_native_voucher_ratio",
+                    "is_active": True,
+                },
+            )
+            registry_profiles.append(profile)
+            IndicatorRegistryCoverageRequirement.objects.update_or_create(
+                indicator=species_indicator,
+                defaults={
+                    "require_ecosystem_registry": False,
+                    "require_taxon_registry": True,
+                    "require_ias_registry": False,
+                    "min_taxon_count": 1,
+                    "notes": "Requires taxon registry coverage for species indicator readiness.",
+                },
+            )
+        if ias_indicator:
+            profile, _ = IndicatorMethodProfile.objects.update_or_create(
+                indicator=ias_indicator,
+                method_type=IndicatorMethodType.SCRIPTED_PYTHON,
+                implementation_key="ias_registry_pressure_index",
+                defaults={
+                    "summary": "Consumes IAS registry marts for Target 6 pressure signal.",
+                    "required_inputs_json": ["ias_gold_summary"],
+                    "disaggregation_requirements_json": ["habitat", "pathway", "eicat", "seicat"],
+                    "readiness_state": IndicatorMethodReadiness.PARTIAL,
+                    "readiness_notes": "Requires refreshed IAS registry marts.",
+                    "source_system": "nbms.phase11",
+                    "source_ref": "ias_registry_pressure_index",
+                    "is_active": True,
+                },
+            )
+            registry_profiles.append(profile)
+            IndicatorRegistryCoverageRequirement.objects.update_or_create(
+                indicator=ias_indicator,
+                defaults={
+                    "require_ecosystem_registry": False,
+                    "require_taxon_registry": False,
+                    "require_ias_registry": True,
+                    "min_ias_count": 1,
+                    "notes": "Requires IAS registry coverage for Target 6 readiness.",
+                },
+            )
+
         # Trigger real compute paths for at least three seeded profiles.
         for profile in runnable_profiles[:3]:
+            run_method_profile(profile=profile, user=None, params={"seeded": True}, use_cache=False)
+        for profile in registry_profiles:
             run_method_profile(profile=profile, user=None, params={"seeded": True}, use_cache=False)
 
         monitoring_programme = MonitoringProgramme.objects.filter(programme_code="NBMS-CORE-PROGRAMME").first()
