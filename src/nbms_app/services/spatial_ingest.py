@@ -111,6 +111,39 @@ def _parse_clip_bbox(value):
     return minx, miny, maxx, maxy
 
 
+COUNTRY_FILTER_FIELDS = [
+    "adm0_a3",
+    "ADM0_A3",
+    "adm0_a3_us",
+    "ADM0_A3_US",
+    "iso_a3",
+    "ISO_A3",
+    "sov_a3",
+    "SOV_A3",
+    "country",
+    "COUNTRY",
+    "admin",
+    "ADMIN",
+    "name_en",
+    "NAME_EN",
+]
+
+COUNTRY_NAME_ALIASES = {
+    "ZAF": ["SOUTH AFRICA", "REPUBLIC OF SOUTH AFRICA"],
+}
+
+
+def _country_filter_values(code: str):
+    clean = (code or "").strip().upper()
+    if not clean:
+        return []
+    values = {clean}
+    if clean == "ZAF":
+        values.add("ZA")
+    values.update(COUNTRY_NAME_ALIASES.get(clean, []))
+    return sorted(values)
+
+
 def ingest_spatial_file(
     *,
     layer: SpatialLayer,
@@ -121,6 +154,7 @@ def ingest_spatial_file(
     source_storage_path="",
     source=None,
     clip_bbox=None,
+    country_iso3=None,
 ):
     run = SpatialIngestionRun.objects.create(
         run_id=f"spatial-{uuid.uuid4().hex[:12]}",
@@ -187,18 +221,28 @@ def ingest_spatial_file(
                 [layer.id],
             )
 
+            filter_sql = [f"t.{geom_col} IS NOT NULL"]
+            filter_params = []
+
             clip_values = _parse_clip_bbox(clip_bbox)
             if clip_values and GIS_ENABLED:
-                clip_where_sql = (
-                    f"WHERE t.{geom_col} IS NOT NULL "
-                    "AND ST_Intersects("
+                filter_sql.append(
+                    "ST_Intersects("
                     f"t.{geom_col}, ST_MakeEnvelope(%s, %s, %s, %s, 4326)"
                     ")"
                 )
-                clip_where_params = [*clip_values]
-            else:
-                clip_where_sql = ""
-                clip_where_params = []
+                filter_params.extend([*clip_values])
+
+            country_values = _country_filter_values(country_iso3)
+            if country_values:
+                country_expr = "UPPER(COALESCE(" + ", ".join(
+                    [f"NULLIF((to_jsonb(t)->>'{field}'), '')" for field in COUNTRY_FILTER_FIELDS]
+                ) + "))"
+                placeholders = ", ".join(["%s"] * len(country_values))
+                filter_sql.append(f"{country_expr} IN ({placeholders})")
+                filter_params.extend(country_values)
+
+            where_sql = f"WHERE {' AND '.join(filter_sql)}" if filter_sql else ""
 
             insert_sql = f"""
                 INSERT INTO nbms_app_spatialfeature
@@ -246,9 +290,9 @@ def ingest_spatial_file(
                     ST_XMax(t.{geom_col}),
                     ST_YMax(t.{geom_col})
                 FROM {tmp_table} t
-                {clip_where_sql}
+                {where_sql}
             """
-            cursor.execute(insert_sql, [layer.id, geom_col, geom_col, *clip_where_params])
+            cursor.execute(insert_sql, [layer.id, geom_col, geom_col, *filter_params])
             inserted = cursor.rowcount
             cursor.execute(f"DROP TABLE IF EXISTS {tmp_table}")
 
@@ -256,7 +300,11 @@ def ingest_spatial_file(
         run.rows_ingested = max(0, inserted)
         run.invalid_geom_before_fix = invalid_before
         run.invalid_geom_after_fix = invalid_after
-        run.report_json = {"ogr2ogr_stdout": proc.stdout[-2000:], "ogr2ogr_stderr": proc.stderr[-2000:]}
+        run.report_json = {
+            "ogr2ogr_stdout": proc.stdout[-2000:],
+            "ogr2ogr_stderr": proc.stderr[-2000:],
+            "country_iso3": (country_iso3 or "").strip().upper(),
+        }
         run.finished_at = timezone.now()
         run.save(
             update_fields=[

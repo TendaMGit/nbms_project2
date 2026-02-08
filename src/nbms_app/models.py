@@ -2235,6 +2235,13 @@ class IndicatorDataPoint(TimeStampedModel):
         blank=True,
         null=True,
     )
+    programme_run = models.ForeignKey(
+        MonitoringProgrammeRun,
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_points",
+        blank=True,
+        null=True,
+    )
     source_url = models.URLField(blank=True)
     footnote = models.TextField(blank=True)
 
@@ -2263,6 +2270,7 @@ class IndicatorDataPoint(TimeStampedModel):
             models.Index(fields=["series", "year"]),
             models.Index(fields=["spatial_unit"]),
             models.Index(fields=["spatial_layer"]),
+            models.Index(fields=["programme_run"]),
         ]
 
 
@@ -2839,6 +2847,7 @@ class SpatialSource(TimeStampedModel):
     publish_to_geoserver = models.BooleanField(default=True)
     expected_checksum = models.CharField(max_length=64, blank=True)
     clip_bbox = models.CharField(max_length=120, blank=True)
+    country_iso3 = models.CharField(max_length=3, blank=True)
     last_sync_at = models.DateTimeField(blank=True, null=True)
     last_checksum = models.CharField(max_length=64, blank=True)
     last_status = models.CharField(
@@ -2868,6 +2877,7 @@ class SpatialSource(TimeStampedModel):
             models.Index(fields=["enabled_by_default", "is_active"]),
             models.Index(fields=["layer_code"]),
             models.Index(fields=["publish_to_geoserver"]),
+            models.Index(fields=["country_iso3"]),
             models.Index(fields=["sensitivity"]),
             models.Index(fields=["theme"]),
         ]

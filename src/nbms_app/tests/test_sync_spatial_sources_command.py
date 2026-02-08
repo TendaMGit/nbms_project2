@@ -8,6 +8,8 @@ from django.core.management import call_command
 
 from nbms_app.models import (
     SensitivityLevel,
+    SpatialFeature,
+    SpatialLayer,
     SpatialSource,
     SpatialSourceFormat,
     SpatialSourceSyncStatus,
@@ -84,6 +86,47 @@ def test_sync_spatial_source_skips_when_checksum_unchanged(monkeypatch, tmp_path
     source.refresh_from_db()
     assert result["status"] == SpatialSourceSyncStatus.SKIPPED
     assert source.last_status == SpatialSourceSyncStatus.SKIPPED
+
+
+def test_sync_spatial_source_reuses_existing_snapshot_when_refresh_fails(monkeypatch):
+    source = SpatialSource.objects.create(
+        code="REFRESH_FAIL_SOURCE",
+        title="Refresh fail source",
+        source_url="https://example.org/layer.geojson",
+        source_format=SpatialSourceFormat.GEOJSON,
+        source_type=SpatialLayerSourceType.UPLOADED_FILE,
+        layer_code="REFRESH_FAIL_LAYER",
+        layer_title="Refresh fail layer",
+        layer_description="",
+        sensitivity=SensitivityLevel.PUBLIC,
+        last_checksum="abc123",
+    )
+    layer = SpatialLayer.objects.create(
+        layer_code=source.layer_code,
+        name="Refresh fail layer",
+        slug="refresh-fail-layer",
+        source_type=SpatialLayerSourceType.UPLOADED_FILE,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    SpatialFeature.objects.create(
+        layer=layer,
+        feature_key="feature-1",
+        properties={"name": "existing"},
+        geometry_json={"type": "Point", "coordinates": [24.0, -28.0]},
+    )
+
+    monkeypatch.setattr(
+        "nbms_app.services.spatial_sources._download_to_temp",
+        lambda **kwargs: (_ for _ in ()).throw(OSError("temporary dns failure")),
+    )
+
+    result = sync_spatial_source(source=source, force=False)
+    source.refresh_from_db()
+
+    assert result["status"] == SpatialSourceSyncStatus.SKIPPED
+    assert result["checksum"] == "abc123"
+    assert source.last_status == SpatialSourceSyncStatus.SKIPPED
+    assert "reused previous snapshot" in source.last_error
 
 
 def test_sync_spatial_source_ingests_and_updates(monkeypatch, tmp_path):

@@ -15,6 +15,7 @@ from django.utils import timezone
 from nbms_app.models import (
     Organisation,
     SensitivityLevel,
+    SpatialFeature,
     SpatialIngestionStatus,
     SpatialLayer,
     SpatialLayerSourceType,
@@ -53,6 +54,7 @@ DEFAULT_SPATIAL_SOURCE_DEFINITIONS = [
         "is_public": True,
         "publish_to_geoserver": True,
         "clip_bbox": "16.0,-35.5,33.5,-21.0",
+        "country_iso3": "ZAF",
     },
     {
         "code": "NE_PROTECTED_LANDS_ZA",
@@ -80,6 +82,7 @@ DEFAULT_SPATIAL_SOURCE_DEFINITIONS = [
         "is_public": True,
         "publish_to_geoserver": True,
         "clip_bbox": "16.0,-35.5,33.5,-21.0",
+        "country_iso3": "",
     },
     {
         "code": "NE_GEOREGIONS_ZA",
@@ -107,6 +110,7 @@ DEFAULT_SPATIAL_SOURCE_DEFINITIONS = [
         "is_public": True,
         "publish_to_geoserver": True,
         "clip_bbox": "16.0,-35.5,33.5,-21.0",
+        "country_iso3": "",
     },
     {
         "code": "WDPA_OPTIONAL",
@@ -134,6 +138,7 @@ DEFAULT_SPATIAL_SOURCE_DEFINITIONS = [
         "is_public": False,
         "publish_to_geoserver": False,
         "clip_bbox": "",
+        "country_iso3": "",
     },
 ]
 
@@ -386,6 +391,7 @@ def sync_spatial_source(*, source: SpatialSource, actor=None, force=False, dry_r
             source_storage_path=storage_path,
             source=source,
             clip_bbox=source.clip_bbox or None,
+            country_iso3=source.country_iso3 or None,
         )
         result["run_id"] = run.run_id
         result["rows_ingested"] = run.rows_ingested
@@ -417,6 +423,20 @@ def sync_spatial_source(*, source: SpatialSource, actor=None, force=False, dry_r
         result["detail"] = "Ingestion succeeded."
         return result
     except Exception as exc:  # noqa: BLE001
+        existing_layer = SpatialLayer.objects.filter(layer_code=source.layer_code).first()
+        has_existing_data = bool(
+            existing_layer and SpatialFeature.objects.filter(layer=existing_layer).values("id").exists()
+        )
+        if has_existing_data and source.last_checksum and not force:
+            source.last_status = SpatialSourceSyncStatus.SKIPPED
+            source.last_error = f"Source refresh failed; reused previous snapshot ({exc})"
+            source.last_sync_at = now
+            source.save(update_fields=["last_status", "last_error", "last_sync_at", "updated_at"])
+            result["status"] = SpatialSourceSyncStatus.SKIPPED
+            result["checksum"] = source.last_checksum
+            result["detail"] = "Source refresh failed; existing layer snapshot retained."
+            return result
+
         source.last_status = SpatialSourceSyncStatus.FAILED
         source.last_error = str(exc)
         source.last_sync_at = now
