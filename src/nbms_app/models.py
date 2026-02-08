@@ -329,6 +329,86 @@ class ReportProductStatus(models.TextChoices):
     PUBLISHED = "published", "Published"
 
 
+class RegistryReviewStatus(models.TextChoices):
+    NEEDS_REVIEW = "needs_review", "Needs review"
+    IN_REVIEW = "in_review", "In review"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
+class IucnRleCategory(models.TextChoices):
+    CR = "CR", "Critically Endangered"
+    EN = "EN", "Endangered"
+    VU = "VU", "Vulnerable"
+    NT = "NT", "Near Threatened"
+    LC = "LC", "Least Concern"
+    DD = "DD", "Data Deficient"
+    NE = "NE", "Not Evaluated"
+    CO = "CO", "Collapsed"
+
+
+class TaxonNameType(models.TextChoices):
+    ACCEPTED = "accepted", "Accepted"
+    SYNONYM = "synonym", "Synonym"
+    VERNACULAR = "vernacular", "Vernacular"
+
+
+class DwcEstablishmentMeans(models.TextChoices):
+    NATIVE = "native", "Native"
+    INTRODUCED = "introduced", "Introduced"
+    INVASIVE = "invasive", "Invasive"
+    MANAGED = "managed", "Managed"
+    UNKNOWN = "unknown", "Unknown"
+
+
+class DwcDegreeOfEstablishment(models.TextChoices):
+    CAPTIVE = "captive", "Captive/cultivated"
+    CASUAL = "casual", "Casual"
+    NATURALISED = "naturalised", "Naturalised"
+    INVASIVE = "invasive", "Invasive"
+    WIDESPREAD_INVASIVE = "widespread_invasive", "Widespread invasive"
+    UNKNOWN = "unknown", "Unknown"
+
+
+class DwcPathwayCategory(models.TextChoices):
+    RELEASE = "release", "Release"
+    ESCAPE = "escape", "Escape"
+    CONTAMINANT = "contaminant", "Contaminant"
+    STOWAWAY = "stowaway", "Stowaway"
+    CORRIDOR = "corridor", "Corridor"
+    UNAIDED = "unaided", "Unaided"
+    UNKNOWN = "unknown", "Unknown"
+
+
+class EicatCategory(models.TextChoices):
+    MC = "MC", "Minimal Concern"
+    MN = "MN", "Minor"
+    MO = "MO", "Moderate"
+    MR = "MR", "Major"
+    MV = "MV", "Massive"
+    DD = "DD", "Data Deficient"
+    NE = "NE", "Not Evaluated"
+    NA = "NA", "Not Alien"
+
+
+class SeicatCategory(models.TextChoices):
+    MC = "MC", "Minimal Concern"
+    MN = "MN", "Minor"
+    MO = "MO", "Moderate"
+    MR = "MR", "Major"
+    MV = "MV", "Massive"
+    DD = "DD", "Data Deficient"
+    NE = "NE", "Not Evaluated"
+
+
+class ProgrammeTemplateDomain(models.TextChoices):
+    ECOSYSTEMS = "ecosystems", "Ecosystems"
+    TAXA = "taxa", "Taxa"
+    IAS = "ias", "Invasive alien species"
+    PROTECTED_AREAS = "protected_areas", "Protected areas"
+    CROSS_DOMAIN = "cross_domain", "Cross domain"
+
+
 class ReportingCycle(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     code = models.CharField(max_length=50, unique=True)
@@ -3118,6 +3198,665 @@ class SpatialFeature(TimeStampedModel):
 
     def __str__(self):
         return self.feature_id or self.feature_key
+
+
+class IucnGetNode(TimeStampedModel):
+    code = models.CharField(max_length=80, unique=True)
+    level = models.PositiveSmallIntegerField(validators=[MinValueValidator(1), MaxValueValidator(6)])
+    label = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="children",
+        blank=True,
+        null=True,
+    )
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["level", "code"]),
+            models.Index(fields=["is_active"]),
+        ]
+        ordering = ["level", "code"]
+
+    def __str__(self):
+        return f"L{self.level} {self.code}"
+
+
+class EcosystemType(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    ecosystem_code = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=255)
+    realm = models.CharField(max_length=120, blank=True)
+    biome = models.CharField(max_length=255, blank=True)
+    bioregion = models.CharField(max_length=255, blank=True)
+    vegmap_version = models.CharField(max_length=80, blank=True)
+    vegmap_source_id = models.CharField(max_length=120, blank=True)
+    get_node = models.ForeignKey(
+        IucnGetNode,
+        on_delete=models.SET_NULL,
+        related_name="ecosystem_types",
+        blank=True,
+        null=True,
+    )
+    description = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="ecosystem_types",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_ecosystem_types",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["ecosystem_code"]),
+            models.Index(fields=["realm", "biome"]),
+            models.Index(fields=["bioregion"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["qa_status"]),
+            models.Index(fields=["organisation"]),
+        ]
+        ordering = ["ecosystem_code", "name"]
+
+    def __str__(self):
+        return f"{self.ecosystem_code} - {self.name}"
+
+
+class EcosystemTypologyCrosswalk(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    ecosystem_type = models.ForeignKey(
+        EcosystemType,
+        on_delete=models.CASCADE,
+        related_name="typology_crosswalks",
+    )
+    get_node = models.ForeignKey(
+        IucnGetNode,
+        on_delete=models.CASCADE,
+        related_name="ecosystem_crosswalks",
+    )
+    confidence = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    evidence = models.TextField(blank=True)
+    review_status = models.CharField(
+        max_length=20,
+        choices=RegistryReviewStatus.choices,
+        default=RegistryReviewStatus.NEEDS_REVIEW,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="reviewed_ecosystem_crosswalks",
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    is_primary = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["ecosystem_type", "get_node"], name="uq_ecosystem_crosswalk_mapping"),
+        ]
+        indexes = [
+            models.Index(fields=["ecosystem_type", "review_status"]),
+            models.Index(fields=["get_node", "review_status"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["ecosystem_type__ecosystem_code", "-is_primary", "-confidence", "get_node__code"]
+
+    def __str__(self):
+        return f"{self.ecosystem_type.ecosystem_code}->{self.get_node.code}"
+
+
+class EcosystemRiskAssessment(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    ecosystem_type = models.ForeignKey(
+        EcosystemType,
+        on_delete=models.CASCADE,
+        related_name="risk_assessments",
+    )
+    assessment_year = models.PositiveIntegerField()
+    assessment_scope = models.CharField(max_length=120, default="national")
+    category = models.CharField(max_length=4, choices=IucnRleCategory.choices, default=IucnRleCategory.NE)
+    criterion_a = models.CharField(max_length=255, blank=True)
+    criterion_b = models.CharField(max_length=255, blank=True)
+    criterion_c = models.CharField(max_length=255, blank=True)
+    criterion_d = models.CharField(max_length=255, blank=True)
+    criterion_e = models.CharField(max_length=255, blank=True)
+    evidence = models.TextField(blank=True)
+    assessor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="ecosystem_risk_assessments_assessed",
+        blank=True,
+        null=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="ecosystem_risk_assessments_reviewed",
+        blank=True,
+        null=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    review_status = models.CharField(
+        max_length=20,
+        choices=RegistryReviewStatus.choices,
+        default=RegistryReviewStatus.NEEDS_REVIEW,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["ecosystem_type", "assessment_year", "assessment_scope"],
+                name="uq_ecosystem_risk_assessment_scope_year",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["assessment_year", "category"]),
+            models.Index(fields=["review_status"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["-assessment_year", "ecosystem_type__ecosystem_code"]
+
+    def __str__(self):
+        return f"{self.ecosystem_type.ecosystem_code}:{self.assessment_year}:{self.category}"
+
+
+class TaxonConcept(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    taxon_code = models.CharField(max_length=120, unique=True)
+    scientific_name = models.CharField(max_length=255)
+    canonical_name = models.CharField(max_length=255, blank=True)
+    taxon_rank = models.CharField(max_length=80, blank=True)
+    taxonomic_status = models.CharField(max_length=80, blank=True)
+    kingdom = models.CharField(max_length=120, blank=True)
+    phylum = models.CharField(max_length=120, blank=True)
+    class_name = models.CharField(max_length=120, blank=True)
+    order = models.CharField(max_length=120, blank=True)
+    family = models.CharField(max_length=120, blank=True)
+    genus = models.CharField(max_length=120, blank=True)
+    species = models.CharField(max_length=120, blank=True)
+    gbif_taxon_key = models.BigIntegerField(blank=True, null=True)
+    gbif_usage_key = models.BigIntegerField(blank=True, null=True)
+    gbif_accepted_taxon_key = models.BigIntegerField(blank=True, null=True)
+    primary_source_system = models.CharField(max_length=120, blank=True)
+    is_native = models.BooleanField(blank=True, null=True)
+    is_endemic = models.BooleanField(default=False)
+    has_national_voucher_specimen = models.BooleanField(default=False)
+    voucher_specimen_count = models.PositiveIntegerField(default=0)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="taxon_concepts",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_taxon_concepts",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["taxon_code"]),
+            models.Index(fields=["taxon_rank", "taxonomic_status"]),
+            models.Index(fields=["kingdom", "family", "genus"]),
+            models.Index(fields=["gbif_taxon_key"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["qa_status"]),
+            models.Index(fields=["organisation"]),
+        ]
+        ordering = ["scientific_name", "taxon_rank", "taxon_code"]
+
+    def __str__(self):
+        return f"{self.taxon_code} - {self.scientific_name}"
+
+
+class TaxonName(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    taxon = models.ForeignKey(
+        TaxonConcept,
+        on_delete=models.CASCADE,
+        related_name="names",
+    )
+    name = models.CharField(max_length=255)
+    name_type = models.CharField(max_length=20, choices=TaxonNameType.choices, default=TaxonNameType.SYNONYM)
+    language = models.CharField(max_length=20, blank=True)
+    is_preferred = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["taxon", "name", "name_type", "language"],
+                name="uq_taxon_name_variant",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["taxon", "name_type"]),
+            models.Index(fields=["language"]),
+            models.Index(fields=["is_preferred"]),
+        ]
+        ordering = ["taxon__taxon_code", "-is_preferred", "name_type", "name"]
+
+    def __str__(self):
+        return f"{self.taxon.taxon_code}:{self.name}"
+
+
+class TaxonSourceRecord(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    taxon = models.ForeignKey(
+        TaxonConcept,
+        on_delete=models.CASCADE,
+        related_name="source_records",
+    )
+    source_system = models.CharField(max_length=100)
+    source_ref = models.CharField(max_length=255, blank=True)
+    source_url = models.URLField(blank=True)
+    retrieved_at = models.DateTimeField()
+    payload_json = models.JSONField(default=dict, blank=True)
+    payload_hash = models.CharField(max_length=64, blank=True)
+    licence = models.CharField(max_length=255, blank=True)
+    citation = models.TextField(blank=True)
+    is_primary = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="taxon_source_records",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["taxon", "source_system"]),
+            models.Index(fields=["retrieved_at"]),
+            models.Index(fields=["is_primary"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["-retrieved_at", "source_system", "id"]
+
+    def __str__(self):
+        return f"{self.taxon.taxon_code}:{self.source_system}:{self.retrieved_at.date()}"
+
+
+class SpecimenVoucher(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    taxon = models.ForeignKey(
+        TaxonConcept,
+        on_delete=models.CASCADE,
+        related_name="specimen_vouchers",
+    )
+    institution_code = models.CharField(max_length=80, blank=True)
+    collection_code = models.CharField(max_length=80, blank=True)
+    catalog_number = models.CharField(max_length=120, blank=True)
+    occurrence_id = models.CharField(max_length=255, unique=True)
+    basis_of_record = models.CharField(max_length=120, blank=True)
+    recorded_by = models.CharField(max_length=255, blank=True)
+    event_date = models.DateField(blank=True, null=True)
+    country_code = models.CharField(max_length=2, default="ZA")
+    locality = models.TextField(blank=True)
+    decimal_latitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    decimal_longitude = models.DecimalField(max_digits=10, decimal_places=7, blank=True, null=True)
+    coordinate_uncertainty_m = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    has_sensitive_locality = models.BooleanField(default=False)
+    consent_required = models.BooleanField(default=False)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="specimen_vouchers",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_specimen_vouchers",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.RESTRICTED)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["taxon", "country_code"]),
+            models.Index(fields=["institution_code", "catalog_number"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["qa_status"]),
+            models.Index(fields=["organisation"]),
+            models.Index(fields=["has_sensitive_locality"]),
+        ]
+        ordering = ["taxon__taxon_code", "-event_date", "occurrence_id"]
+
+    def __str__(self):
+        return self.occurrence_id
+
+
+class AlienTaxonProfile(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    taxon = models.ForeignKey(
+        TaxonConcept,
+        on_delete=models.CASCADE,
+        related_name="alien_profiles",
+    )
+    country_code = models.CharField(max_length=2, default="ZA")
+    establishment_means_code = models.CharField(
+        max_length=40,
+        choices=DwcEstablishmentMeans.choices,
+        default=DwcEstablishmentMeans.UNKNOWN,
+    )
+    establishment_means_label = models.CharField(max_length=120, blank=True)
+    degree_of_establishment_code = models.CharField(
+        max_length=40,
+        choices=DwcDegreeOfEstablishment.choices,
+        default=DwcDegreeOfEstablishment.UNKNOWN,
+    )
+    degree_of_establishment_label = models.CharField(max_length=120, blank=True)
+    pathway_code = models.CharField(max_length=40, choices=DwcPathwayCategory.choices, default=DwcPathwayCategory.UNKNOWN)
+    pathway_label = models.CharField(max_length=120, blank=True)
+    habitat_types_json = models.JSONField(default=list, blank=True)
+    regulatory_status = models.CharField(max_length=120, blank=True)
+    is_invasive = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="alien_taxon_profiles",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_alien_taxon_profiles",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["taxon", "country_code"], name="uq_alien_taxon_profile_country"),
+        ]
+        indexes = [
+            models.Index(fields=["country_code", "is_invasive"]),
+            models.Index(fields=["establishment_means_code"]),
+            models.Index(fields=["degree_of_establishment_code"]),
+            models.Index(fields=["pathway_code"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["taxon__taxon_code", "country_code"]
+
+    def __str__(self):
+        return f"{self.taxon.taxon_code}:{self.country_code}"
+
+
+class EICATAssessment(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    profile = models.ForeignKey(
+        AlienTaxonProfile,
+        on_delete=models.CASCADE,
+        related_name="eicat_assessments",
+    )
+    category = models.CharField(max_length=3, choices=EicatCategory.choices, default=EicatCategory.NE)
+    mechanisms_json = models.JSONField(default=list, blank=True)
+    impact_scope = models.CharField(max_length=120, blank=True)
+    confidence = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    uncertainty_notes = models.TextField(blank=True)
+    evidence = models.TextField(blank=True)
+    assessed_on = models.DateField(blank=True, null=True)
+    assessed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="eicat_assessed_rows",
+        blank=True,
+        null=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="eicat_reviewed_rows",
+        blank=True,
+        null=True,
+    )
+    review_status = models.CharField(
+        max_length=20,
+        choices=RegistryReviewStatus.choices,
+        default=RegistryReviewStatus.NEEDS_REVIEW,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["profile", "category"]),
+            models.Index(fields=["review_status"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["profile__taxon__taxon_code", "-assessed_on", "id"]
+
+    def __str__(self):
+        return f"EICAT {self.profile.taxon.taxon_code}:{self.category}"
+
+
+class SEICATAssessment(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    profile = models.ForeignKey(
+        AlienTaxonProfile,
+        on_delete=models.CASCADE,
+        related_name="seicat_assessments",
+    )
+    category = models.CharField(max_length=3, choices=SeicatCategory.choices, default=SeicatCategory.NE)
+    wellbeing_constituents_json = models.JSONField(default=list, blank=True)
+    activity_change_narrative = models.TextField(blank=True)
+    confidence = models.PositiveSmallIntegerField(default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
+    uncertainty_notes = models.TextField(blank=True)
+    evidence = models.TextField(blank=True)
+    assessed_on = models.DateField(blank=True, null=True)
+    assessed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="seicat_assessed_rows",
+        blank=True,
+        null=True,
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="seicat_reviewed_rows",
+        blank=True,
+        null=True,
+    )
+    review_status = models.CharField(
+        max_length=20,
+        choices=RegistryReviewStatus.choices,
+        default=RegistryReviewStatus.NEEDS_REVIEW,
+    )
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["profile", "category"]),
+            models.Index(fields=["review_status"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["profile__taxon__taxon_code", "-assessed_on", "id"]
+
+    def __str__(self):
+        return f"SEICAT {self.profile.taxon.taxon_code}:{self.category}"
+
+
+class IASCountryChecklistRecord(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    taxon = models.ForeignKey(
+        TaxonConcept,
+        on_delete=models.SET_NULL,
+        related_name="ias_country_records",
+        blank=True,
+        null=True,
+    )
+    scientific_name = models.CharField(max_length=255)
+    canonical_name = models.CharField(max_length=255, blank=True)
+    country_code = models.CharField(max_length=2, default="ZA")
+    source_dataset = models.CharField(max_length=120, blank=True)
+    source_identifier = models.CharField(max_length=255)
+    is_alien = models.BooleanField(default=True)
+    is_invasive = models.BooleanField(default=False)
+    establishment_means_code = models.CharField(
+        max_length=40,
+        choices=DwcEstablishmentMeans.choices,
+        default=DwcEstablishmentMeans.UNKNOWN,
+    )
+    degree_of_establishment_code = models.CharField(
+        max_length=40,
+        choices=DwcDegreeOfEstablishment.choices,
+        default=DwcDegreeOfEstablishment.UNKNOWN,
+    )
+    pathway_code = models.CharField(max_length=40, choices=DwcPathwayCategory.choices, default=DwcPathwayCategory.UNKNOWN)
+    remarks = models.TextField(blank=True)
+    retrieved_at = models.DateTimeField(blank=True, null=True)
+    payload_json = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    export_approved = models.BooleanField(default=False)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source_system", "source_identifier"],
+                name="uq_ias_country_record_source_identifier",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["country_code", "is_invasive"]),
+            models.Index(fields=["establishment_means_code"]),
+            models.Index(fields=["degree_of_establishment_code"]),
+            models.Index(fields=["pathway_code"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["scientific_name", "source_identifier"]
+
+    def __str__(self):
+        return f"{self.country_code}:{self.scientific_name}"
+
+
+class ProgrammeTemplate(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    template_code = models.CharField(max_length=100, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    domain = models.CharField(max_length=40, choices=ProgrammeTemplateDomain.choices, default=ProgrammeTemplateDomain.CROSS_DOMAIN)
+    pipeline_definition_json = models.JSONField(default=dict, blank=True)
+    required_outputs_json = models.JSONField(default=list, blank=True)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.PUBLISHED)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.PUBLISHED)
+    export_approved = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="programme_templates",
+        blank=True,
+        null=True,
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_programme_templates",
+        blank=True,
+        null=True,
+    )
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["template_code"]),
+            models.Index(fields=["domain", "is_active"]),
+            models.Index(fields=["status"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["domain", "template_code"]
+
+    def __str__(self):
+        return self.template_code
 
 
 class ReportTemplatePack(TimeStampedModel):
