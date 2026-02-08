@@ -142,6 +142,29 @@ urlpatterns = [
         api_spa.api_report_product_runs,
         name="api_report_product_runs",
     ),
+    path("registries/ecosystems", api_spa.api_registry_ecosystems, name="api_registry_ecosystems"),
+    path(
+        "registries/ecosystems/<uuid:ecosystem_uuid>",
+        api_spa.api_registry_ecosystem_detail,
+        name="api_registry_ecosystem_detail",
+    ),
+    path("registries/taxa", api_spa.api_registry_taxa, name="api_registry_taxa"),
+    path(
+        "registries/taxa/<uuid:taxon_uuid>",
+        api_spa.api_registry_taxon_detail,
+        name="api_registry_taxon_detail",
+    ),
+    path("registries/ias", api_spa.api_registry_ias, name="api_registry_ias"),
+    path(
+        "registries/ias/<uuid:profile_uuid>",
+        api_spa.api_registry_ias_detail,
+        name="api_registry_ias_detail",
+    ),
+    path(
+        "programmes/templates",
+        api_spa.api_programme_templates,
+        name="api_programme_templates",
+    ),
     path(
         "report-products/<str:product_code>/preview",
         api_spa.api_report_product_preview,

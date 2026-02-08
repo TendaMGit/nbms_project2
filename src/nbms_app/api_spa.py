@@ -18,11 +18,16 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from nbms_app.models import (
+    AlienTaxonProfile,
     AuditEvent,
     BirdieModelOutput,
     BirdieSite,
     BirdieSpecies,
     Dataset,
+    EICATAssessment,
+    EcosystemRiskAssessment,
+    EcosystemType,
+    EcosystemTypologyCrosswalk,
     Indicator,
     IndicatorDataPoint,
     IndicatorDataSeries,
@@ -39,17 +44,24 @@ from nbms_app.models import (
     MonitoringProgrammeAlert,
     MonitoringProgrammeRun,
     MonitoringProgrammeRunStep,
+    ProgrammeTemplate,
     ProgrammeAlertState,
     ProgrammeRunStatus,
     ProgrammeRunType,
     ReportProductTemplate,
     ReportProductRun,
+    SEICATAssessment,
     ReportTemplatePack,
     ReportTemplatePackResponse,
     ReportTemplatePackSection,
     ReportingInstance,
     ReportingStatus,
+    SpecimenVoucher,
     SpatialLayer,
+    TaxonConcept,
+    TaxonName,
+    TaxonSourceRecord,
+    IASCountryChecklistRecord,
     IntegrationDataAsset,
     SensitivityLevel,
 )
@@ -58,6 +70,7 @@ from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_DATA_STEWARD,
     ROLE_INDICATOR_LEAD,
+    ROLE_SECURITY_OFFICER,
     ROLE_SECRETARIAT,
     ROLE_SYSTEM_ADMIN,
     filter_queryset_for_user,
@@ -188,6 +201,12 @@ def _parse_positive_int(value, default, minimum=1, maximum=200):
     except (TypeError, ValueError):
         return default
     return max(minimum, min(parsed, maximum))
+
+
+def _can_view_sensitive_locality(user):
+    if is_system_admin(user):
+        return True
+    return bool(user_has_role(user, ROLE_ADMIN, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_SECURITY_OFFICER))
 
 
 def _require_instance_scope(user, instance):
@@ -1932,6 +1951,498 @@ def api_report_product_runs(request):
                     "generated_by": row.generated_by.username if row.generated_by_id else None,
                     "generated_at": row.generated_at.isoformat() if row.generated_at else None,
                     "created_at": row.created_at.isoformat(),
+                }
+                for row in queryset
+            ]
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_ecosystems(request):
+    queryset = filter_queryset_for_user(
+        EcosystemType.objects.select_related("organisation", "get_node").order_by("ecosystem_code", "name", "uuid"),
+        request.user,
+    )
+    biome = (request.GET.get("biome") or "").strip()
+    if biome:
+        queryset = queryset.filter(biome__icontains=biome)
+    bioregion = (request.GET.get("bioregion") or "").strip()
+    if bioregion:
+        queryset = queryset.filter(bioregion__icontains=bioregion)
+    version = (request.GET.get("version") or "").strip()
+    if version:
+        queryset = queryset.filter(vegmap_version__icontains=version)
+    get_efg = (request.GET.get("get_efg") or "").strip()
+    if get_efg:
+        queryset = queryset.filter(
+            Q(get_node__code__icontains=get_efg) | Q(typology_crosswalks__get_node__code__icontains=get_efg)
+        ).distinct()
+    threat_category = (request.GET.get("threat_category") or "").strip()
+    if threat_category:
+        queryset = queryset.filter(risk_assessments__category__iexact=threat_category).distinct()
+
+    page_size = _parse_positive_int(request.GET.get("page_size"), default=25, minimum=1, maximum=100)
+    page = _parse_positive_int(request.GET.get("page"), default=1, minimum=1, maximum=10000)
+    total = queryset.count()
+    start = (page - 1) * page_size
+    results = queryset[start : start + page_size]
+
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": [
+                {
+                    "uuid": str(row.uuid),
+                    "ecosystem_code": row.ecosystem_code,
+                    "name": row.name,
+                    "realm": row.realm,
+                    "biome": row.biome,
+                    "bioregion": row.bioregion,
+                    "vegmap_version": row.vegmap_version,
+                    "get_node": row.get_node.code if row.get_node_id else None,
+                    "status": row.status,
+                    "sensitivity": row.sensitivity,
+                    "qa_status": row.qa_status,
+                    "organisation": row.organisation.name if row.organisation_id else None,
+                    "updated_at": row.updated_at.isoformat(),
+                }
+                for row in results
+            ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_ecosystem_detail(request, ecosystem_uuid):
+    queryset = filter_queryset_for_user(EcosystemType.objects.select_related("organisation", "get_node"), request.user)
+    ecosystem = get_object_or_404(queryset, uuid=ecosystem_uuid)
+    crosswalks = (
+        EcosystemTypologyCrosswalk.objects.filter(ecosystem_type=ecosystem)
+        .select_related("get_node", "reviewed_by")
+        .order_by("-is_primary", "-confidence", "get_node__level", "get_node__code", "id")
+    )
+    risk_assessments = (
+        EcosystemRiskAssessment.objects.filter(ecosystem_type=ecosystem)
+        .select_related("assessor", "reviewed_by")
+        .order_by("-assessment_year", "assessment_scope", "id")
+    )
+    return Response(
+        {
+            "ecosystem": {
+                "uuid": str(ecosystem.uuid),
+                "ecosystem_code": ecosystem.ecosystem_code,
+                "name": ecosystem.name,
+                "realm": ecosystem.realm,
+                "biome": ecosystem.biome,
+                "bioregion": ecosystem.bioregion,
+                "vegmap_version": ecosystem.vegmap_version,
+                "vegmap_source_id": ecosystem.vegmap_source_id,
+                "description": ecosystem.description,
+                "get_node": ecosystem.get_node.code if ecosystem.get_node_id else None,
+                "status": ecosystem.status,
+                "sensitivity": ecosystem.sensitivity,
+                "qa_status": ecosystem.qa_status,
+                "organisation": ecosystem.organisation.name if ecosystem.organisation_id else None,
+                "updated_at": ecosystem.updated_at.isoformat(),
+            },
+            "crosswalks": [
+                {
+                    "uuid": str(row.uuid),
+                    "get_code": row.get_node.code,
+                    "get_level": row.get_node.level,
+                    "get_label": row.get_node.label,
+                    "confidence": row.confidence,
+                    "review_status": row.review_status,
+                    "is_primary": row.is_primary,
+                    "evidence": row.evidence,
+                    "reviewed_by": row.reviewed_by.username if row.reviewed_by_id else None,
+                    "reviewed_at": row.reviewed_at.isoformat() if row.reviewed_at else None,
+                }
+                for row in crosswalks
+            ],
+            "risk_assessments": [
+                {
+                    "uuid": str(row.uuid),
+                    "assessment_year": row.assessment_year,
+                    "assessment_scope": row.assessment_scope,
+                    "category": row.category,
+                    "criterion_a": row.criterion_a,
+                    "criterion_b": row.criterion_b,
+                    "criterion_c": row.criterion_c,
+                    "criterion_d": row.criterion_d,
+                    "criterion_e": row.criterion_e,
+                    "review_status": row.review_status,
+                    "assessor": row.assessor.username if row.assessor_id else None,
+                    "reviewed_by": row.reviewed_by.username if row.reviewed_by_id else None,
+                    "updated_at": row.updated_at.isoformat(),
+                }
+                for row in risk_assessments
+            ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_taxa(request):
+    queryset = filter_queryset_for_user(TaxonConcept.objects.select_related("organisation").order_by("scientific_name", "taxon_code"), request.user)
+    rank = (request.GET.get("rank") or "").strip()
+    if rank:
+        queryset = queryset.filter(taxon_rank__iexact=rank)
+    status_filter = (request.GET.get("status") or "").strip()
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+    source = (request.GET.get("source") or "").strip()
+    if source:
+        queryset = queryset.filter(primary_source_system__icontains=source)
+    has_voucher = (request.GET.get("has_voucher") or "").strip().lower()
+    if has_voucher in {"true", "false"}:
+        queryset = queryset.filter(has_national_voucher_specimen=(has_voucher == "true"))
+    native = (request.GET.get("native") or "").strip().lower()
+    if native in {"true", "false"}:
+        queryset = queryset.filter(is_native=(native == "true"))
+    endemic = (request.GET.get("endemic") or "").strip().lower()
+    if endemic in {"true", "false"}:
+        queryset = queryset.filter(is_endemic=(endemic == "true"))
+    search = (request.GET.get("search") or "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(scientific_name__icontains=search)
+            | Q(canonical_name__icontains=search)
+            | Q(taxon_code__icontains=search)
+            | Q(family__icontains=search)
+            | Q(genus__icontains=search)
+        )
+
+    page_size = _parse_positive_int(request.GET.get("page_size"), default=25, minimum=1, maximum=100)
+    page = _parse_positive_int(request.GET.get("page"), default=1, minimum=1, maximum=10000)
+    total = queryset.count()
+    start = (page - 1) * page_size
+    results = queryset[start : start + page_size]
+
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": [
+                {
+                    "uuid": str(row.uuid),
+                    "taxon_code": row.taxon_code,
+                    "scientific_name": row.scientific_name,
+                    "canonical_name": row.canonical_name,
+                    "taxon_rank": row.taxon_rank,
+                    "taxonomic_status": row.taxonomic_status,
+                    "kingdom": row.kingdom,
+                    "family": row.family,
+                    "genus": row.genus,
+                    "is_native": row.is_native,
+                    "is_endemic": row.is_endemic,
+                    "has_national_voucher_specimen": row.has_national_voucher_specimen,
+                    "voucher_specimen_count": row.voucher_specimen_count,
+                    "primary_source_system": row.primary_source_system,
+                    "status": row.status,
+                    "sensitivity": row.sensitivity,
+                    "qa_status": row.qa_status,
+                    "organisation": row.organisation.name if row.organisation_id else None,
+                    "updated_at": row.updated_at.isoformat(),
+                }
+                for row in results
+            ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_taxon_detail(request, taxon_uuid):
+    queryset = filter_queryset_for_user(TaxonConcept.objects.select_related("organisation"), request.user)
+    taxon = get_object_or_404(queryset, uuid=taxon_uuid)
+
+    names = TaxonName.objects.filter(taxon=taxon).order_by("-is_preferred", "name_type", "name", "id")
+    source_records = TaxonSourceRecord.objects.filter(taxon=taxon).order_by("-retrieved_at", "source_system", "id")
+    vouchers_qs = filter_queryset_for_user(
+        SpecimenVoucher.objects.filter(taxon=taxon).select_related("organisation").order_by("-event_date", "occurrence_id", "id"),
+        request.user,
+    )
+    can_view_sensitive = _can_view_sensitive_locality(request.user)
+
+    voucher_rows = []
+    for row in vouchers_qs:
+        hide_locality = bool(row.has_sensitive_locality and not can_view_sensitive)
+        voucher_rows.append(
+            {
+                "uuid": str(row.uuid),
+                "occurrence_id": row.occurrence_id,
+                "institution_code": row.institution_code,
+                "collection_code": row.collection_code,
+                "catalog_number": row.catalog_number,
+                "basis_of_record": row.basis_of_record,
+                "event_date": row.event_date.isoformat() if row.event_date else None,
+                "country_code": row.country_code,
+                "locality": "Restricted locality" if hide_locality else row.locality,
+                "decimal_latitude": None if hide_locality else float(row.decimal_latitude) if row.decimal_latitude is not None else None,
+                "decimal_longitude": None if hide_locality else float(row.decimal_longitude) if row.decimal_longitude is not None else None,
+                "has_sensitive_locality": row.has_sensitive_locality,
+                "sensitivity": row.sensitivity,
+                "status": row.status,
+            }
+        )
+
+    return Response(
+        {
+            "taxon": {
+                "uuid": str(taxon.uuid),
+                "taxon_code": taxon.taxon_code,
+                "scientific_name": taxon.scientific_name,
+                "canonical_name": taxon.canonical_name,
+                "taxon_rank": taxon.taxon_rank,
+                "taxonomic_status": taxon.taxonomic_status,
+                "classification": {
+                    "kingdom": taxon.kingdom,
+                    "phylum": taxon.phylum,
+                    "class_name": taxon.class_name,
+                    "order": taxon.order,
+                    "family": taxon.family,
+                    "genus": taxon.genus,
+                    "species": taxon.species,
+                },
+                "gbif_taxon_key": taxon.gbif_taxon_key,
+                "gbif_usage_key": taxon.gbif_usage_key,
+                "gbif_accepted_taxon_key": taxon.gbif_accepted_taxon_key,
+                "is_native": taxon.is_native,
+                "is_endemic": taxon.is_endemic,
+                "has_national_voucher_specimen": taxon.has_national_voucher_specimen,
+                "voucher_specimen_count": taxon.voucher_specimen_count,
+                "primary_source_system": taxon.primary_source_system,
+                "status": taxon.status,
+                "sensitivity": taxon.sensitivity,
+                "qa_status": taxon.qa_status,
+                "organisation": taxon.organisation.name if taxon.organisation_id else None,
+                "updated_at": taxon.updated_at.isoformat(),
+            },
+            "names": [
+                {
+                    "uuid": str(row.uuid),
+                    "name": row.name,
+                    "name_type": row.name_type,
+                    "language": row.language,
+                    "is_preferred": row.is_preferred,
+                }
+                for row in names
+            ],
+            "source_records": [
+                {
+                    "uuid": str(row.uuid),
+                    "source_system": row.source_system,
+                    "source_ref": row.source_ref,
+                    "source_url": row.source_url,
+                    "retrieved_at": row.retrieved_at.isoformat(),
+                    "payload_hash": row.payload_hash,
+                    "licence": row.licence,
+                    "citation": row.citation,
+                    "is_primary": row.is_primary,
+                }
+                for row in source_records
+            ],
+            "vouchers": voucher_rows,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_ias(request):
+    queryset = filter_queryset_for_user(
+        AlienTaxonProfile.objects.select_related("taxon", "organisation").order_by("taxon__scientific_name", "country_code", "id"),
+        request.user,
+    )
+    stage = (request.GET.get("stage") or "").strip().lower()
+    if stage:
+        queryset = queryset.filter(degree_of_establishment_code=stage)
+    pathway = (request.GET.get("pathway") or "").strip().lower()
+    if pathway:
+        queryset = queryset.filter(pathway_code=pathway)
+    habitat = (request.GET.get("habitat") or "").strip().lower()
+    if habitat:
+        queryset = queryset.filter(habitat_types_json__icontains=habitat)
+    eicat = (request.GET.get("eicat") or "").strip().upper()
+    if eicat:
+        queryset = queryset.filter(eicat_assessments__category=eicat).distinct()
+    seicat = (request.GET.get("seicat") or "").strip().upper()
+    if seicat:
+        queryset = queryset.filter(seicat_assessments__category=seicat).distinct()
+    search = (request.GET.get("search") or "").strip()
+    if search:
+        queryset = queryset.filter(
+            Q(taxon__scientific_name__icontains=search)
+            | Q(taxon__canonical_name__icontains=search)
+            | Q(taxon__taxon_code__icontains=search)
+        )
+
+    page_size = _parse_positive_int(request.GET.get("page_size"), default=25, minimum=1, maximum=100)
+    page = _parse_positive_int(request.GET.get("page"), default=1, minimum=1, maximum=10000)
+    total = queryset.count()
+    start = (page - 1) * page_size
+    results = queryset[start : start + page_size]
+
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": page_size,
+            "results": [
+                {
+                    "uuid": str(row.uuid),
+                    "taxon_uuid": str(row.taxon.uuid),
+                    "taxon_code": row.taxon.taxon_code,
+                    "scientific_name": row.taxon.scientific_name,
+                    "country_code": row.country_code,
+                    "establishment_means_code": row.establishment_means_code,
+                    "degree_of_establishment_code": row.degree_of_establishment_code,
+                    "pathway_code": row.pathway_code,
+                    "is_invasive": row.is_invasive,
+                    "regulatory_status": row.regulatory_status,
+                    "latest_eicat": (
+                        row.eicat_assessments.order_by("-assessed_on", "-id").values_list("category", flat=True).first()
+                    ),
+                    "latest_seicat": (
+                        row.seicat_assessments.order_by("-assessed_on", "-id").values_list("category", flat=True).first()
+                    ),
+                    "status": row.status,
+                    "sensitivity": row.sensitivity,
+                    "qa_status": row.qa_status,
+                    "updated_at": row.updated_at.isoformat(),
+                }
+                for row in results
+            ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_registry_ias_detail(request, profile_uuid):
+    queryset = filter_queryset_for_user(
+        AlienTaxonProfile.objects.select_related("taxon", "organisation"),
+        request.user,
+    )
+    profile = get_object_or_404(queryset, uuid=profile_uuid)
+
+    checklist_rows = IASCountryChecklistRecord.objects.filter(taxon=profile.taxon).order_by("country_code", "source_identifier", "id")
+    eicat_rows = EICATAssessment.objects.filter(profile=profile).select_related("assessed_by", "reviewed_by").order_by("-assessed_on", "id")
+    seicat_rows = SEICATAssessment.objects.filter(profile=profile).select_related("assessed_by", "reviewed_by").order_by("-assessed_on", "id")
+
+    return Response(
+        {
+            "profile": {
+                "uuid": str(profile.uuid),
+                "taxon_uuid": str(profile.taxon.uuid),
+                "taxon_code": profile.taxon.taxon_code,
+                "scientific_name": profile.taxon.scientific_name,
+                "country_code": profile.country_code,
+                "establishment_means_code": profile.establishment_means_code,
+                "establishment_means_label": profile.establishment_means_label,
+                "degree_of_establishment_code": profile.degree_of_establishment_code,
+                "degree_of_establishment_label": profile.degree_of_establishment_label,
+                "pathway_code": profile.pathway_code,
+                "pathway_label": profile.pathway_label,
+                "habitat_types_json": profile.habitat_types_json,
+                "regulatory_status": profile.regulatory_status,
+                "is_invasive": profile.is_invasive,
+                "status": profile.status,
+                "sensitivity": profile.sensitivity,
+                "qa_status": profile.qa_status,
+                "updated_at": profile.updated_at.isoformat(),
+            },
+            "checklist_records": [
+                {
+                    "uuid": str(row.uuid),
+                    "source_dataset": row.source_dataset,
+                    "source_identifier": row.source_identifier,
+                    "country_code": row.country_code,
+                    "is_alien": row.is_alien,
+                    "is_invasive": row.is_invasive,
+                    "establishment_means_code": row.establishment_means_code,
+                    "degree_of_establishment_code": row.degree_of_establishment_code,
+                    "pathway_code": row.pathway_code,
+                    "retrieved_at": row.retrieved_at.isoformat() if row.retrieved_at else None,
+                }
+                for row in checklist_rows
+            ],
+            "eicat_assessments": [
+                {
+                    "uuid": str(row.uuid),
+                    "category": row.category,
+                    "mechanisms_json": row.mechanisms_json,
+                    "impact_scope": row.impact_scope,
+                    "confidence": row.confidence,
+                    "review_status": row.review_status,
+                    "assessed_on": row.assessed_on.isoformat() if row.assessed_on else None,
+                    "assessed_by": row.assessed_by.username if row.assessed_by_id else None,
+                    "reviewed_by": row.reviewed_by.username if row.reviewed_by_id else None,
+                }
+                for row in eicat_rows
+            ],
+            "seicat_assessments": [
+                {
+                    "uuid": str(row.uuid),
+                    "category": row.category,
+                    "wellbeing_constituents_json": row.wellbeing_constituents_json,
+                    "activity_change_narrative": row.activity_change_narrative,
+                    "confidence": row.confidence,
+                    "review_status": row.review_status,
+                    "assessed_on": row.assessed_on.isoformat() if row.assessed_on else None,
+                    "assessed_by": row.assessed_by.username if row.assessed_by_id else None,
+                    "reviewed_by": row.reviewed_by.username if row.reviewed_by_id else None,
+                }
+                for row in seicat_rows
+            ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_programme_templates(request):
+    queryset = ProgrammeTemplate.objects.filter(is_active=True).select_related("organisation").order_by(
+        "domain",
+        "template_code",
+        "id",
+    )
+    domain = (request.GET.get("domain") or "").strip().lower()
+    if domain:
+        queryset = queryset.filter(domain=domain)
+    template_codes = list(queryset.values_list("template_code", flat=True))
+    linked_programmes = {
+        row["programme_code"]: str(row["uuid"])
+        for row in MonitoringProgramme.objects.filter(programme_code__in=template_codes, is_active=True).values(
+            "programme_code",
+            "uuid",
+        )
+    }
+    return Response(
+        {
+            "templates": [
+                {
+                    "uuid": str(row.uuid),
+                    "template_code": row.template_code,
+                    "title": row.title,
+                    "description": row.description,
+                    "domain": row.domain,
+                    "pipeline_definition_json": row.pipeline_definition_json,
+                    "required_outputs_json": row.required_outputs_json,
+                    "status": row.status,
+                    "sensitivity": row.sensitivity,
+                    "qa_status": row.qa_status,
+                    "organisation": row.organisation.name if row.organisation_id else None,
+                    "updated_at": row.updated_at.isoformat(),
+                    "linked_programme_uuid": linked_programmes.get(row.template_code),
                 }
                 for row in queryset
             ]

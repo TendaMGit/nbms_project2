@@ -36,6 +36,10 @@ def user_capabilities(user):
         "can_view_reporting_builder": is_authenticated and can_author_reports,
         "can_view_template_packs": is_authenticated and can_author_reports,
         "can_view_report_products": is_authenticated and can_author_reports,
+        "can_view_registries": is_authenticated,
+        "can_manage_programme_templates": bool(
+            is_authenticated and (is_system_admin(user) or user_has_role(user, ROLE_ADMIN, ROLE_SECRETARIAT, ROLE_DATA_STEWARD))
+        ),
         "can_view_system_health": is_authenticated and bool(is_system_admin(user) or user_has_role(user, ROLE_ADMIN)),
         "can_contribute": bool(is_authenticated and user_has_role(user, ROLE_CONTRIBUTOR)),
     }
