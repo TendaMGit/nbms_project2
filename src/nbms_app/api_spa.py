@@ -65,6 +65,7 @@ from nbms_app.services.authorization import (
     user_has_role,
 )
 from nbms_app.services.catalog_access import filter_monitoring_programmes_for_user
+from nbms_app.services.capabilities import user_capabilities
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
 from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.nr7_builder import (
@@ -100,31 +101,6 @@ def _user_role_names(user):
     if not user or not getattr(user, "is_authenticated", False):
         return []
     return sorted(set(user.groups.values_list("name", flat=True)))
-
-
-def _capabilities(user):
-    is_authenticated = bool(user and getattr(user, "is_authenticated", False))
-    is_staff = bool(getattr(user, "is_staff", False))
-    is_adminish = bool(is_system_admin(user) or user_has_role(user, ROLE_ADMIN, ROLE_SECRETARIAT, ROLE_DATA_STEWARD))
-    return {
-        "is_staff": is_staff,
-        "is_system_admin": bool(is_system_admin(user)),
-        "can_manage_exports": bool(user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_ADMIN)),
-        "can_review": bool(user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_ADMIN)),
-        "can_publish": bool(user_has_role(user, ROLE_SECRETARIAT, ROLE_ADMIN) or is_system_admin(user)),
-        "can_edit_indicators": bool(
-            user_has_role(user, ROLE_INDICATOR_LEAD, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, ROLE_ADMIN)
-            or is_system_admin(user)
-        ),
-        "can_view_dashboard": is_authenticated,
-        "can_view_spatial": is_authenticated,
-        "can_view_programmes": is_authenticated and (is_staff or is_adminish),
-        "can_view_birdie": is_authenticated and (is_staff or is_adminish),
-        "can_view_reporting_builder": is_authenticated and is_staff,
-        "can_view_template_packs": is_authenticated and is_staff,
-        "can_view_report_products": is_authenticated and is_staff,
-        "can_view_system_health": is_authenticated and (is_staff or is_system_admin(user)),
-    }
 
 
 def _can_run_indicator_methods(user):
@@ -242,6 +218,9 @@ def _programme_queryset_for_user(user):
 
 
 def _programme_run_payload(run):
+    def _row_identifier(row):
+        return str(getattr(row, "uuid", row.pk))
+
     return {
         "uuid": str(run.uuid),
         "run_type": run.run_type,
@@ -259,7 +238,7 @@ def _programme_run_payload(run):
         "created_at": run.created_at.isoformat(),
         "artefacts": [
             {
-                "uuid": str(row.uuid),
+                "uuid": _row_identifier(row),
                 "label": row.label,
                 "storage_path": row.storage_path,
                 "media_type": row.media_type,
@@ -272,7 +251,7 @@ def _programme_run_payload(run):
         ],
         "qa_results": [
             {
-                "uuid": str(row.uuid),
+                "uuid": _row_identifier(row),
                 "code": row.code,
                 "status": row.status,
                 "message": row.message,
@@ -375,9 +354,15 @@ def api_auth_me(request):
                 "id": organisation.id if organisation else None,
                 "name": organisation.name if organisation else None,
             },
-            "capabilities": _capabilities(user),
+            "capabilities": user_capabilities(user),
         }
     )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_auth_capabilities(request):
+    return Response({"capabilities": user_capabilities(request.user)})
 
 
 @api_view(["GET"])
@@ -1072,6 +1057,14 @@ def api_indicator_detail(request, indicator_uuid):
         .filter(indicator=indicator)
         .order_by("title", "uuid")
     )
+    points_qs = (
+        indicator_data_points_for_user(request.user)
+        .filter(series__in=series)
+        .select_related("programme_run")
+        .order_by("-year", "-updated_at", "-id")
+    )
+    latest_point = points_qs.first()
+    latest_pipeline_point = points_qs.exclude(programme_run__isnull=True).first()
     method_profiles = (
         IndicatorMethodProfile.objects.filter(indicator=indicator, is_active=True)
         .order_by("method_type", "implementation_key", "uuid")
@@ -1138,10 +1131,30 @@ def api_indicator_detail(request, indicator_uuid):
         "notes": input_requirement.notes if input_requirement else "",
         "last_checked_at": input_requirement.last_checked_at.isoformat() if input_requirement and input_requirement.last_checked_at else None,
     }
+    pipeline = {
+        "data_last_refreshed_at": latest_point.updated_at.isoformat() if latest_point else None,
+        "latest_year": latest_point.year if latest_point else None,
+        "latest_pipeline_run_uuid": (
+            str(latest_pipeline_point.programme_run.uuid)
+            if latest_pipeline_point and latest_pipeline_point.programme_run_id
+            else None
+        ),
+        "latest_pipeline_run_status": (
+            latest_pipeline_point.programme_run.status
+            if latest_pipeline_point and latest_pipeline_point.programme_run_id
+            else None
+        ),
+    }
 
     return Response(
         {
             "indicator": _indicator_payload(indicator),
+            "narrative": {
+                "summary": indicator.computation_notes,
+                "limitations": indicator.limitations,
+                "spatial_coverage": indicator.spatial_coverage,
+                "temporal_coverage": indicator.temporal_coverage,
+            },
             "methodologies": [
                 {
                     "methodology_code": link.methodology_version.methodology.methodology_code,
@@ -1188,6 +1201,7 @@ def api_indicator_detail(request, indicator_uuid):
                 for profile in method_profiles
             ],
             "spatial_readiness": spatial_readiness,
+            "pipeline": pipeline,
         }
     )
 
@@ -1234,6 +1248,7 @@ def api_indicator_series_summary(request, indicator_uuid):
     indicator = get_object_or_404(queryset, uuid=indicator_uuid)
     agg = (request.GET.get("agg") or "year").strip().lower()
     geography = (request.GET.get("geography") or "").strip().lower()
+    year_filter = request.GET.get("year")
 
     series_qs = indicator_data_series_for_user(request.user).filter(indicator=indicator)
     points_qs = (
@@ -1242,6 +1257,11 @@ def api_indicator_series_summary(request, indicator_uuid):
         .select_related("spatial_unit", "spatial_layer", "series")
         .order_by("year", "id")
     )
+    if year_filter:
+        try:
+            points_qs = points_qs.filter(year=int(year_filter))
+        except ValueError:
+            pass
 
     grouped = defaultdict(list)
     for point in points_qs:
@@ -1249,11 +1269,22 @@ def api_indicator_series_summary(request, indicator_uuid):
             disagg_text = str(point.disaggregation or "").lower()
             if geography not in disagg_text:
                 continue
-        key = point.year if agg == "year" else point.series_id
+        if agg == "province":
+            disagg = point.disaggregation or {}
+            key = (
+                disagg.get("province_code")
+                or disagg.get("province")
+                or (point.spatial_unit.unit_code if point.spatial_unit_id else "")
+                or "UNKNOWN"
+            )
+        elif agg == "year":
+            key = point.year
+        else:
+            key = point.series_id
         grouped[key].append(point)
 
     results = []
-    for key in sorted(grouped):
+    for key in sorted(grouped, key=lambda item: str(item)):
         points = grouped[key]
         numeric_values = [float(item.value_numeric) for item in points if item.value_numeric is not None]
         results.append(
@@ -1297,6 +1328,121 @@ def api_indicator_series_summary(request, indicator_uuid):
             "indicator_uuid": str(indicator.uuid),
             "aggregation": agg,
             "results": results,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_indicator_map(request, indicator_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    series_qs = indicator_data_series_for_user(request.user).filter(indicator=indicator).order_by("title", "uuid")
+    points_qs = (
+        indicator_data_points_for_user(request.user)
+        .filter(series__in=series_qs, value_numeric__isnull=False)
+        .select_related("spatial_unit", "spatial_layer", "programme_run")
+        .order_by("year", "id")
+    )
+    year_param = request.GET.get("year")
+    selected_year = None
+    if year_param:
+        try:
+            selected_year = int(year_param)
+        except ValueError:
+            selected_year = None
+    if selected_year is None:
+        latest_point = points_qs.order_by("-year", "-id").first()
+        selected_year = latest_point.year if latest_point else None
+    if selected_year is None:
+        return Response(
+            {
+                "indicator_uuid": str(indicator.uuid),
+                "indicator_code": indicator.code,
+                "year": None,
+                "type": "FeatureCollection",
+                "features": [],
+            }
+        )
+    points_qs = points_qs.filter(year=selected_year)
+
+    value_by_province = defaultdict(list)
+    run_uuid_by_province = {}
+    for point in points_qs:
+        disagg = point.disaggregation or {}
+        province_code = (
+            disagg.get("province_code")
+            or disagg.get("province")
+            or (point.spatial_unit.unit_code if point.spatial_unit_id else "")
+            or "UNKNOWN"
+        )
+        value_by_province[province_code].append(float(point.value_numeric))
+        if province_code not in run_uuid_by_province and point.programme_run_id:
+            run_uuid_by_province[province_code] = str(point.programme_run.uuid)
+    mean_by_province = {
+        code: (sum(values) / len(values)) if values else None
+        for code, values in value_by_province.items()
+    }
+
+    requested_layer = (request.GET.get("layer_code") or "").strip()
+    requirement = (
+        IndicatorInputRequirement.objects.filter(indicator=indicator).prefetch_related("required_map_layers").first()
+    )
+    candidate_codes = []
+    if requested_layer:
+        candidate_codes.append(requested_layer)
+    if requirement:
+        candidate_codes.extend(
+            requirement.required_map_layers.filter(theme__iexact="Admin").order_by("layer_code", "id").values_list(
+                "layer_code", flat=True
+            )
+        )
+        candidate_codes.extend(
+            requirement.required_map_layers.order_by("layer_code", "id").values_list("layer_code", flat=True)
+        )
+    candidate_codes.extend(["ZA_PROVINCES_NE", "ZA_PROVINCES"])
+    candidate_codes = [item for item in dict.fromkeys(candidate_codes) if item]
+
+    layer = (
+        filter_spatial_layers_for_user(SpatialLayer.objects.filter(layer_code__in=candidate_codes), request.user)
+        .order_by("layer_code", "id")
+        .first()
+    )
+    if not layer:
+        return Response({"detail": "No accessible admin layer found for indicator map."}, status=status.HTTP_404_NOT_FOUND)
+
+    bbox = parse_bbox(request.GET.get("bbox"))
+    limit = _parse_positive_int(request.GET.get("limit"), 5000, minimum=1, maximum=5000)
+    _, payload = spatial_feature_collection(
+        user=request.user,
+        layer_code=layer.layer_code,
+        bbox=bbox,
+        limit=limit,
+        offset=0,
+    )
+    for feature in payload.get("features", []):
+        props = feature.get("properties") or {}
+        province_code = (
+            props.get("province_code")
+            or props.get("province")
+            or props.get("feature_key")
+            or props.get("feature_id")
+            or "UNKNOWN"
+        )
+        value = mean_by_province.get(str(province_code))
+        props["indicator_code"] = indicator.code
+        props["indicator_year"] = selected_year
+        props["indicator_value"] = value
+        props["indicator_value_unit"] = "%"
+        props["pipeline_run_uuid"] = run_uuid_by_province.get(str(province_code))
+        feature["properties"] = props
+
+    return Response(
+        {
+            "indicator_uuid": str(indicator.uuid),
+            "indicator_code": indicator.code,
+            "year": selected_year,
+            "layer_code": layer.layer_code,
+            **payload,
         }
     )
 

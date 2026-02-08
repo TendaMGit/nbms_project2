@@ -43,6 +43,23 @@ def test_api_auth_csrf_returns_token(client):
     assert response.cookies.get("csrftoken")
 
 
+def test_api_auth_capabilities_returns_capability_map(client):
+    org = Organisation.objects.create(name="Org Cap", org_code="ORG-CAP")
+    user = User.objects.create_user(
+        username="cap-user",
+        password="pass1234",
+        organisation=org,
+        is_staff=True,
+    )
+    client.force_login(user)
+
+    response = client.get(reverse("api_auth_capabilities"))
+    assert response.status_code == 200
+    payload = response.json()
+    assert "capabilities" in payload
+    assert payload["capabilities"]["can_view_dashboard"] is True
+
+
 def test_api_help_sections_exposes_help_dictionary(client):
     response = client.get(reverse("api_help_sections"))
     assert response.status_code == 200

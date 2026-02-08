@@ -22,6 +22,7 @@ from nbms_app.models import (
     NationalTarget,
     Organisation,
     SensitivityLevel,
+    SpatialFeature,
     SpatialLayer,
     SpatialLayerSourceType,
     SpatialSource,
@@ -174,6 +175,100 @@ def test_indicator_series_summary_returns_grouped_values(client):
     payload = response.json()
     buckets = [row["bucket"] for row in payload["results"]]
     assert buckets == [2021, 2022]
+
+
+def test_indicator_series_summary_supports_province_aggregation(client):
+    stack = _seed_indicator_stack()
+    series = IndicatorDataSeries.objects.get(indicator=stack["public"])
+    IndicatorDataPoint.objects.create(
+        series=series,
+        year=2023,
+        value_numeric=Decimal("18.0"),
+        disaggregation={"province_code": "WC", "province_name": "Western Cape"},
+    )
+    IndicatorDataPoint.objects.create(
+        series=series,
+        year=2023,
+        value_numeric=Decimal("24.0"),
+        disaggregation={"province_code": "EC", "province_name": "Eastern Cape"},
+    )
+    response = client.get(
+        reverse("api_indicator_series_summary", args=[stack["public"].uuid]),
+        {"agg": "province"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    buckets = [row["bucket"] for row in payload["results"]]
+    assert "WC" in buckets
+    assert "EC" in buckets
+
+
+def test_indicator_map_returns_admin_features_with_indicator_values(client):
+    stack = _seed_indicator_stack()
+    indicator = stack["public"]
+    series = IndicatorDataSeries.objects.get(indicator=indicator)
+    IndicatorDataPoint.objects.create(
+        series=series,
+        year=2024,
+        value_numeric=Decimal("19.4"),
+        disaggregation={"province_code": "WC", "province_name": "Western Cape"},
+    )
+    IndicatorDataPoint.objects.create(
+        series=series,
+        year=2024,
+        value_numeric=Decimal("31.2"),
+        disaggregation={"province_code": "EC", "province_name": "Eastern Cape"},
+    )
+
+    layer = SpatialLayer.objects.create(
+        layer_code="ZA_PROVINCES_NE",
+        title="Provinces",
+        name="Provinces",
+        slug="za-provinces-ne",
+        source_type=SpatialLayerSourceType.NBMS_TABLE,
+        sensitivity=SensitivityLevel.PUBLIC,
+        is_public=True,
+        is_active=True,
+    )
+    SpatialFeature.objects.create(
+        layer=layer,
+        feature_id="ZA-WC",
+        feature_key="ZA-WC",
+        province_code="WC",
+        name="Western Cape",
+        geometry_json={
+            "type": "Polygon",
+            "coordinates": [[[18.0, -34.0], [19.0, -34.0], [19.0, -33.0], [18.0, -33.0], [18.0, -34.0]]],
+        },
+        properties={"province_code": "WC"},
+        properties_json={"province_code": "WC"},
+    )
+    SpatialFeature.objects.create(
+        layer=layer,
+        feature_id="ZA-EC",
+        feature_key="ZA-EC",
+        province_code="EC",
+        name="Eastern Cape",
+        geometry_json={
+            "type": "Polygon",
+            "coordinates": [[[25.0, -34.0], [26.0, -34.0], [26.0, -33.0], [25.0, -33.0], [25.0, -34.0]]],
+        },
+        properties={"province_code": "EC"},
+        properties_json={"province_code": "EC"},
+    )
+    requirement = IndicatorInputRequirement.objects.create(indicator=indicator, cadence="annual")
+    requirement.required_map_layers.add(layer)
+
+    response = client.get(
+        reverse("api_indicator_map", args=[indicator.uuid]),
+        {"year": 2024},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["type"] == "FeatureCollection"
+    values = {feature["properties"]["province_code"]: feature["properties"]["indicator_value"] for feature in payload["features"]}
+    assert values["WC"] == pytest.approx(19.4)
+    assert values["EC"] == pytest.approx(31.2)
 
 
 def test_indicator_publish_transition_requires_evidence(client):

@@ -6,6 +6,7 @@ from nbms_app import api_spatial
 
 urlpatterns = [
     path("auth/me", api_spa.api_auth_me, name="api_auth_me"),
+    path("auth/capabilities", api_spa.api_auth_capabilities, name="api_auth_capabilities"),
     path("auth/csrf", api_spa.api_auth_csrf, name="api_auth_csrf"),
     path("help/sections", api_spa.api_help_sections, name="api_help_sections"),
     path("system/health", api_spa.api_system_health, name="api_system_health"),
@@ -58,6 +59,11 @@ urlpatterns = [
         "indicators/<uuid:indicator_uuid>/series",
         api_spa.api_indicator_series_summary,
         name="api_indicator_series_summary",
+    ),
+    path(
+        "indicators/<uuid:indicator_uuid>/map",
+        api_spa.api_indicator_map,
+        name="api_indicator_map",
     ),
     path(
         "indicators/<uuid:indicator_uuid>/validation",
