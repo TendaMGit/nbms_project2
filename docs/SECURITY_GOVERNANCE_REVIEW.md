@@ -3,6 +3,21 @@
 ## Executive Summary
 NBMS has a strong governance baseline (RBAC/ABAC filters, object-level permissions via guardian, consent records, audit signals, export approvals). The newest risk surface is the expanded `/api/*` layer for Angular: controls are mostly correct, but endpoint-by-endpoint policy standardization and deeper CI security checks remain ongoing work.
 
+## 2026-02-07 Spatial Registry Hardening Increment
+
+Implemented:
+- Added ABAC/consent-filtered OGC and tile endpoints:
+  - `/api/ogc*`
+  - `/api/tiles/*`
+  - `/api/spatial/layers/{layer_code}/export.geojson`
+- Added spatial ingestion provenance and auditability:
+  - `SpatialIngestionRun` captures source hash, row counts, invalid-geometry stats, and run report metadata.
+  - upload/ingest/export actions record audit events (`spatial_ingest`, `spatial_ingest_failed`, `spatial_export_geojson`, `spatial_ogc_items`).
+- Added sensitive-geometry handling:
+  - restricted/IPLC-sensitive layers are generalized in feature output for non-system-admin users.
+- Added request controls:
+  - bbox-size guardrails, max feature limits, zoom bounds, deterministic pagination/order.
+
 ## 2026-02-07 Hardening Increment (Phases 4-7)
 
 Implemented:

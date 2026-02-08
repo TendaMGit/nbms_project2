@@ -1,5 +1,108 @@
 # STATE OF REPO - NBMS Project 2
 
+## PHASE 8 SPATIAL REAL-DATA + PROGRAMME OPS VERIFIED (2026-02-08)
+- Branch: `feat/spatial-real-data-programmes-v1`
+- Scope: real-source spatial sync, GeoServer publication verification, map/auth UX hardening, Docker reproducibility re-check.
+
+Commands executed (docker, mandatory set):
+- `docker compose --profile minimal up -d --build` -> pass (backend/frontend/core healthy)
+- `docker compose --profile spatial up -d --build` -> pass (GeoServer profile healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend python manage.py sync_spatial_sources` -> `ready=0, skipped=3, blocked=0, failed=0` (idempotent checksum skip)
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=6, skipped=0`
+- `docker compose exec backend python manage.py verify_geoserver_smoke` -> pass (`checked_layers=6`)
+- `docker compose exec backend pytest -q` -> `367 passed, 21 warnings`
+
+Commands executed (frontend):
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test` -> `8 passed`
+- `npm --prefix frontend run e2e` -> `1 passed, 1 skipped` (authenticated smoke skipped when `PLAYWRIGHT_*` credentials not set)
+
+Real-source ingest verification:
+- `docker compose exec backend python manage.py sync_spatial_sources --source-code NE_PROTECTED_LANDS_ZA --force` -> `rows_ingested=1626` from DFFE SAPAD public feed.
+- Source registry checks:
+  - `NE_ADMIN1_ZA` feature count: `51`
+  - `NE_PROTECTED_LANDS_ZA` feature count: `1626`
+  - `NE_GEOREGIONS_ZA` feature count: `12`
+
+Runtime checks:
+- `GET /health/` via backend -> `{"status":"ok"}`
+- `GET /api/ogc/collections` -> `200`, `collections=6`
+- `GET /api/tiles/ZA_PROVINCES_NE/0/0/0.pbf` -> `200`, `application/vnd.mapbox-vector-tile`
+- `GET http://127.0.0.1:8081/` -> `200` (Angular shell served)
+- GeoServer smoke includes WMS capabilities + map request verification for published NBMS layers.
+
+## SPATIAL REGISTRY + OGC VERIFIED (2026-02-07)
+- Branch: `feat/demo-users-systemadmin-v1` (working tree for spatial increment)
+- Scope: full spatial hardening pass (registry models, OGC APIs, vector tiles, GeoServer publish, Docker reproducibility, idempotent seed fixes)
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `366 passed, 1 skipped`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `8 passed`
+- `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:8081'; $env:PLAYWRIGHT_USERNAME='ciadmin'; $env:PLAYWRIGHT_PASSWORD='CI_Admin_12345'; npm --prefix frontend run e2e` -> `2 passed` (anonymous + authenticated smoke)
+
+Commands executed (docker):
+- `docker compose --profile minimal up -d --build` -> pass (backend/frontend/core healthy)
+- `docker compose --profile spatial up -d --build` -> pass (GeoServer profile healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend pytest -q` -> `367 passed, 18 warnings`
+- `docker compose exec backend python manage.py seed_demo_spatial` -> `created=0` (idempotent rerun)
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=3, skipped=0`
+- `powershell -ExecutionPolicy Bypass -File scripts/verify_migrations.ps1` -> PASS (`366 passed, 1 skipped` in verify stack)
+
+Runtime checks:
+- `GET /health/` -> `{"status":"ok"}`
+- `GET /health/storage/` -> `{"status":"ok"}`
+- `GET /api/ogc/collections` -> `collections 3`
+- `GET /api/tiles/ZA_PROVINCES/tilejson` -> valid tilejson payload
+- `GET /api/tiles/ZA_PROVINCES/0/0/0.pbf` -> `200`
+- Frontend root `http://localhost:8081/` -> `200 OK`
+- `GET /account/login/` content check -> two-factor template warning absent (`two_factor/_base.html` active)
+- CSRF login through nginx proxy verified with trusted origins including `http://localhost:8081` and `http://127.0.0.1:8081`
+
+Key hardening notes:
+- Spatial migration compatibility fixed for non-GDAL environments (`0035` now uses GIS-safe wrappers).
+- Spatial seed commands are idempotent against legacy slug/code states.
+- GeoServer publish command is idempotent on reruns (handles pre-existing feature type responses).
+- Backend docker image now includes dev test dependencies, so `docker compose exec backend pytest -q` is first-class.
+
+## DEMO USERS + SYSTEMADMIN VERIFIED (2026-02-07)
+- Branch: `feat/demo-users-systemadmin-v1`
+- Runtime baseline reference: `docs/MIGRATION_VERIFICATION.md` (canonical verify path)
+
+Commands executed (host):
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `361 passed, 16 warnings`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.dev"; python manage.py ensure_system_admin` (with `NBMS_ADMIN_*`) -> `System admin updated: username=Tenda, staff=True, superuser=True`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.dev"; python manage.py seed_demo_users` (with `SEED_DEMO_USERS=1`, `ALLOW_INSECURE_DEMO_PASSWORDS=1`) -> demo matrix seeded and `docs/ops/DEMO_USERS.md` written
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.dev"; python manage.py list_demo_users` -> expected role pack listed
+
+Commands executed (docker minimal):
+- `docker compose --profile minimal up -d --build` (with `SEED_DEMO_USERS=1`, `ALLOW_INSECURE_DEMO_PASSWORDS=1`, `NBMS_ADMIN_*`) -> backend/frontend/core services healthy
+- `curl http://127.0.0.1:8000/health/` -> `{"status": "ok"}`
+- `curl http://127.0.0.1:8081/health/` -> `{"status": "ok"}`
+- `docker compose exec -T backend python manage.py list_demo_users` -> seeded role matrix present in container
+- `docker compose exec -T backend python manage.py shell -c "<auth checks>"` ->
+  - `admin_auth True`
+  - `admin_page 200`
+  - `indicatorlead_api 200`
+  - `public_draft_count 0`
+- Login flow probe via frontend proxy:
+  - POST `/account/login/?next=/dashboard` with `Tenda` credentials -> final URI `http://127.0.0.1:8081/dashboard`
+  - authenticated `GET /admin/` -> `200`
+- `curl http://127.0.0.1:8081/account/login/` content check -> two-factor template warning absent
+- `docker compose exec backend python manage.py ensure_system_admin` (with `NBMS_ADMIN_USERNAME=Tenda`) -> updated in-container system admin; `authenticate(username='Tenda', password='GraniteT33') -> True`
+
+Migration verification (canonical):
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_migrations.ps1` -> PASS
+- Results:
+  - verification image built from current `docker/verify/Dockerfile`
+  - migrations apply cleanly
+  - `python manage.py check` clean
+  - docker test run `361 passed`
+  - `python manage.py verify_post_migration` passed
+
 ## One Biodiversity Hardening V1 - Phases 4-7 Completion Slice (2026-02-07)
 - Branch: `feat/one-biodiversity-hardening-v1`
 - Working baseline advanced from uncommitted Phase 4 state to integrated hardening slice.

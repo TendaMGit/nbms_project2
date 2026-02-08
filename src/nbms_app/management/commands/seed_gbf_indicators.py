@@ -28,6 +28,7 @@ from nbms_app.models import (
     SpatialFeature,
     SpatialLayer,
     SpatialLayerSourceType,
+    SpatialUnitType,
     UpdateFrequency,
 )
 from nbms_app.services.indicator_method_sdk import run_method_profile
@@ -239,9 +240,10 @@ class Command(BaseCommand):
 
             if method_type == IndicatorMethodType.CSV_IMPORT:
                 series, _ = IndicatorDataSeries.objects.update_or_create(
-                    indicator=indicator,
-                    title=f"{indicator.code} annual series",
+                    series_code=f"SER-{indicator.code}",
                     defaults={
+                        "indicator": indicator,
+                        "title": f"{indicator.code} annual series",
                         "unit": "index",
                         "value_type": IndicatorValueType.NUMERIC,
                         "status": LifecycleStatus.PUBLISHED,
@@ -258,14 +260,19 @@ class Command(BaseCommand):
                     )
 
             if method_type == IndicatorMethodType.SPATIAL_OVERLAY:
+                province_unit_type = SpatialUnitType.objects.filter(code="PROVINCE").first()
                 layer, _ = SpatialLayer.objects.update_or_create(
-                    slug=f"gbf-h-{compact.lower()}-layer",
+                    layer_code=f"GBF_{compact}_LAYER",
                     defaults={
+                        "title": f"{indicator.code} spatial layer",
                         "name": f"{indicator.code} spatial layer",
-                        "source_type": SpatialLayerSourceType.INDICATOR,
+                        "slug": f"gbf-h-{compact.lower()}-layer",
+                        "source_type": SpatialLayerSourceType.NBMS_TABLE,
+                        "data_ref": "nbms_app_spatialfeature",
                         "sensitivity": SensitivityLevel.PUBLIC,
                         "is_public": True,
                         "indicator": indicator,
+                        "theme": "GBF",
                         "default_style_json": {"fillColor": "#238b45", "fillOpacity": 0.4},
                     },
                 )
@@ -273,15 +280,33 @@ class Command(BaseCommand):
                     layer=layer,
                     feature_key=f"{compact}-WC",
                     defaults={
+                        "feature_id": f"{compact}-WC",
                         "province_code": "WC",
                         "year": 2023,
                         "indicator": indicator,
                         "name": f"{indicator.code} Western Cape",
+                        "properties": {"area_ha": 14523.4},
                         "properties_json": {"area_ha": 14523.4},
                         "geometry_json": {
                             "type": "Polygon",
                             "coordinates": [[[18.0, -34.0], [19.0, -34.0], [19.0, -33.0], [18.0, -33.0], [18.0, -34.0]]],
                         },
+                    },
+                )
+                IndicatorDataSeries.objects.update_or_create(
+                    series_code=f"SER-{indicator.code}",
+                    defaults={
+                        "indicator": indicator,
+                        "title": f"{indicator.code} spatial overlay series",
+                        "unit": "ha",
+                        "value_type": IndicatorValueType.NUMERIC,
+                        "status": LifecycleStatus.PUBLISHED,
+                        "sensitivity": SensitivityLevel.PUBLIC,
+                        "organisation": sanbi,
+                        "methodology": "Spatial overlay by province.",
+                        "spatial_layer": layer,
+                        "spatial_unit_type": province_unit_type,
+                        "spatial_resolution": "province",
                     },
                 )
 

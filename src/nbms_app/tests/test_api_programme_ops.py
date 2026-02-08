@@ -162,3 +162,34 @@ def test_programme_run_rerun_endpoint_executes_again(client):
     assert rerun_response.status_code == 200
     run.refresh_from_db()
     assert run.status in {ProgrammeRunStatus.SUCCEEDED, ProgrammeRunStatus.BLOCKED}
+
+
+def test_programme_run_report_endpoint_returns_json_attachment(client):
+    org = Organisation.objects.create(name="Report Org", org_code="RPT")
+    programme = _make_programme(
+        code="PROG-REPORT",
+        lead_org=org,
+        rules={"minimum_dataset_links": 0, "minimum_indicator_links": 0},
+    )
+    user = User.objects.create_user(username="reporter", password="pass12345", organisation=org)
+    MonitoringProgrammeSteward.objects.create(
+        programme=programme,
+        user=user,
+        role=ProgrammeStewardRole.OPERATOR,
+        is_active=True,
+    )
+    assert client.login(username="reporter", password="pass12345")
+
+    create_response = client.post(
+        reverse("api_programme_run_create", args=[programme.uuid]),
+        data=json.dumps({"run_type": "full", "dry_run": True, "execute_now": True}),
+        content_type="application/json",
+    )
+    assert create_response.status_code == 201
+    run_uuid = create_response.json()["uuid"]
+
+    report_response = client.get(reverse("api_programme_run_report", args=[run_uuid]))
+    assert report_response.status_code == 200
+    assert "attachment; filename=" in report_response["Content-Disposition"]
+    payload = report_response.json()
+    assert payload["run"]["uuid"] == run_uuid

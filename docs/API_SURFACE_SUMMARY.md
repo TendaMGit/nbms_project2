@@ -32,6 +32,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `POST /api/programmes/{uuid}/runs` (`IsAuthenticated`, steward/lead/partner/system-admin manage permission required)
 - `GET /api/programmes/runs/{uuid}` (`IsAuthenticated`, ABAC-filtered by parent programme)
 - `POST /api/programmes/runs/{uuid}` (`IsAuthenticated`, rerun action; steward/lead/partner/system-admin manage permission required)
+- `GET /api/programmes/runs/{uuid}/report` (`IsAuthenticated`, ABAC-filtered report JSON download)
 - `GET /api/integrations/birdie/dashboard` (`IsAuthenticated`, BIRDIE programme scope)
 
 ### Reporting (NR7 builder)
@@ -52,6 +53,13 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 ### Spatial
 - `GET /api/spatial/layers` (`AllowAny`, ABAC-filtered)
 - `GET /api/spatial/layers/{slug}/features` (`AllowAny`, ABAC-filtered, GeoJSON FeatureCollection)
+- `POST /api/spatial/layers/upload` (`IsAuthenticated`, steward/admin/system-admin role-gated; ingestion audit tracked)
+- `GET /api/spatial/layers/{layer_code}/export.geojson` (`AllowAny`, ABAC-filtered export with audit event)
+- `GET /api/ogc` (`AllowAny`, OGC API landing)
+- `GET /api/ogc/collections` (`AllowAny`, ABAC-filtered collection listing)
+- `GET /api/ogc/collections/{layer_code}/items` (`AllowAny`, bbox/datetime/filter/limit/offset)
+- `GET /api/tiles/{layer_code}/tilejson` (`AllowAny`)
+- `GET /api/tiles/{layer_code}/{z}/{x}/{y}.pbf` (`AllowAny`, ABAC + cache headers + ETag)
 
 ### Template packs (multi-MEA runtime scaffolding)
 - `GET /api/template-packs` (`IsAuthenticated`)
@@ -103,5 +111,11 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
 - BIRDIE connector runtime:
   - `python manage.py seed_birdie_integration`
   - Bronze/silver/gold lineage in `IntegrationDataAsset`
+- Spatial runtime:
+- `python manage.py seed_demo_spatial`
+- `python manage.py seed_spatial_demo_layers` (compatibility alias)
+- `python manage.py ingest_spatial_layer --layer-code <CODE> --file <path>`
+- `python manage.py sync_spatial_sources`
+- `python manage.py seed_geoserver_layers`
 - Report product runtime:
   - `python manage.py seed_report_products`

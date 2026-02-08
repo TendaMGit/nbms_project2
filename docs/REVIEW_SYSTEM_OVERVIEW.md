@@ -23,6 +23,8 @@
   - contract checks: `src/nbms_app/services/export_contracts.py`
 - Spatial services:
   - layer/feature ABAC filtering: `src/nbms_app/services/spatial_access.py`
+  - ingestion pipeline: `src/nbms_app/services/spatial_ingest.py`
+  - OGC/tile APIs: `src/nbms_app/api_spatial.py`
 - Multi-MEA runtime:
   - pack exporter registry: `src/nbms_app/services/template_pack_registry.py`
 - Template pack QA/PDF runtime:
@@ -63,13 +65,19 @@
 - Workflow transitions exposed via `/api/indicators/{uuid}/transition` with server-side role checks and evidence-before-publish rule.
 
 ### 3) Spatial workflow v1
-- Seeded by `seed_spatial_demo_layers`:
+- Seeded by `seed_demo_spatial` (with `seed_spatial_demo_layers` compatibility alias):
   - provinces, protected areas, ecosystem threat demo layer
 - APIs:
   - `/api/spatial/layers`
   - `/api/spatial/layers/{slug}/features` (GeoJSON + bbox/province/indicator/year filters)
+  - `/api/ogc`, `/api/ogc/collections`, `/api/ogc/collections/{layer_code}/items`
+  - `/api/tiles/{layer_code}/tilejson`
+  - `/api/tiles/{layer_code}/{z}/{x}/{y}.pbf`
+  - `/api/spatial/layers/upload` for GeoJSON/GPKG/SHP ingestion
 - UI:
   - Angular MapLibre page with layer toggles, filters, legend, feature-inspect panel.
+- Ops:
+  - `seed_geoserver_layers` publishes NBMS-backed layers to GeoServer WMS/WFS.
 
 ### 4) Multi-MEA template workflow
 - Generic runtime models:
@@ -106,7 +114,7 @@
 - Chosen now:
   - session+CSRF auth for Angular (no token split-brain)
   - docker-first reproducibility with Windows fallback
-  - GeoJSON API-first spatial delivery before full PostGIS geometry API refactor
+  - PostGIS-first spatial registry with OGC+tile endpoints and GeoServer bridge
 - Deferred:
   - direct ORT submission adapters
   - full CITES/CMS question-bank and export schemas
@@ -114,5 +122,5 @@
 
 ## Current Architecture Risks
 - Large `views.py` remains a maintenance hotspot despite policy registry progress.
-- Spatial storage currently uses JSON geometries with bbox indexing; works for v1 but is not final-scale geometry architecture.
+- Spatial runtime is hybrid for compatibility (geometry fields with JSON fallbacks in non-GIS environments); long-term target is full geometry-only parity across all runtimes.
 - Some reporting capture remains Django-template based while Angular progressively becomes primary UX.

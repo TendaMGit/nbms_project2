@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}NBMS Login{% endblock %}</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: linear-gradient(150deg, #f3f8f5 0%, #edf4ef 60%, #f7faf8 100%);
+        color: #123027;
+      }
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+      }
+      .panel {
+        width: min(640px, 100%);
+        background: #ffffff;
+        border: 1px solid rgba(18, 48, 39, 0.12);
+        border-radius: 14px;
+        box-shadow: 0 14px 40px rgba(16, 35, 29, 0.08);
+        padding: 1.25rem;
+      }
+      .brand {
+        font-weight: 700;
+        color: #1b4332;
+        margin-bottom: 0.75rem;
+      }
+      input,
+      select,
+      button {
+        width: 100%;
+        box-sizing: border-box;
+        border-radius: 8px;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid rgba(18, 48, 39, 0.2);
+        margin-bottom: 0.7rem;
+      }
+      button,
+      .btn {
+        background: #1b5e20;
+        color: #fff;
+        border: 0;
+        cursor: pointer;
+      }
+      .btn-secondary {
+        background: #345d4c;
+      }
+      a {
+        color: #1d6f58;
+      }
+    </style>
+    {% block extra_media %}{% endblock %}
+  </head>
+  <body>
+    <div class="shell">
+      <div class="panel">
+        <div class="brand">NBMS Two-Factor Authentication</div>
+        {% block content_wrapper %}
+          {% block content %}{% endblock %}
+        {% endblock %}
+      </div>
+    </div>
+  </body>
+</html>

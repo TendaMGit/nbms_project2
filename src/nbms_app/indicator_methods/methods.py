@@ -1,9 +1,24 @@
 from __future__ import annotations
 
+from django.db import connection
 from django.db.models import Avg
+from django.utils import timezone
 
 from nbms_app.indicator_methods.base import BaseIndicatorMethod, MethodResult
-from nbms_app.models import BinaryIndicatorResponse, IndicatorDataPoint, IndicatorFrameworkIndicatorLink, SpatialFeature
+from nbms_app.models import (
+    BinaryIndicatorResponse,
+    IndicatorDataPoint,
+    IndicatorDataSeries,
+    IndicatorFrameworkIndicatorLink,
+    IndicatorValueType,
+    LifecycleStatus,
+    SensitivityLevel,
+    SpatialFeature,
+    SpatialLayer,
+    SpatialUnit,
+    SpatialUnitType,
+)
+from nbms_app.spatial_fields import GIS_ENABLED
 
 
 class BinaryQuestionnaireMethod(BaseIndicatorMethod):
@@ -84,31 +99,157 @@ class SpatialOverlayMethod(BaseIndicatorMethod):
     key = "spatial_overlay_area_by_province"
 
     def run(self, context):
-        features = SpatialFeature.objects.filter(indicator=context.indicator).order_by("province_code", "feature_key")
-        if not features.exists():
+        admin_layer_codes = context.params.get("admin_layer_codes") or ["ZA_PROVINCES_NE", "ZA_PROVINCES"]
+        overlay_layer_codes = context.params.get("overlay_layer_codes") or [
+            "ZA_PROTECTED_AREAS_NE",
+            "ZA_PROTECTED_AREAS",
+        ]
+        admin_layer = SpatialLayer.objects.filter(layer_code__in=admin_layer_codes, is_active=True).order_by("id").first()
+        overlay_layer = SpatialLayer.objects.filter(layer_code__in=overlay_layer_codes, is_active=True).order_by("id").first()
+        if not admin_layer or not overlay_layer:
             return MethodResult(
                 status="blocked",
-                output={"reason": "No spatial features linked to indicator."},
-                error_message="No spatial features found for indicator.",
+                output={
+                    "reason": "Required spatial layers are missing.",
+                    "admin_layer_found": bool(admin_layer),
+                    "overlay_layer_found": bool(overlay_layer),
+                },
+                error_message="Required spatial layers are missing for overlay computation.",
             )
 
-        province_totals = {}
-        for feature in features:
-            province = feature.province_code or "UNSPECIFIED"
-            area = feature.properties_json.get("area_ha") if isinstance(feature.properties_json, dict) else None
-            area_value = float(area) if area is not None else 0.0
-            province_totals[province] = province_totals.get(province, 0.0) + area_value
+        province_rows = []
+        if GIS_ENABLED:
+            with connection.cursor() as cursor:  # pragma: no cover
+                cursor.execute(
+                    """
+                    WITH admin AS (
+                        SELECT
+                            sf.feature_key,
+                            COALESCE(NULLIF(sf.province_code, ''), sf.feature_key, sf.feature_id, 'UNKNOWN') AS province_code,
+                            COALESCE(NULLIF(sf.name, ''), sf.feature_key, sf.feature_id, 'Unknown') AS province_name,
+                            COALESCE(sf.geom, ST_SetSRID(ST_GeomFromGeoJSON(sf.geometry_json::text), 4326)) AS geom
+                        FROM nbms_app_spatialfeature sf
+                        WHERE sf.layer_id = %s
+                    ),
+                    overlay_union AS (
+                        SELECT ST_UnaryUnion(ST_Collect(COALESCE(sf.geom, ST_SetSRID(ST_GeomFromGeoJSON(sf.geometry_json::text), 4326)))) AS geom
+                        FROM nbms_app_spatialfeature sf
+                        WHERE sf.layer_id = %s
+                    )
+                    SELECT
+                        a.province_code,
+                        a.province_name,
+                        ROUND((ST_Area(a.geom::geography) / 1000000.0)::numeric, 6) AS province_area_km2,
+                        ROUND(
+                            (
+                                CASE
+                                    WHEN o.geom IS NULL THEN 0
+                                    ELSE ST_Area(ST_Intersection(a.geom, o.geom)::geography) / 1000000.0
+                                END
+                            )::numeric,
+                            6
+                        ) AS protected_area_km2
+                    FROM admin a
+                    CROSS JOIN overlay_union o
+                    WHERE a.geom IS NOT NULL
+                    ORDER BY a.province_code
+                    """,
+                    [admin_layer.id, overlay_layer.id],
+                )
+                province_rows = cursor.fetchall()
+        else:
+            admin_features = SpatialFeature.objects.filter(layer=admin_layer).order_by("province_code", "feature_key")
+            overlay_features = SpatialFeature.objects.filter(layer=overlay_layer).order_by("province_code", "feature_key")
+            overlay_by_province = {}
+            for item in overlay_features:
+                props = item.properties or item.properties_json or {}
+                area = props.get("area_km2") or props.get("area_ha")
+                if area is None:
+                    continue
+                area_km2 = float(area) if "km2" in props else float(area) / 100.0
+                key = item.province_code or "UNKNOWN"
+                overlay_by_province[key] = overlay_by_province.get(key, 0.0) + area_km2
+            for item in admin_features:
+                props = item.properties or item.properties_json or {}
+                province_area = float(props.get("area_km2") or 0.0)
+                key = item.province_code or "UNKNOWN"
+                province_rows.append((key, item.name or key, province_area, overlay_by_province.get(key, 0.0)))
 
-        output_rows = [
-            {"province": province, "area_ha": round(total, 3)}
-            for province, total in sorted(province_totals.items(), key=lambda item: item[0])
-        ]
+        if not province_rows:
+            return MethodResult(
+                status="blocked",
+                output={"reason": "No overlay rows generated from current spatial layers."},
+                error_message="No overlay rows generated from current spatial layers.",
+            )
+
+        province_unit_type = SpatialUnitType.objects.filter(code="PROVINCE").first()
+        unit_map = {
+            row.unit_code: row
+            for row in SpatialUnit.objects.filter(unit_type=province_unit_type).order_by("unit_code", "id")
+        } if province_unit_type else {}
+        now_year = int(context.params.get("year") or timezone.now().year)
+
+        series_code = context.params.get("series_code") or f"SER-{context.indicator.code}-SPATIAL-PA-COVERAGE"
+        series, _ = IndicatorDataSeries.objects.update_or_create(
+            indicator=context.indicator,
+            defaults={
+                "series_code": series_code,
+                "title": f"{context.indicator.title} (spatial overlay by province)",
+                "unit": "%",
+                "value_type": IndicatorValueType.NUMERIC,
+                "methodology": "Spatial overlay intersection between administrative units and protected areas.",
+                "disaggregation_schema": {"province_code": {"type": "string"}, "province_name": {"type": "string"}},
+                "source_notes": "Computed by spatial_overlay_area_by_province indicator method.",
+                "organisation": context.indicator.organisation,
+                "status": LifecycleStatus.PUBLISHED,
+                "sensitivity": SensitivityLevel.PUBLIC,
+                "export_approved": True,
+                "spatial_unit_type": province_unit_type,
+                "spatial_layer": overlay_layer,
+                "spatial_resolution": "province",
+            },
+        )
+
+        output_rows = []
+        for province_code, province_name, area_km2, protected_km2 in province_rows:
+            area_value = float(area_km2 or 0.0)
+            protected_value = float(protected_km2 or 0.0)
+            coverage_pct = round((protected_value / area_value) * 100.0, 6) if area_value > 0 else 0.0
+            unit = unit_map.get(province_code)
+            IndicatorDataPoint.objects.update_or_create(
+                series=series,
+                year=now_year,
+                disaggregation={"province_code": province_code, "province_name": province_name},
+                spatial_unit=unit,
+                spatial_layer=overlay_layer,
+                defaults={
+                    "value_numeric": coverage_pct,
+                    "value_text": "",
+                    "spatial_resolution": "province",
+                    "source_url": "",
+                    "footnote": "Computed via NBMS spatial overlay method.",
+                },
+            )
+            output_rows.append(
+                {
+                    "province_code": province_code,
+                    "province_name": province_name,
+                    "province_area_km2": round(area_value, 6),
+                    "protected_area_km2": round(protected_value, 6),
+                    "coverage_percent": coverage_pct,
+                }
+            )
+
         return MethodResult(
             status="succeeded",
             output={
                 "method": self.key,
-                "feature_count": features.count(),
-                "province_area_totals": output_rows,
+                "indicator_code": context.indicator.code,
+                "admin_layer_code": admin_layer.layer_code,
+                "overlay_layer_code": overlay_layer.layer_code,
+                "series_uuid": str(series.uuid),
+                "year": now_year,
+                "province_coverage": output_rows,
             },
         )
 

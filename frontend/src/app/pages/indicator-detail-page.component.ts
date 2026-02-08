@@ -69,6 +69,28 @@ import { IndicatorService } from '../services/indicator.service';
         </mat-card-content>
       </mat-card>
 
+      <mat-card *ngIf="detail.spatial_readiness as readiness">
+        <mat-card-title>Spatial Input Readiness</mat-card-title>
+        <mat-card-content>
+          <p>
+            Overall readiness:
+            <strong>{{ readiness.overall_ready ? 'ready' : 'blocked/partial' }}</strong>
+          </p>
+          <h4>Required layers</h4>
+          <mat-list>
+            <mat-list-item *ngFor="let layer of readiness.layer_requirements">
+              {{ layer.layer_code }} - {{ layer.title }} ({{ layer.available ? 'available' : 'not visible' }})
+            </mat-list-item>
+          </mat-list>
+          <h4>Required sources</h4>
+          <mat-list>
+            <mat-list-item *ngFor="let source of readiness.source_requirements">
+              {{ source.code }} - {{ source.status }} (last sync: {{ source.last_sync_at || 'n/a' }})
+            </mat-list-item>
+          </mat-list>
+        </mat-card-content>
+      </mat-card>
+
       <mat-card>
         <mat-card-title>Evidence</mat-card-title>
         <mat-card-content>

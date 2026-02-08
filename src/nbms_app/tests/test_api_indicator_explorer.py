@@ -16,11 +16,16 @@ from nbms_app.models import (
     IndicatorDataSeries,
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
+    IndicatorInputRequirement,
     LifecycleStatus,
     NationalIndicatorType,
     NationalTarget,
     Organisation,
     SensitivityLevel,
+    SpatialLayer,
+    SpatialLayerSourceType,
+    SpatialSource,
+    SpatialSourceFormat,
     User,
 )
 from nbms_app.services.authorization import ROLE_SECRETARIAT
@@ -214,3 +219,42 @@ def test_indicator_publish_transition_requires_evidence(client):
     assert response.status_code == 200
     indicator.refresh_from_db()
     assert indicator.status == LifecycleStatus.PUBLISHED
+
+
+def test_indicator_detail_includes_spatial_readiness_panel_data(client):
+    stack = _seed_indicator_stack()
+    indicator = stack["public"]
+    layer = SpatialLayer.objects.create(
+        layer_code="ZA_PROVINCES_NE",
+        title="Provinces",
+        name="Provinces",
+        slug="za-provinces-ne",
+        source_type=SpatialLayerSourceType.NBMS_TABLE,
+        sensitivity=SensitivityLevel.PUBLIC,
+        is_public=True,
+        is_active=True,
+    )
+    source = SpatialSource.objects.create(
+        code="NE_ADMIN1_ZA",
+        title="Natural Earth admin1",
+        source_url="https://example.org/admin1.zip",
+        source_format=SpatialSourceFormat.ZIP_SHAPEFILE,
+        source_type=SpatialLayerSourceType.UPLOADED_FILE,
+        layer_code="ZA_PROVINCES_NE",
+        layer_title="Provinces",
+        layer_description="",
+        sensitivity=SensitivityLevel.PUBLIC,
+        last_status="ready",
+        last_feature_count=9,
+    )
+    requirement = IndicatorInputRequirement.objects.create(indicator=indicator, cadence="annual")
+    requirement.required_map_layers.add(layer)
+    requirement.required_map_sources.add(source)
+
+    response = client.get(reverse("api_indicator_detail", args=[indicator.uuid]))
+    assert response.status_code == 200
+    payload = response.json()
+    readiness = payload["spatial_readiness"]
+    assert readiness["overall_ready"] is True
+    assert readiness["layer_requirements"][0]["layer_code"] == "ZA_PROVINCES_NE"
+    assert readiness["source_requirements"][0]["code"] == "NE_ADMIN1_ZA"

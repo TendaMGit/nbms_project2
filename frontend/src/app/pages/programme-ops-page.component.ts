@@ -163,10 +163,29 @@ import { ProgrammeOpsService } from '../services/programme-ops.service';
               </div>
               <mat-chip [class]="statusClass(run.status)">{{ run.status }}</mat-chip>
               <button mat-button (click)="rerun(run)" *ngIf="payload.can_manage">Run again</button>
+              <button mat-button (click)="downloadRunReport(run)">Report JSON</button>
             </div>
             <div class="step-grid" *ngIf="payload.runs.length">
               <div class="step-pill" *ngFor="let step of payload.runs[0].steps">
                 {{ step.ordering }}. {{ step.step_key }} ({{ step.status }})
+              </div>
+            </div>
+            <div class="two-col" *ngIf="payload.runs.length">
+              <div>
+                <h4>QA Results (latest run)</h4>
+                <ul>
+                  <li *ngFor="let qa of payload.runs[0].qa_results || []">
+                    <strong>{{ qa.code }}</strong>: {{ qa.status }} - {{ qa.message }}
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h4>Artefacts (latest run)</h4>
+                <ul>
+                  <li *ngFor="let artefact of payload.runs[0].artefacts || []">
+                    <strong>{{ artefact.label }}</strong> - {{ artefact.storage_path }}
+                  </li>
+                </ul>
               </div>
             </div>
           </mat-card-content>
@@ -411,6 +430,27 @@ export class ProgrammeOpsPageComponent {
         error: (error) => {
           this.runningAction = false;
           const message = error?.error?.detail || 'Could not rerun pipeline.';
+          this.snackbar.open(message, 'Dismiss', { duration: 5000 });
+        }
+      });
+  }
+
+  downloadRunReport(run: ProgrammeRun) {
+    this.service
+      .runReport(run.uuid)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (payload) => {
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = `programme-run-${run.uuid}.json`;
+          anchor.click();
+          URL.revokeObjectURL(url);
+        },
+        error: (error) => {
+          const message = error?.error?.detail || 'Could not download programme run report.';
           this.snackbar.open(message, 'Dismiss', { duration: 5000 });
         }
       });

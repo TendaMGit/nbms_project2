@@ -438,13 +438,17 @@ def ingest_birdie_snapshot(*, actor=None):
             )
 
     occupancy_layer, _ = SpatialLayer.objects.update_or_create(
-        slug="birdie-occupancy-sites",
+        layer_code="BIRDIE_OCCUPANCY_SITES",
         defaults={
+            "title": "BIRDIE Occupancy Predictions",
             "name": "BIRDIE Occupancy Predictions",
+            "slug": "birdie-occupancy-sites",
             "description": "Site-level occupancy prediction signals from BIRDIE.",
-            "source_type": SpatialLayerSourceType.INDICATOR,
+            "source_type": SpatialLayerSourceType.NBMS_TABLE,
+            "data_ref": "nbms_app_spatialfeature",
             "sensitivity": SensitivityLevel.PUBLIC,
             "is_public": True,
+            "theme": "Ramsar",
             "indicator": indicator_lookup["occupancy_change_signal"],
             "default_style_json": {"circleColor": "#2f8f67", "circleRadius": 6, "circleOpacity": 0.8},
         },
@@ -472,10 +476,16 @@ def ingest_birdie_snapshot(*, actor=None):
             layer=occupancy_layer,
             feature_key=f"{site.site_code}:{row.get('species_code')}:{row.get('year')}",
             defaults={
+                "feature_id": f"{site.site_code}:{row.get('species_code')}:{row.get('year')}",
                 "name": f"{site.site_name} {row.get('species_code')} {row.get('year')}",
                 "province_code": site.province_code,
                 "year": int(row["year"]),
                 "indicator": indicator_lookup["occupancy_change_signal"],
+                "properties": {
+                    "site_code": site.site_code,
+                    "species_code": row.get("species_code"),
+                    "psi": row.get("psi"),
+                },
                 "properties_json": {
                     "site_code": site.site_code,
                     "species_code": row.get("species_code"),

@@ -10,9 +10,12 @@ from nbms_app.models import (
     IndicatorMethodProfile,
     MonitoringProgramme,
     MonitoringProgrammeAlert,
+    MonitoringProgrammeArtefactRef,
+    MonitoringProgrammeQAResult,
     MonitoringProgrammeRun,
     MonitoringProgrammeRunStep,
     ProgrammeAlertSeverity,
+    ProgrammeQaStatus,
     ProgrammeRefreshCadence,
     ProgrammeRunStatus,
     ProgrammeRunTrigger,
@@ -23,6 +26,7 @@ from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.catalog_access import can_edit_monitoring_programme
+from nbms_app.services.spatial_sources import sync_spatial_sources
 
 
 CADENCE_DELTA_MAP = {
@@ -206,6 +210,59 @@ def execute_programme_run(*, run, actor=None):
                 ingest_summary = ingest_birdie_snapshot(actor=actor)
                 step_details["integration"] = {"source": "BIRDIE", "summary": ingest_summary}
 
+        if step["type"] == ProgrammeStepType.INGEST and programme.programme_code == "NBMS-SPATIAL-BASELINES":
+            if run.dry_run:
+                step_details["integration"] = {"source": "spatial_sources", "dry_run": True}
+            else:
+                spatial_summary = sync_spatial_sources(
+                    actor=actor,
+                    include_optional=False,
+                    force=False,
+                    dry_run=False,
+                    seed_defaults=True,
+                )
+                step_details["integration"] = {"source": "spatial_sources", "summary": spatial_summary}
+                for row in spatial_summary.get("results", []):
+                    storage_path = row.get("storage_path") or ""
+                    if storage_path:
+                        MonitoringProgrammeArtefactRef.objects.create(
+                            run=run,
+                            step=step_obj,
+                            label=f"{row.get('source_code', 'source')}-raw",
+                            storage_path=storage_path,
+                            media_type="application/zip",
+                            checksum_sha256=row.get("checksum", ""),
+                            metadata_json={
+                                "source_code": row.get("source_code"),
+                                "layer_code": row.get("layer_code"),
+                                "run_id": row.get("run_id"),
+                            },
+                        )
+                    qa_status = {
+                        "ready": ProgrammeQaStatus.PASS,
+                        "skipped": ProgrammeQaStatus.WARN,
+                        "blocked": ProgrammeQaStatus.FAIL,
+                        "failed": ProgrammeQaStatus.FAIL,
+                    }.get(row.get("status"), ProgrammeQaStatus.WARN)
+                    MonitoringProgrammeQAResult.objects.create(
+                        run=run,
+                        step=step_obj,
+                        code=f"SPATIAL_SOURCE_{row.get('source_code', 'unknown')}",
+                        status=qa_status,
+                        message=row.get("detail") or row.get("status") or "No detail provided.",
+                        details_json=row,
+                    )
+                failed_count = int(spatial_summary.get("status_counts", {}).get("failed", 0))
+                blocked_count = int(spatial_summary.get("status_counts", {}).get("blocked", 0))
+                if failed_count:
+                    step_state = ProgrammeRunStatus.FAILED
+                    final_status = ProgrammeRunStatus.FAILED
+                    run_errors.append(f"Spatial source sync failed for {failed_count} source(s).")
+                elif blocked_count:
+                    step_state = ProgrammeRunStatus.BLOCKED
+                    final_status = ProgrammeRunStatus.BLOCKED
+                    run_errors.append(f"Spatial source sync blocked for {blocked_count} source(s).")
+
         if step["type"] == ProgrammeStepType.COMPUTE and programme.programme_code == "NBMS-BIRDIE-INTEGRATION":
             profiles = IndicatorMethodProfile.objects.filter(
                 indicator__code__startswith="BIRDIE-",
@@ -289,6 +346,12 @@ def execute_programme_run(*, run, actor=None):
             "blocked": len([item for item in step_summaries if item["status"] == ProgrammeRunStatus.BLOCKED]),
             "failed": len([item for item in step_summaries if item["status"] == ProgrammeRunStatus.FAILED]),
         },
+        "qa_counts": {
+            "pass": run.qa_results.filter(status=ProgrammeQaStatus.PASS).count(),
+            "warn": run.qa_results.filter(status=ProgrammeQaStatus.WARN).count(),
+            "fail": run.qa_results.filter(status=ProgrammeQaStatus.FAIL).count(),
+        },
+        "artefact_count": run.artefacts.count(),
         "open_alerts": programme.alerts.filter(state="open").count(),
     }
     run.lineage_json = {

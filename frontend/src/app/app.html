@@ -8,7 +8,7 @@
     <mat-nav-list>
       <a
         mat-list-item
-        *ngFor="let item of navItems"
+        *ngFor="let item of (visibleNavItems$ | async) ?? []"
         [routerLink]="item.route"
         routerLinkActive="active-link"
       >

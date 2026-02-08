@@ -32,6 +32,7 @@ jobs:
       DJANGO_SETTINGS_MODULE: config.settings.test
       DJANGO_DB_ENGINE: django.db.backends.sqlite3
       NBMS_DB_NAME: nbms_quality.sqlite3
+      ENABLE_GIS: "false"
       PYTHONPATH: ${{ github.workspace }}/src
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +50,6 @@ jobs:
       - name: Django checks
         run: |
           python manage.py check
-          python manage.py makemigrations --check --dry-run
 
   tests-linux-full:
     runs-on: ubuntu-latest
@@ -75,6 +75,7 @@ jobs:
       NBMS_TEST_DB_NAME: test_nbms_ci_db
       POSTGRES_HOST: localhost
       POSTGRES_PORT: 5432
+      ENABLE_GIS: "true"
       PYTHONPATH: ${{ github.workspace }}/src
     steps:
       - uses: actions/checkout@v4
@@ -90,7 +91,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
       - name: Run tests
-        run: pytest -q
+        run: |
+          python manage.py makemigrations --check --dry-run
+          pytest -q
 
   tests-windows-smoke:
     runs-on: windows-latest
@@ -98,6 +101,7 @@ jobs:
       DJANGO_SETTINGS_MODULE: config.settings.test
       DJANGO_DB_ENGINE: django.db.backends.sqlite3
       NBMS_DB_NAME: nbms_windows_smoke.sqlite3
+      ENABLE_GIS: "false"
       PYTHONPATH: ${{ github.workspace }}\\src
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +115,6 @@ jobs:
       - name: Windows smoke checks
         shell: pwsh
         run: |
-          python manage.py check
           pytest -q src/nbms_app/tests/test_prod_settings.py src/nbms_app/tests/test_verify_env.py
 
   security-baseline:
@@ -181,6 +184,14 @@ jobs:
         working-directory: frontend
         run: npm ci
       - name: Build and start minimal profile
+        env:
+          SEED_DEMO_USERS: "1"
+          ALLOW_INSECURE_DEMO_PASSWORDS: "1"
+          NBMS_ADMIN_USERNAME: ciadmin
+          NBMS_ADMIN_EMAIL: ciadmin@example.org
+          NBMS_ADMIN_PASSWORD: CI_Admin_12345
+          NBMS_ADMIN_FIRST_NAME: CI
+          NBMS_ADMIN_LAST_NAME: Admin
         run: docker compose --profile minimal up -d --build
       - name: Wait for backend health
         run: |
@@ -207,7 +218,34 @@ jobs:
         working-directory: frontend
         env:
           PLAYWRIGHT_BASE_URL: http://127.0.0.1:8081
+          PLAYWRIGHT_USERNAME: ciadmin
+          PLAYWRIGHT_PASSWORD: CI_Admin_12345
         run: npm run e2e
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  docker-spatial-smoke:
+    runs-on: ubuntu-latest
+    needs:
+      - quality-fast
+      - frontend-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare environment
+        run: cp .env.example .env
+      - name: Build and start spatial profile
+        run: docker compose --profile spatial up -d --build
+      - name: Wait for backend and tile endpoints
+        run: |
+          for i in {1..80}; do
+            if curl -fsS http://127.0.0.1:8000/health/ >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS http://127.0.0.1:8000/health/
+          curl -fsS http://127.0.0.1:8000/api/tiles/ZA_PROVINCES/tilejson >/dev/null
       - name: Teardown
         if: always()
         run: docker compose down -v

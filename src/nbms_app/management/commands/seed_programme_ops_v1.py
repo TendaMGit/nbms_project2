@@ -157,6 +157,48 @@ class Command(BaseCommand):
             defaults={"is_primary": True, "is_active": True},
         )
 
+        spatial_programme, _ = MonitoringProgramme.objects.update_or_create(
+            programme_code="NBMS-SPATIAL-BASELINES",
+            defaults={
+                "title": "Spatial Baselines Programme",
+                "description": "Operational ingestion and QA pipeline for national spatial baseline layers.",
+                "programme_type": "national",
+                "lead_org": sanbi,
+                "refresh_cadence": ProgrammeRefreshCadence.MONTHLY,
+                "update_frequency": UpdateFrequency.MONTHLY,
+                "scheduler_enabled": True,
+                "geographic_scope": "South Africa",
+                "taxonomic_scope": "Spatial baselines",
+                "ecosystem_scope": "Terrestrial, freshwater, and marine spatial layers",
+                "objectives": "Ingest open spatial sources, validate geometry, and publish map-ready layers.",
+                "sampling_design_summary": "Source-driven ingestion with deterministic clipping and QA checks.",
+                "qa_process_summary": "Geometry validity checks and provenance audit per run.",
+                "sensitivity_class": sensitivity,
+                "consent_required": False,
+                "is_active": True,
+                "pipeline_definition_json": {
+                    "steps": [
+                        {"key": "ingest_sources", "type": "ingest"},
+                        {"key": "validate_sources", "type": "validate"},
+                        {"key": "publish_layers", "type": "publish"},
+                    ]
+                },
+                "data_quality_rules_json": {
+                    "minimum_dataset_links": 0,
+                    "minimum_indicator_links": 0,
+                },
+                "lineage_notes": "Raw source artefacts in object storage, features normalized to SpatialFeature.",
+            },
+        )
+        spatial_programme.partners.set([dffe])
+        spatial_programme.operating_institutions.set([sanbi, dffe])
+        MonitoringProgrammeSteward.objects.update_or_create(
+            programme=spatial_programme,
+            user=steward,
+            role=ProgrammeStewardRole.OWNER,
+            defaults={"is_primary": True, "is_active": True},
+        )
+
         datasets = list(DatasetCatalog.objects.filter(is_active=True).order_by("dataset_code", "id")[:2])
         indicators = list(Indicator.objects.order_by("code", "id")[:4])
         if datasets:
@@ -213,9 +255,17 @@ class Command(BaseCommand):
                 dry_run=True,
                 execute_now=True,
             )
+        if not spatial_programme.runs.exists():
+            queue_programme_run(
+                programme=spatial_programme,
+                requested_by=steward,
+                run_type="ingest",
+                dry_run=True,
+                execute_now=True,
+            )
 
         self.stdout.write(
             self.style.SUCCESS(
-                "Seeded programme ops v1: NBMS-CORE-PROGRAMME and NBMS-BIRDIE-INTEGRATION with run history."
+                "Seeded programme ops v1: core, birdie, and spatial baselines programmes with run history."
             )
         )

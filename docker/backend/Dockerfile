@@ -11,12 +11,17 @@ RUN apt-get update \
         build-essential \
         curl \
         libpq-dev \
+        gdal-bin \
+        libgdal-dev \
+        libgeos-dev \
+        libproj-dev \
         libcairo2-dev \
         pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt requirements.txt
-RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY requirements-dev.txt requirements-dev.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt -r requirements-dev.txt
 
 COPY . .
 

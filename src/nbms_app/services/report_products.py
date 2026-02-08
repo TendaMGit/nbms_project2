@@ -108,10 +108,13 @@ def _map_rows(user):
     for layer in layers:
         rows.append(
             {
+                "layer_code": layer.layer_code,
                 "slug": layer.slug,
-                "name": layer.name,
+                "name": layer.title or layer.name,
                 "source_type": layer.source_type,
                 "indicator_code": layer.indicator.code if layer.indicator_id else "",
+                "attribution": layer.attribution,
+                "license": layer.license,
             }
         )
     return rows

@@ -1,11 +1,17 @@
 import uuid
+from decimal import Decimal
+import json
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.postgres.indexes import GinIndex
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils.text import slugify
+
+from nbms_app import spatial_fields
 
 
 class TimeStampedModel(models.Model):
@@ -304,6 +310,12 @@ class ProgrammeAlertState(models.TextChoices):
     RESOLVED = "resolved", "Resolved"
 
 
+class ProgrammeQaStatus(models.TextChoices):
+    PASS = "pass", "Pass"
+    WARN = "warn", "Warn"
+    FAIL = "fail", "Fail"
+
+
 class IntegrationDataLayer(models.TextChoices):
     BRONZE = "bronze", "Bronze"
     SILVER = "silver", "Silver"
@@ -595,6 +607,11 @@ class MonitoringProgramme(TimeStampedModel):
         related_name="stewarded_monitoring_programmes",
         blank=True,
     )
+    coverage_units = models.ManyToManyField(
+        "SpatialUnit",
+        related_name="coverage_programmes",
+        blank=True,
+    )
     start_year = models.PositiveIntegerField(blank=True, null=True)
     end_year = models.PositiveIntegerField(blank=True, null=True)
     geographic_scope = models.CharField(max_length=255, blank=True)
@@ -743,6 +760,66 @@ class MonitoringProgrammeRunStep(TimeStampedModel):
 
     def __str__(self):
         return f"{self.run_id}:{self.step_key}:{self.status}"
+
+
+class MonitoringProgrammeArtefactRef(TimeStampedModel):
+    run = models.ForeignKey(
+        MonitoringProgrammeRun,
+        on_delete=models.CASCADE,
+        related_name="artefacts",
+    )
+    step = models.ForeignKey(
+        MonitoringProgrammeRunStep,
+        on_delete=models.SET_NULL,
+        related_name="artefacts",
+        blank=True,
+        null=True,
+    )
+    label = models.CharField(max_length=120)
+    storage_path = models.CharField(max_length=512)
+    media_type = models.CharField(max_length=120, blank=True)
+    checksum_sha256 = models.CharField(max_length=64, blank=True)
+    size_bytes = models.BigIntegerField(default=0)
+    metadata_json = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["run", "created_at"]),
+            models.Index(fields=["step", "created_at"]),
+            models.Index(fields=["label"]),
+        ]
+
+    def __str__(self):
+        return f"{self.run_id}:{self.label}"
+
+
+class MonitoringProgrammeQAResult(TimeStampedModel):
+    run = models.ForeignKey(
+        MonitoringProgrammeRun,
+        on_delete=models.CASCADE,
+        related_name="qa_results",
+    )
+    step = models.ForeignKey(
+        MonitoringProgrammeRunStep,
+        on_delete=models.SET_NULL,
+        related_name="qa_results",
+        blank=True,
+        null=True,
+    )
+    code = models.CharField(max_length=120)
+    status = models.CharField(max_length=20, choices=ProgrammeQaStatus.choices, default=ProgrammeQaStatus.PASS)
+    message = models.TextField()
+    details_json = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["run", "status"]),
+            models.Index(fields=["step", "status"]),
+            models.Index(fields=["code"]),
+        ]
+
+    def __str__(self):
+        return f"{self.run_id}:{self.code}:{self.status}"
 
 
 class MonitoringProgrammeAlert(TimeStampedModel):
@@ -1880,6 +1957,7 @@ class IndicatorFrameworkIndicatorLink(TimeStampedModel):
 
 class Evidence(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    evidence_code = models.CharField(max_length=80, unique=True, blank=True, null=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     evidence_type = models.CharField(max_length=100, blank=True)
@@ -1905,7 +1983,7 @@ class Evidence(TimeStampedModel):
     review_note = models.TextField(blank=True)
 
     def __str__(self):
-        return self.title
+        return self.evidence_code or self.title
 
     class Meta:
         indexes = [
@@ -1918,6 +1996,7 @@ class Evidence(TimeStampedModel):
 
 class Dataset(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    dataset_code = models.CharField(max_length=80, unique=True, blank=True, null=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     methodology = models.TextField(blank=True)
@@ -1942,7 +2021,7 @@ class Dataset(TimeStampedModel):
     review_note = models.TextField(blank=True)
 
     def __str__(self):
-        return self.title
+        return self.dataset_code or self.title
 
     class Meta:
         indexes = [
@@ -2032,6 +2111,7 @@ class IndicatorDatasetLink(TimeStampedModel):
 
 class IndicatorDataSeries(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    series_code = models.CharField(max_length=100, unique=True, blank=True, null=True)
     framework_indicator = models.ForeignKey(
         FrameworkIndicator,
         on_delete=models.CASCADE,
@@ -2056,6 +2136,21 @@ class IndicatorDataSeries(TimeStampedModel):
     methodology = models.TextField(blank=True)
     disaggregation_schema = models.JSONField(default=dict, blank=True)
     source_notes = models.TextField(blank=True)
+    spatial_unit_type = models.ForeignKey(
+        "SpatialUnitType",
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_series",
+        blank=True,
+        null=True,
+    )
+    spatial_layer = models.ForeignKey(
+        "SpatialLayer",
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_series",
+        blank=True,
+        null=True,
+    )
+    spatial_resolution = models.CharField(max_length=120, blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -2100,10 +2195,13 @@ class IndicatorDataSeries(TimeStampedModel):
             ),
         ]
         indexes = [
+            models.Index(fields=["series_code"]),
             models.Index(fields=["status"]),
             models.Index(fields=["sensitivity"]),
             models.Index(fields=["organisation"]),
             models.Index(fields=["created_by"]),
+            models.Index(fields=["spatial_unit_type"]),
+            models.Index(fields=["spatial_layer"]),
         ]
 
 
@@ -2115,6 +2213,21 @@ class IndicatorDataPoint(TimeStampedModel):
     value_text = models.TextField(blank=True, null=True)
     uncertainty = models.TextField(blank=True)
     disaggregation = models.JSONField(default=dict, blank=True)
+    spatial_unit = models.ForeignKey(
+        "SpatialUnit",
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_points",
+        blank=True,
+        null=True,
+    )
+    spatial_layer = models.ForeignKey(
+        "SpatialLayer",
+        on_delete=models.SET_NULL,
+        related_name="indicator_data_points",
+        blank=True,
+        null=True,
+    )
+    spatial_resolution = models.CharField(max_length=120, blank=True)
     dataset_release = models.ForeignKey(
         DatasetRelease,
         on_delete=models.SET_NULL,
@@ -2145,6 +2258,11 @@ class IndicatorDataPoint(TimeStampedModel):
                 check=models.Q(value_numeric__isnull=False) | models.Q(value_text__isnull=False),
                 name="ck_indicator_data_point_value_present",
             )
+        ]
+        indexes = [
+            models.Index(fields=["series", "year"]),
+            models.Index(fields=["spatial_unit"]),
+            models.Index(fields=["spatial_layer"]),
         ]
 
 
@@ -2523,28 +2641,281 @@ class Notification(TimeStampedModel):
 
 
 class SpatialLayerSourceType(models.TextChoices):
-    STATIC = "static", "Static"
-    INDICATOR = "indicator", "Indicator"
+    NBMS_TABLE = "NBMS_TABLE", "NBMS table"
+    UPLOADED_FILE = "UPLOADED_FILE", "Uploaded file"
+    EXTERNAL_WMS = "EXTERNAL_WMS", "External WMS"
+    EXTERNAL_WFS = "EXTERNAL_WFS", "External WFS"
+    EXTERNAL_STAC = "EXTERNAL_STAC", "External STAC"
+    EXTERNAL_TILE = "EXTERNAL_TILE", "External tile"
+    STATIC = "static", "Static (legacy)"
+    INDICATOR = "indicator", "Indicator (legacy)"
+
+
+class SpatialUnitGeomType(models.TextChoices):
+    POINT = "point", "Point"
+    LINE = "line", "Line"
+    POLYGON = "polygon", "Polygon"
+    GEOMETRY = "geometry", "Geometry"
+
+
+class SpatialIngestionStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    RUNNING = "running", "Running"
+    SUCCEEDED = "succeeded", "Succeeded"
+    FAILED = "failed", "Failed"
+
+
+class SpatialSourceSyncStatus(models.TextChoices):
+    READY = "ready", "Ready"
+    SKIPPED = "skipped", "Skipped"
+    BLOCKED = "blocked", "Blocked"
+    FAILED = "failed", "Failed"
+
+
+class SpatialSourceFormat(models.TextChoices):
+    GEOJSON = "GeoJSON", "GeoJSON"
+    GPKG = "GPKG", "GeoPackage"
+    SHAPEFILE = "ESRI Shapefile", "ESRI Shapefile"
+    ZIP_SHAPEFILE = "ZIP_ESRI_SHP", "ZIP Shapefile"
+    OTHER = "OTHER", "Other"
+
+
+class SpatialUnitType(TimeStampedModel):
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    default_geom_type = models.CharField(
+        max_length=20,
+        choices=SpatialUnitGeomType.choices,
+        default=SpatialUnitGeomType.POLYGON,
+    )
+    admin_level = models.PositiveIntegerField(blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["code"]
+
+    def __str__(self):
+        return self.code
+
+
+class SpatialUnit(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    unit_code = models.CharField(max_length=80, unique=True)
+    name = models.CharField(max_length=255)
+    unit_type = models.ForeignKey(
+        SpatialUnitType,
+        on_delete=models.PROTECT,
+        related_name="units",
+    )
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.SET_NULL,
+        related_name="children",
+        blank=True,
+        null=True,
+    )
+    geom = spatial_fields.MultiPolygonField(srid=4326, blank=True, null=True)
+    bbox = spatial_fields.PolygonField(srid=4326, blank=True, null=True)
+    area_km2 = models.DecimalField(max_digits=20, decimal_places=6, blank=True, null=True)
+    centroid = spatial_fields.PointField(srid=4326, blank=True, null=True)
+    properties = models.JSONField(default=dict, blank=True)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    consent_required = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="spatial_units",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["unit_code"]),
+            models.Index(fields=["unit_type", "is_active"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["organisation"]),
+            spatial_fields.GistIndex(fields=["geom"], name="nbms_spatial_unit_geom_gix"),
+        ]
+        ordering = ["unit_type__code", "unit_code"]
+
+    def save(self, *args, **kwargs):
+        if self.geom and hasattr(self.geom, "envelope"):
+            self.bbox = self.geom.envelope
+            self.centroid = self.geom.centroid
+            try:
+                metric = self.geom.clone()
+                metric.transform(6933)
+                self.area_km2 = Decimal(str(round(metric.area / 1000000.0, 6)))
+            except Exception:
+                self.area_km2 = None
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.unit_code} - {self.name}"
+
+
+class SpatialIngestionRun(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    run_id = models.CharField(max_length=80, unique=True)
+    layer = models.ForeignKey(
+        "SpatialLayer",
+        on_delete=models.CASCADE,
+        related_name="ingestion_runs",
+    )
+    source = models.ForeignKey(
+        "SpatialSource",
+        on_delete=models.SET_NULL,
+        related_name="ingestion_runs",
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=SpatialIngestionStatus.choices,
+        default=SpatialIngestionStatus.PENDING,
+    )
+    source_filename = models.CharField(max_length=255, blank=True)
+    source_format = models.CharField(max_length=50, blank=True)
+    source_hash = models.CharField(max_length=64, blank=True)
+    source_storage_path = models.CharField(max_length=512, blank=True)
+    source_layer_name = models.CharField(max_length=255, blank=True)
+    rows_ingested = models.PositiveIntegerField(default=0)
+    invalid_geom_before_fix = models.PositiveIntegerField(default=0)
+    invalid_geom_after_fix = models.PositiveIntegerField(default=0)
+    report_json = models.JSONField(default=dict, blank=True)
+    started_at = models.DateTimeField(blank=True, null=True)
+    finished_at = models.DateTimeField(blank=True, null=True)
+    triggered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="spatial_ingestion_runs",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["layer", "created_at"]),
+            models.Index(fields=["source", "created_at"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.run_id}:{self.status}"
+
+
+class SpatialSource(TimeStampedModel):
+    code = models.CharField(max_length=80, unique=True)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    source_url = models.URLField()
+    source_format = models.CharField(max_length=40, choices=SpatialSourceFormat.choices, default=SpatialSourceFormat.OTHER)
+    source_layer_name = models.CharField(max_length=255, blank=True)
+    license = models.CharField(max_length=255, blank=True)
+    attribution = models.CharField(max_length=255, blank=True)
+    terms_url = models.URLField(blank=True)
+    requires_token = models.BooleanField(default=False)
+    token_env_var = models.CharField(max_length=120, blank=True)
+    update_frequency = models.CharField(max_length=20, choices=UpdateFrequency.choices, blank=True)
+    enabled_by_default = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=True)
+    source_type = models.CharField(
+        max_length=30,
+        choices=SpatialLayerSourceType.choices,
+        default=SpatialLayerSourceType.UPLOADED_FILE,
+    )
+    layer_code = models.CharField(max_length=100, unique=True)
+    layer_title = models.CharField(max_length=255, blank=True)
+    layer_description = models.TextField(blank=True)
+    theme = models.CharField(max_length=60, blank=True)
+    default_style_json = models.JSONField(default=dict, blank=True)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    consent_required = models.BooleanField(default=False)
+    export_approved = models.BooleanField(default=True)
+    is_public = models.BooleanField(default=True)
+    publish_to_geoserver = models.BooleanField(default=True)
+    expected_checksum = models.CharField(max_length=64, blank=True)
+    clip_bbox = models.CharField(max_length=120, blank=True)
+    last_sync_at = models.DateTimeField(blank=True, null=True)
+    last_checksum = models.CharField(max_length=64, blank=True)
+    last_status = models.CharField(
+        max_length=20,
+        choices=SpatialSourceSyncStatus.choices,
+        default=SpatialSourceSyncStatus.READY,
+    )
+    last_error = models.TextField(blank=True)
+    last_feature_count = models.PositiveIntegerField(default=0)
+    organisation = models.ForeignKey(
+        Organisation,
+        on_delete=models.SET_NULL,
+        related_name="spatial_sources",
+        blank=True,
+        null=True,
+    )
+    indicator = models.ForeignKey(
+        Indicator,
+        on_delete=models.SET_NULL,
+        related_name="spatial_sources",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["enabled_by_default", "is_active"]),
+            models.Index(fields=["layer_code"]),
+            models.Index(fields=["publish_to_geoserver"]),
+            models.Index(fields=["sensitivity"]),
+            models.Index(fields=["theme"]),
+        ]
+        ordering = ["code"]
+
+    def __str__(self):
+        return self.code
 
 
 class SpatialLayer(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    layer_code = models.CharField(max_length=100, unique=True, blank=True, null=True)
+    title = models.CharField(max_length=255, blank=True)
     name = models.CharField(max_length=255)
     slug = models.SlugField(max_length=120, unique=True)
     description = models.TextField(blank=True)
     source_type = models.CharField(
-        max_length=20,
+        max_length=30,
         choices=SpatialLayerSourceType.choices,
-        default=SpatialLayerSourceType.STATIC,
+        default=SpatialLayerSourceType.NBMS_TABLE,
     )
+    data_ref = models.CharField(max_length=255, blank=True)
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.PUBLIC)
+    consent_required = models.BooleanField(default=False)
+    export_approved = models.BooleanField(default=False)
+    publish_to_geoserver = models.BooleanField(default=True)
     is_public = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
+    theme = models.CharField(max_length=60, blank=True)
     default_style_json = models.JSONField(default=dict, blank=True)
+    attribution = models.CharField(max_length=255, blank=True)
+    license = models.CharField(max_length=255, blank=True)
+    temporal_extent = models.JSONField(default=dict, blank=True)
+    update_frequency = models.CharField(max_length=20, choices=UpdateFrequency.choices, blank=True)
+    source_file = models.FileField(upload_to="spatial/uploads/", blank=True, null=True)
+    source_file_hash = models.CharField(max_length=64, blank=True)
+    geoserver_layer_name = models.CharField(max_length=160, blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
         related_name="spatial_layers",
+        blank=True,
+        null=True,
+    )
+    spatial_source = models.ForeignKey(
+        "SpatialSource",
+        on_delete=models.SET_NULL,
+        related_name="layers",
         blank=True,
         null=True,
     )
@@ -2562,17 +2933,72 @@ class SpatialLayer(TimeStampedModel):
         blank=True,
         null=True,
     )
+    latest_ingestion_run = models.ForeignKey(
+        SpatialIngestionRun,
+        on_delete=models.SET_NULL,
+        related_name="latest_for_layers",
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         indexes = [
+            models.Index(fields=["layer_code"]),
+            models.Index(fields=["theme"]),
             models.Index(fields=["slug"]),
             models.Index(fields=["is_active", "is_public"]),
+            models.Index(fields=["publish_to_geoserver"]),
             models.Index(fields=["sensitivity"]),
             models.Index(fields=["organisation"]),
         ]
 
+    def save(self, *args, **kwargs):
+        if not self.title:
+            self.title = self.name
+        if not self.name:
+            self.name = self.title
+        if not self.layer_code:
+            if self.slug:
+                self.layer_code = self.slug.upper().replace("-", "_")
+            elif self.title:
+                self.layer_code = slugify(self.title).replace("-", "_").upper()
+        if not self.slug and self.layer_code:
+            self.slug = slugify(self.layer_code)
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return self.name
+        return self.title or self.name
+
+
+class IndicatorInputRequirement(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    indicator = models.OneToOneField(
+        Indicator,
+        on_delete=models.CASCADE,
+        related_name="input_requirement",
+    )
+    required_map_layers = models.ManyToManyField(
+        "SpatialLayer",
+        related_name="indicator_input_requirements",
+        blank=True,
+    )
+    required_map_sources = models.ManyToManyField(
+        "SpatialSource",
+        related_name="indicator_input_requirements",
+        blank=True,
+    )
+    disaggregation_expectations_json = models.JSONField(default=dict, blank=True)
+    cadence = models.CharField(max_length=20, choices=UpdateFrequency.choices, blank=True)
+    notes = models.TextField(blank=True)
+    last_checked_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["cadence"]),
+        ]
+
+    def __str__(self):
+        return f"{self.indicator.code}:input-requirements"
 
 
 def _extract_coords(node):
@@ -2602,6 +3028,7 @@ class SpatialFeature(TimeStampedModel):
         on_delete=models.CASCADE,
         related_name="features",
     )
+    feature_id = models.CharField(max_length=160, blank=True)
     feature_key = models.CharField(max_length=120)
     name = models.CharField(max_length=255, blank=True)
     province_code = models.CharField(max_length=20, blank=True)
@@ -2613,6 +3040,17 @@ class SpatialFeature(TimeStampedModel):
         blank=True,
         null=True,
     )
+    spatial_unit = models.ForeignKey(
+        SpatialUnit,
+        on_delete=models.SET_NULL,
+        related_name="spatial_features",
+        blank=True,
+        null=True,
+    )
+    geom = spatial_fields.GeometryField(srid=4326, blank=True, null=True)
+    properties = models.JSONField(default=dict, blank=True)
+    valid_from = models.DateField(blank=True, null=True)
+    valid_to = models.DateField(blank=True, null=True)
     properties_json = models.JSONField(default=dict, blank=True)
     geometry_json = models.JSONField(default=dict, blank=True)
     minx = models.FloatField(blank=True, null=True)
@@ -2623,24 +3061,53 @@ class SpatialFeature(TimeStampedModel):
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["layer", "feature_key"], name="uq_spatial_feature_layer_key"),
+            models.UniqueConstraint(
+                fields=["layer", "feature_id"],
+                condition=~models.Q(feature_id=""),
+                name="uq_spatial_feature_layer_id",
+            ),
         ]
         indexes = [
             models.Index(fields=["layer", "feature_key"]),
+            models.Index(fields=["layer", "feature_id"]),
             models.Index(fields=["province_code"]),
             models.Index(fields=["year"]),
             models.Index(fields=["indicator"]),
+            models.Index(fields=["spatial_unit"]),
             models.Index(fields=["minx", "maxx"]),
             models.Index(fields=["miny", "maxy"]),
+            GinIndex(fields=["properties"], name="nbms_spatial_feature_props_gin"),
+            spatial_fields.GistIndex(fields=["geom"], name="nbms_spatial_feature_geom_gix"),
         ]
 
     def save(self, *args, **kwargs):
+        if not self.feature_id:
+            self.feature_id = self.feature_key
+        if not self.feature_key:
+            self.feature_key = self.feature_id
+        if self.properties_json and not self.properties:
+            self.properties = self.properties_json
+        if self.properties and not self.properties_json:
+            self.properties_json = self.properties
+        if self.geom and not self.geometry_json and hasattr(self.geom, "geojson"):
+            self.geometry_json = json.loads(self.geom.geojson) if self.geom.geojson else {}
+        elif self.geometry_json and not self.geom and spatial_fields.GIS_ENABLED:
+            try:
+                from django.contrib.gis.geos import GEOSGeometry
+
+                self.geom = GEOSGeometry(str(self.geometry_json), srid=4326)
+            except Exception:
+                self.geom = None
+
         bbox = _bbox_from_geojson(self.geometry_json)
         if bbox:
             self.minx, self.miny, self.maxx, self.maxy = bbox
+        elif self.geom and hasattr(self.geom, "extent"):
+            self.minx, self.miny, self.maxx, self.maxy = self.geom.extent
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return self.feature_key
+        return self.feature_id or self.feature_key
 
 
 class ReportTemplatePack(TimeStampedModel):

@@ -29,6 +29,7 @@ from nbms_app.models import (
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
+    IndicatorInputRequirement,
     IndicatorMethodProfile,
     IndicatorMethodRun,
     IndicatorMethodologyVersionLink,
@@ -102,8 +103,11 @@ def _user_role_names(user):
 
 
 def _capabilities(user):
+    is_authenticated = bool(user and getattr(user, "is_authenticated", False))
+    is_staff = bool(getattr(user, "is_staff", False))
+    is_adminish = bool(is_system_admin(user) or user_has_role(user, ROLE_ADMIN, ROLE_SECRETARIAT, ROLE_DATA_STEWARD))
     return {
-        "is_staff": bool(getattr(user, "is_staff", False)),
+        "is_staff": is_staff,
         "is_system_admin": bool(is_system_admin(user)),
         "can_manage_exports": bool(user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_ADMIN)),
         "can_review": bool(user_has_role(user, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_ADMIN)),
@@ -112,6 +116,14 @@ def _capabilities(user):
             user_has_role(user, ROLE_INDICATOR_LEAD, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, ROLE_ADMIN)
             or is_system_admin(user)
         ),
+        "can_view_dashboard": is_authenticated,
+        "can_view_spatial": is_authenticated,
+        "can_view_programmes": is_authenticated and (is_staff or is_adminish),
+        "can_view_birdie": is_authenticated and (is_staff or is_adminish),
+        "can_view_reporting_builder": is_authenticated and is_staff,
+        "can_view_template_packs": is_authenticated and is_staff,
+        "can_view_report_products": is_authenticated and is_staff,
+        "can_view_system_health": is_authenticated and (is_staff or is_system_admin(user)),
     }
 
 
@@ -245,6 +257,31 @@ def _programme_run_payload(run):
         "log_excerpt": run.log_excerpt,
         "error_message": run.error_message,
         "created_at": run.created_at.isoformat(),
+        "artefacts": [
+            {
+                "uuid": str(row.uuid),
+                "label": row.label,
+                "storage_path": row.storage_path,
+                "media_type": row.media_type,
+                "checksum_sha256": row.checksum_sha256,
+                "size_bytes": row.size_bytes,
+                "metadata_json": row.metadata_json,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in run.artefacts.all().order_by("created_at", "id")
+        ],
+        "qa_results": [
+            {
+                "uuid": str(row.uuid),
+                "code": row.code,
+                "status": row.status,
+                "message": row.message,
+                "details_json": row.details_json,
+                "created_at": row.created_at.isoformat(),
+            }
+            for row in run.qa_results.all().order_by("created_at", "id")
+        ],
+        "report_url": reverse("api_programme_run_report", kwargs={"run_uuid": str(run.uuid)}),
         "steps": [
             {
                 "ordering": step.ordering,
@@ -532,7 +569,7 @@ def api_programme_detail(request, programme_uuid):
     programme = get_object_or_404(_programme_queryset_for_user(request.user), uuid=programme_uuid)
     runs = (
         programme.runs.select_related("requested_by")
-        .prefetch_related("steps")
+        .prefetch_related("steps", "artefacts", "qa_results")
         .order_by("-created_at", "-id")[:20]
     )
     alerts = (
@@ -629,7 +666,11 @@ def api_programme_run_create(request, programme_uuid):
 @permission_classes([IsAuthenticated])
 def api_programme_run_detail(request, run_uuid):
     run = get_object_or_404(
-        MonitoringProgrammeRun.objects.select_related("programme", "requested_by").prefetch_related("steps"),
+        MonitoringProgrammeRun.objects.select_related("programme", "requested_by").prefetch_related(
+            "steps",
+            "artefacts",
+            "qa_results",
+        ),
         uuid=run_uuid,
         programme__in=_programme_queryset_for_user(request.user),
     )
@@ -642,6 +683,32 @@ def api_programme_run_detail(request, run_uuid):
         run = execute_programme_run(run=run, actor=request.user)
         run.refresh_from_db()
     return Response(_programme_run_payload(run))
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_programme_run_report(request, run_uuid):
+    run = get_object_or_404(
+        MonitoringProgrammeRun.objects.select_related("programme", "requested_by").prefetch_related(
+            "steps",
+            "artefacts",
+            "qa_results",
+        ),
+        uuid=run_uuid,
+        programme__in=_programme_queryset_for_user(request.user),
+    )
+    payload = {
+        "generated_at": timezone.now().isoformat(),
+        "programme": {
+            "uuid": str(run.programme.uuid),
+            "programme_code": run.programme.programme_code,
+            "title": run.programme.title,
+        },
+        "run": _programme_run_payload(run),
+    }
+    response = Response(payload)
+    response["Content-Disposition"] = f'attachment; filename="programme-run-{run.uuid}.json"'
+    return response
 
 
 @api_view(["GET"])
@@ -803,6 +870,10 @@ def api_reporting_nr7_summary(request, instance_uuid):
 
     validation = build_nr7_validation_summary(instance=instance, user=request.user)
     preview = build_nr7_preview_payload(instance=instance, user=request.user)
+    map_layers = filter_spatial_layers_for_user(
+        SpatialLayer.objects.filter(is_active=True).select_related("indicator"),
+        request.user,
+    ).order_by("theme", "title", "name", "layer_code")
     links = {
         "sections_overview": reverse("nbms_app:reporting_instance_sections", kwargs={"instance_uuid": instance.uuid}),
         "section_i": reverse("nbms_app:reporting_instance_section_i", kwargs={"instance_uuid": instance.uuid}),
@@ -826,6 +897,21 @@ def api_reporting_nr7_summary(request, instance_uuid):
             "validation": validation,
             "preview_payload": preview["preview_payload"],
             "preview_error": preview["preview_error"],
+            "map_layers": [
+                {
+                    "layer_code": layer.layer_code,
+                    "title": layer.title or layer.name,
+                    "caption": layer.description,
+                    "provenance": {
+                        "source_type": layer.source_type,
+                        "data_ref": layer.data_ref,
+                        "attribution": layer.attribution,
+                        "license": layer.license,
+                    },
+                    "export_ready": bool(layer.export_approved),
+                }
+                for layer in map_layers
+            ],
             "links": links,
         }
     )
@@ -990,6 +1076,68 @@ def api_indicator_detail(request, indicator_uuid):
         IndicatorMethodProfile.objects.filter(indicator=indicator, is_active=True)
         .order_by("method_type", "implementation_key", "uuid")
     )
+    input_requirement = (
+        IndicatorInputRequirement.objects.filter(indicator=indicator)
+        .prefetch_related("required_map_layers", "required_map_sources")
+        .first()
+    )
+    required_layers = list(input_requirement.required_map_layers.all().order_by("layer_code", "id")) if input_requirement else []
+    required_sources = list(input_requirement.required_map_sources.all().order_by("code", "id")) if input_requirement else []
+    available_layers = filter_spatial_layers_for_user(
+        SpatialLayer.objects.filter(id__in=[row.id for row in required_layers]),
+        request.user,
+    )
+    available_layer_ids = set(available_layers.values_list("id", flat=True))
+
+    layer_requirements = []
+    for row in required_layers:
+        is_available = row.id in available_layer_ids
+        latest_run = row.latest_ingestion_run
+        layer_requirements.append(
+            {
+                "layer_code": row.layer_code,
+                "title": row.title or row.name,
+                "available": is_available,
+                "sensitivity": row.sensitivity,
+                "consent_required": row.consent_required,
+                "last_ingestion_status": latest_run.status if latest_run else None,
+                "last_ingestion_rows": latest_run.rows_ingested if latest_run else None,
+                "last_ingestion_at": latest_run.finished_at.isoformat() if latest_run and latest_run.finished_at else None,
+            }
+        )
+
+    source_requirements = []
+    for row in required_sources:
+        source_requirements.append(
+            {
+                "code": row.code,
+                "title": row.title,
+                "status": row.last_status,
+                "last_sync_at": row.last_sync_at.isoformat() if row.last_sync_at else None,
+                "last_feature_count": row.last_feature_count,
+                "requires_token": row.requires_token,
+                "enabled_by_default": row.enabled_by_default,
+            }
+        )
+
+    readiness_items = [
+        *(item.get("available", False) for item in layer_requirements),
+        *(
+            item.get("status") in {"ready", "skipped"} and item.get("last_feature_count", 0) >= 0
+            for item in source_requirements
+        ),
+    ]
+    spatial_readiness = {
+        "overall_ready": bool(readiness_items) and all(readiness_items),
+        "layer_requirements": layer_requirements,
+        "source_requirements": source_requirements,
+        "disaggregation_expectations_json": (
+            input_requirement.disaggregation_expectations_json if input_requirement else {}
+        ),
+        "cadence": input_requirement.cadence if input_requirement else "",
+        "notes": input_requirement.notes if input_requirement else "",
+        "last_checked_at": input_requirement.last_checked_at.isoformat() if input_requirement and input_requirement.last_checked_at else None,
+    }
 
     return Response(
         {
@@ -1039,6 +1187,7 @@ def api_indicator_detail(request, indicator_uuid):
                 }
                 for profile in method_profiles
             ],
+            "spatial_readiness": spatial_readiness,
         }
     )
 
@@ -1087,7 +1236,12 @@ def api_indicator_series_summary(request, indicator_uuid):
     geography = (request.GET.get("geography") or "").strip().lower()
 
     series_qs = indicator_data_series_for_user(request.user).filter(indicator=indicator)
-    points_qs = indicator_data_points_for_user(request.user).filter(series__in=series_qs).order_by("year", "id")
+    points_qs = (
+        indicator_data_points_for_user(request.user)
+        .filter(series__in=series_qs)
+        .select_related("spatial_unit", "spatial_layer", "series")
+        .order_by("year", "id")
+    )
 
     grouped = defaultdict(list)
     for point in points_qs:
@@ -1113,6 +1267,25 @@ def api_indicator_series_summary(request, indicator_uuid):
                         "value_numeric": float(item.value_numeric) if item.value_numeric is not None else None,
                         "value_text": item.value_text,
                         "disaggregation": item.disaggregation,
+                        "spatial_resolution": item.spatial_resolution or item.series.spatial_resolution,
+                        "spatial_unit": (
+                            {
+                                "uuid": str(item.spatial_unit.uuid),
+                                "unit_code": item.spatial_unit.unit_code,
+                                "name": item.spatial_unit.name,
+                            }
+                            if item.spatial_unit_id
+                            else None
+                        ),
+                        "spatial_layer": (
+                            {
+                                "uuid": str(item.spatial_layer.uuid),
+                                "layer_code": item.spatial_layer.layer_code,
+                                "title": item.spatial_layer.title or item.spatial_layer.name,
+                            }
+                            if item.spatial_layer_id
+                            else None
+                        ),
                     }
                     for item in points
                 ],

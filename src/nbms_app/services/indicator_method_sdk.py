@@ -13,6 +13,7 @@ from nbms_app.models import (
     BinaryIndicatorResponse,
     IndicatorDataPoint,
     IndicatorFrameworkIndicatorLink,
+    IndicatorInputRequirement,
     IndicatorMethodReadiness,
     IndicatorMethodRun,
     IndicatorMethodRunStatus,
@@ -39,7 +40,28 @@ def _latest_input_stamp(profile):
             ).get("value")
         )
     if profile.method_type == IndicatorMethodType.SPATIAL_OVERLAY:
-        return SpatialFeature.objects.filter(indicator=indicator).aggregate(value=Max("updated_at")).get("value")
+        requirement = (
+            IndicatorInputRequirement.objects.filter(indicator=indicator)
+            .prefetch_related("required_map_layers", "required_map_sources")
+            .first()
+        )
+        layer_ids = []
+        if requirement:
+            layer_ids = list(requirement.required_map_layers.values_list("id", flat=True))
+        if not layer_ids:
+            layer_ids = list(
+                SpatialFeature.objects.filter(indicator=indicator).values_list("layer_id", flat=True).distinct()
+            )
+        feature_stamp = None
+        if layer_ids:
+            feature_stamp = (
+                SpatialFeature.objects.filter(layer_id__in=layer_ids).aggregate(value=Max("updated_at")).get("value")
+            )
+        if requirement:
+            source_stamp = requirement.required_map_sources.aggregate(value=Max("last_sync_at")).get("value")
+            if source_stamp and (feature_stamp is None or source_stamp > feature_stamp):
+                return source_stamp
+        return feature_stamp
     return indicator.updated_at
 
 

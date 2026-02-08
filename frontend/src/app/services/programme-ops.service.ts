@@ -26,4 +26,8 @@ export class ProgrammeOpsService {
   rerun(runUuid: string) {
     return this.api.post<ProgrammeRun>(`programmes/runs/${runUuid}`, {});
   }
+
+  runReport(runUuid: string) {
+    return this.api.get<any>(`programmes/runs/${runUuid}/report`);
+  }
 }

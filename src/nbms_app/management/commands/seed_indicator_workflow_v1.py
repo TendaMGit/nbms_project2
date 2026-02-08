@@ -21,6 +21,7 @@ from nbms_app.models import (
     IndicatorDatasetLink,
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
+    IndicatorInputRequirement,
     IndicatorMethodologyVersionLink,
     IndicatorValueType,
     LifecycleStatus,
@@ -37,6 +38,9 @@ from nbms_app.models import (
     QaStatus,
     RelationshipType,
     SensitivityLevel,
+    SpatialLayer,
+    SpatialSource,
+    SpatialUnit,
     UpdateFrequency,
 )
 
@@ -262,6 +266,9 @@ class Command(BaseCommand):
                 "source_ref": "indicator_workflow_v1",
             },
         )
+        province_units = SpatialUnit.objects.filter(unit_type__code="PROVINCE", is_active=True).order_by("unit_code")
+        if province_units.exists():
+            programme.coverage_units.set(province_units)
 
         created_indicators = 0
         for idx, item in enumerate(INDICATOR_PACK, start=1):
@@ -386,8 +393,9 @@ class Command(BaseCommand):
             )
 
             dataset = Dataset.objects.update_or_create(
-                title=f"Dataset for {item['title']}",
+                dataset_code=f"DS-{item['code']}",
                 defaults={
+                    "title": f"Dataset for {item['title']}",
                     "description": "Core dataset supporting annual indicator computation.",
                     "methodology": "Compiled from monitoring programme observations and QA checks.",
                     "source_url": "https://www.sanbi.org",
@@ -479,6 +487,7 @@ class Command(BaseCommand):
             series, _ = IndicatorDataSeries.objects.update_or_create(
                 indicator=indicator,
                 defaults={
+                    "series_code": f"SER-{item['code']}",
                     "title": item["title"],
                     "unit": "index",
                     "value_type": IndicatorValueType.NUMERIC,
@@ -510,8 +519,9 @@ class Command(BaseCommand):
                 )
 
             evidence, _ = Evidence.objects.update_or_create(
-                title=f"Evidence for {item['title']}",
+                evidence_code=f"EV-{item['code']}",
                 defaults={
+                    "title": f"Evidence for {item['title']}",
                     "description": "Supporting evidence package for seeded indicator.",
                     "evidence_type": "report",
                     "source_url": "https://www.sanbi.org",
@@ -526,6 +536,36 @@ class Command(BaseCommand):
                 evidence=evidence,
                 defaults={"note": "Required evidence for publish workflow."},
             )
+
+            requirement, _ = IndicatorInputRequirement.objects.update_or_create(
+                indicator=indicator,
+                defaults={
+                    "cadence": UpdateFrequency.ANNUAL,
+                    "disaggregation_expectations_json": {
+                        "province": "recommended",
+                        "realm": "recommended",
+                        "year": "required",
+                    },
+                    "notes": "Seeded readiness linkage for spatial and tabular requirements.",
+                },
+            )
+
+            layer_codes = []
+            source_codes = []
+            if indicator.code == "NBMS-GBF-PA-COVERAGE":
+                layer_codes = ["ZA_PROVINCES_NE", "ZA_PROTECTED_AREAS_NE", "ZA_PROVINCES", "ZA_PROTECTED_AREAS"]
+                source_codes = ["NE_ADMIN1_ZA", "NE_PROTECTED_LANDS_ZA"]
+            elif indicator.code == "NBMS-GBF-ECOSYSTEM-THREAT":
+                layer_codes = ["ZA_ECOSYSTEM_PROXY_NE", "ZA_ECOSYSTEM_THREAT_STATUS"]
+                source_codes = ["NE_GEOREGIONS_ZA"]
+            requirement.required_map_layers.set(
+                SpatialLayer.objects.filter(layer_code__in=layer_codes).order_by("layer_code", "id")
+            )
+            requirement.required_map_sources.set(
+                SpatialSource.objects.filter(code__in=source_codes).order_by("code", "id")
+            )
+            requirement.last_checked_at = None
+            requirement.save(update_fields=["last_checked_at", "updated_at"])
 
         self.stdout.write(
             self.style.SUCCESS(

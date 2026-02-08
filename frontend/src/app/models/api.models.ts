@@ -71,6 +71,32 @@ export interface IndicatorDetailResponse {
     readiness_notes: string;
     last_success_at: string | null;
   }>;
+  spatial_readiness?: {
+    overall_ready: boolean;
+    layer_requirements: Array<{
+      layer_code: string;
+      title: string;
+      available: boolean;
+      sensitivity: string;
+      consent_required: boolean;
+      last_ingestion_status: string | null;
+      last_ingestion_rows: number | null;
+      last_ingestion_at: string | null;
+    }>;
+    source_requirements: Array<{
+      code: string;
+      title: string;
+      status: string;
+      last_sync_at: string | null;
+      last_feature_count: number;
+      requires_token: boolean;
+      enabled_by_default: boolean;
+    }>;
+    disaggregation_expectations_json: Record<string, unknown>;
+    cadence: string;
+    notes: string;
+    last_checked_at: string | null;
+  };
 }
 
 export interface IndicatorMethodProfileResponse {
@@ -122,30 +148,68 @@ export interface IndicatorSeriesResponse {
       value_numeric: number | null;
       value_text: string | null;
       disaggregation: Record<string, unknown>;
+      spatial_resolution?: string;
+      spatial_unit?: { uuid: string; unit_code: string; name: string } | null;
+      spatial_layer?: { uuid: string; layer_code: string; title: string } | null;
     }>;
   }>;
 }
 
 export interface SpatialLayer {
   uuid: string;
+  layer_code: string;
   name: string;
+  title: string;
   slug: string;
   description: string;
+  data_ref: string;
+  theme: string;
   source_type: string;
   sensitivity: string;
+  consent_required: boolean;
+  export_approved: boolean;
   is_public: boolean;
+  attribution: string;
+  license: string;
+  update_frequency: string;
+  temporal_extent: Record<string, unknown>;
   default_style_json: Record<string, unknown>;
+  publish_to_geoserver?: boolean;
+  geoserver_layer_name?: string;
   indicator: { uuid: string; code: string; title: string } | null;
 }
 
 export interface FeatureCollectionPayload {
   type: 'FeatureCollection';
+  numberMatched?: number;
+  numberReturned?: number;
+  limit?: number;
+  offset?: number;
   features: Array<{
     type: 'Feature';
     id: string;
     geometry: Geometry;
     properties: Record<string, unknown>;
   }>;
+}
+
+export interface OgcCollectionList {
+  collections: Array<{
+    id: string;
+    title: string;
+    description: string;
+    itemType: string;
+  }>;
+}
+
+export interface TileJsonPayload {
+  tilejson: string;
+  name: string;
+  description: string;
+  attribution: string;
+  tiles: string[];
+  minzoom: number;
+  maxzoom: number;
 }
 
 export interface TemplatePack {
@@ -250,6 +314,26 @@ export interface ProgrammeRunStep {
   details_json: Record<string, unknown>;
 }
 
+export interface ProgrammeRunArtefact {
+  uuid: string;
+  label: string;
+  storage_path: string;
+  media_type: string;
+  checksum_sha256: string;
+  size_bytes: number;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface ProgrammeRunQaResult {
+  uuid: string;
+  code: string;
+  status: string;
+  message: string;
+  details_json: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface ProgrammeRun {
   uuid: string;
   run_type: string;
@@ -265,6 +349,9 @@ export interface ProgrammeRun {
   log_excerpt: string;
   error_message: string;
   created_at: string;
+  artefacts?: ProgrammeRunArtefact[];
+  qa_results?: ProgrammeRunQaResult[];
+  report_url?: string;
   steps: ProgrammeRunStep[];
 }
 

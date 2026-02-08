@@ -1,6 +1,7 @@
 from django.urls import path
 
 from nbms_app import api_spa
+from nbms_app import api_spatial
 
 
 urlpatterns = [
@@ -24,6 +25,11 @@ urlpatterns = [
         "programmes/runs/<uuid:run_uuid>",
         api_spa.api_programme_run_detail,
         name="api_programme_run_detail",
+    ),
+    path(
+        "programmes/runs/<uuid:run_uuid>/report",
+        api_spa.api_programme_run_report,
+        name="api_programme_run_report",
     ),
     path(
         "integrations/birdie/dashboard",
@@ -73,12 +79,27 @@ urlpatterns = [
         api_spa.api_indicator_transition,
         name="api_indicator_transition",
     ),
-    path("spatial/layers", api_spa.api_spatial_layers, name="api_spatial_layers"),
+    path("spatial/layers", api_spatial.api_spatial_layers, name="api_spatial_layers"),
+    path("spatial/layers/upload", api_spatial.api_spatial_upload_layer, name="api_spatial_upload_layer"),
     path(
         "spatial/layers/<slug:slug>/features",
-        api_spa.api_spatial_layer_features,
+        api_spatial.api_spatial_layer_features,
         name="api_spatial_layer_features",
     ),
+    path(
+        "spatial/layers/<str:layer_code>/export.geojson",
+        api_spatial.api_spatial_layer_export_geojson,
+        name="api_spatial_layer_export_geojson",
+    ),
+    path("ogc", api_spatial.api_ogc_landing, name="api_ogc_landing"),
+    path("ogc/collections", api_spatial.api_ogc_collections, name="api_ogc_collections"),
+    path(
+        "ogc/collections/<str:layer_code>/items",
+        api_spatial.api_ogc_collection_items,
+        name="api_ogc_collection_items",
+    ),
+    path("tiles/<str:layer_code>/tilejson", api_spatial.api_tiles_tilejson, name="api_tiles_tilejson"),
+    path("tiles/<str:layer_code>/<int:z>/<int:x>/<int:y>.pbf", api_spatial.api_tiles_mvt, name="api_tiles_mvt"),
     path("template-packs", api_spa.api_template_pack_list, name="api_template_pack_list"),
     path(
         "template-packs/<str:pack_code>/sections",

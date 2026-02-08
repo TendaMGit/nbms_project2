@@ -1,16 +1,23 @@
 import { AsyncPipe, KeyValuePipe, NgFor, NgIf } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, OnDestroy, ViewChild, inject } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { combineLatest, debounceTime, map, startWith, Subject, switchMap, takeUntil, tap } from 'rxjs';
-import * as maplibregl from 'maplibre-gl';
+import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { combineLatest, debounceTime, map, of, startWith, Subject, switchMap, takeUntil } from 'rxjs';
+import * as maplibregl from 'maplibre-gl';
 
 import { SpatialLayer } from '../models/api.models';
+import { HelpService } from '../services/help.service';
 import { SpatialService } from '../services/spatial.service';
+import { ApiClientService } from '../services/api-client.service';
+
+type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
 
 @Component({
   selector: 'app-map-viewer-page',
@@ -21,58 +28,141 @@ import { SpatialService } from '../services/spatial.service';
     NgFor,
     NgIf,
     ReactiveFormsModule,
+    MatButtonModule,
     MatCardModule,
-    MatCheckboxModule,
     MatFormFieldModule,
+    MatIconModule,
     MatInputModule,
-    MatSelectModule
+    MatSlideToggleModule,
+    MatTooltipModule,
+    MatSnackBarModule
   ],
   template: `
     <section class="map-layout">
-      <mat-card class="controls">
-        <mat-card-title>Layer Controls</mat-card-title>
-        <mat-card-content *ngIf="layers$ | async as layerPayload">
-          <div class="layer-row" *ngFor="let layer of layerPayload.layers">
-            <mat-checkbox [formControl]="layerControl(layer.slug)">
-              {{ layer.name }}
-            </mat-checkbox>
-          </div>
+      <aside class="sidebar">
+        <mat-card class="panel">
+          <mat-card-title>
+            Map Workspace
+            <button
+              mat-icon-button
+              class="hint"
+              [matTooltip]="helpText || 'Filter layers, inspect features, and export map-ready datasets.'"
+            >
+              <mat-icon>help_outline</mat-icon>
+            </button>
+          </mat-card-title>
+          <mat-card-content>
+            <mat-form-field appearance="outline">
+              <mat-label>Search layers</mat-label>
+              <input matInput [formControl]="layerSearch" placeholder="GBF, province, Ramsar..." />
+            </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Province filter</mat-label>
-            <input matInput [formControl]="province" placeholder="WC, EC, KZN..." />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Indicator code</mat-label>
-            <input matInput [formControl]="indicator" placeholder="NBMS-GBF-..." />
-          </mat-form-field>
-          <mat-form-field appearance="outline">
-            <mat-label>Year</mat-label>
-            <input matInput type="number" [formControl]="year" />
-          </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Property filter key</mat-label>
+              <input matInput [formControl]="propertyKey" placeholder="e.g. province_code" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Property filter value</mat-label>
+              <input matInput [formControl]="propertyValue" placeholder="e.g. WC" />
+            </mat-form-field>
 
-          <section class="legend">
-            <h3>Legend</h3>
-            <div class="legend-row" *ngFor="let layer of layerPayload.layers">
-              <span
-                class="legend-swatch"
-                [style.background]="layer.default_style_json['fillColor'] || '#2f855a'"
-              ></span>
-              <span>{{ layer.name }}</span>
-            </div>
-          </section>
+            <mat-form-field appearance="outline">
+              <mat-label>Province shortcut</mat-label>
+              <input matInput [formControl]="provinceFilter" placeholder="WC, EC, KZN..." />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Year</mat-label>
+              <input matInput [formControl]="yearFilter" type="number" />
+            </mat-form-field>
 
-          <section class="feature-info" *ngIf="selectedFeature">
-            <h3>Selected Feature</h3>
-            <div class="feature-row" *ngFor="let entry of selectedFeature | keyvalue">
-              <strong>{{ entry.key }}:</strong> {{ entry.value }}
-            </div>
-          </section>
-        </mat-card-content>
-      </mat-card>
+            <section class="aoi-block">
+              <div class="aoi-title">Area of Interest</div>
+              <button mat-stroked-button type="button" (click)="useViewportAsAoi()">Use current viewport</button>
+              <button mat-button type="button" (click)="clearAoi()">Clear AOI</button>
+              <div class="aoi-value" *ngIf="aoiBbox">{{ aoiBbox }}</div>
+            </section>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="panel layer-catalog">
+          <mat-card-title>Layer Catalog</mat-card-title>
+          <mat-card-content *ngIf="layers$ | async as layerPayload">
+            <ng-container *ngFor="let group of groupedLayers(layerPayload.layers) | keyvalue">
+              <h3>{{ group.key }}</h3>
+              <section class="layer-row" *ngFor="let layer of group.value">
+                <div class="row-head">
+                  <mat-slide-toggle
+                    [checked]="layerState(layer).enabled"
+                    (change)="toggleLayer(layer, $event.checked)"
+                  >
+                    {{ layer.title || layer.name }}
+                  </mat-slide-toggle>
+                  <button
+                    mat-icon-button
+                    [matTooltip]="
+                      (layer.description || 'Layer metadata') +
+                      (layer.attribution ? ' | Attribution: ' + layer.attribution : '') +
+                      (layer.license ? ' | License: ' + layer.license : '')
+                    "
+                    (click)="selectLayer(layer)"
+                    type="button"
+                  >
+                    <mat-icon>info</mat-icon>
+                  </button>
+                </div>
+                <div class="row-sub">
+                  <span>{{ layer.layer_code }}</span>
+                  <span>{{ layer.source_type }}</span>
+                  <span *ngIf="layer.license">licence: {{ layer.license }}</span>
+                </div>
+                <label class="opacity-row">
+                  Opacity {{ displayOpacity(layerState(layer).opacity) }}
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    [value]="layerState(layer).opacity"
+                    (input)="setLayerOpacity(layer, +$any($event.target).value)"
+                  />
+                </label>
+                <mat-slide-toggle
+                  [checked]="layerState(layer).wmsEnabled"
+                  (change)="toggleWms(layer, $event.checked)"
+                  matTooltip="Render using GeoServer WMS for this layer"
+                >
+                  GeoServer WMS
+                </mat-slide-toggle>
+                <div class="layer-actions">
+                  <button mat-stroked-button type="button" (click)="exportLayer(layer)">
+                    <mat-icon>download</mat-icon>
+                    GeoJSON
+                  </button>
+                  <button mat-button type="button" (click)="addToReportProduct(layer)">
+                    <mat-icon>post_add</mat-icon>
+                    Add to report
+                  </button>
+                </div>
+              </section>
+            </ng-container>
+          </mat-card-content>
+        </mat-card>
+      </aside>
 
       <section class="map-pane">
         <div #mapContainer class="map-canvas"></div>
+        <article class="inspect-panel" *ngIf="selectedFeature">
+          <header>
+            <h3>Feature Inspector</h3>
+            <button mat-icon-button type="button" (click)="selectedFeature = null"><mat-icon>close</mat-icon></button>
+          </header>
+          <div class="feature-grid">
+            <div class="feature-row" *ngFor="let item of selectedFeature | keyvalue">
+              <strong>{{ item.key }}</strong>
+              <span>{{ item.value }}</span>
+            </div>
+          </div>
+        </article>
       </section>
     </section>
   `,
@@ -80,59 +170,111 @@ import { SpatialService } from '../services/spatial.service';
     `
       .map-layout {
         display: grid;
-        grid-template-columns: 320px 1fr;
+        grid-template-columns: minmax(320px, 420px) 1fr;
         gap: 1rem;
+        align-items: start;
       }
-
-      .controls {
-        max-height: 78vh;
+      .sidebar {
+        display: grid;
+        gap: 1rem;
+        max-height: 82vh;
         overflow: auto;
+        padding-right: 0.2rem;
       }
-
+      .panel {
+        border-radius: 14px;
+      }
+      .hint {
+        margin-left: 0.4rem;
+      }
+      .layer-catalog .layer-row {
+        border: 1px solid rgba(27, 67, 50, 0.2);
+        border-radius: 10px;
+        padding: 0.6rem;
+        margin-bottom: 0.7rem;
+        background: rgba(255, 255, 255, 0.65);
+      }
+      .layer-row .row-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .layer-row .row-sub {
+        display: flex;
+        gap: 0.7rem;
+        font-size: 0.78rem;
+        color: #466;
+      }
+      .layer-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      .opacity-row {
+        display: grid;
+        gap: 0.2rem;
+        font-size: 0.82rem;
+        color: #264;
+      }
+      .aoi-block {
+        display: grid;
+        gap: 0.4rem;
+      }
+      .aoi-title {
+        font-size: 0.85rem;
+        font-weight: 600;
+      }
+      .aoi-value {
+        font-family: monospace;
+        font-size: 0.78rem;
+        color: #244;
+      }
       .map-pane {
+        position: relative;
+        min-height: 82vh;
+        border: 1px solid rgba(27, 67, 50, 0.2);
         border-radius: 14px;
         overflow: hidden;
-        border: 1px solid rgba(27, 67, 50, 0.2);
       }
-
       .map-canvas {
-        min-height: 78vh;
+        height: 82vh;
       }
-
-      .layer-row {
-        margin-bottom: 0.4rem;
+      .inspect-panel {
+        position: absolute;
+        right: 0.8rem;
+        top: 0.8rem;
+        width: min(360px, 45%);
+        max-height: 72vh;
+        overflow: auto;
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(27, 67, 50, 0.2);
+        border-radius: 12px;
+        padding: 0.6rem;
       }
-
-      .legend,
-      .feature-info {
-        margin-top: 1rem;
-      }
-
-      .legend-row {
+      .inspect-panel header {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 0.3rem;
-        font-size: 0.9rem;
+        justify-content: space-between;
       }
-
-      .legend-swatch {
-        width: 14px;
-        height: 14px;
-        border-radius: 3px;
-        border: 1px solid rgba(0, 0, 0, 0.18);
+      .feature-grid {
+        display: grid;
+        gap: 0.45rem;
       }
-
       .feature-row {
-        margin-bottom: 0.35rem;
+        display: grid;
+        gap: 0.1rem;
+        border-bottom: 1px dashed rgba(20, 50, 40, 0.2);
+        padding-bottom: 0.35rem;
       }
-
-      @media (max-width: 980px) {
+      @media (max-width: 1080px) {
         .map-layout {
           grid-template-columns: 1fr;
         }
+        .sidebar {
+          max-height: unset;
+        }
         .map-canvas {
-          min-height: 60vh;
+          height: 62vh;
         }
       }
     `
@@ -140,25 +282,29 @@ import { SpatialService } from '../services/spatial.service';
 })
 export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
   private readonly spatialService = inject(SpatialService);
+  private readonly helpService = inject(HelpService);
+  private readonly api = inject(ApiClientService);
+  private readonly snackBar = inject(MatSnackBar);
 
   @ViewChild('mapContainer', { static: true }) mapContainer!: ElementRef<HTMLDivElement>;
+
+  readonly layerSearch = new FormControl<string>('', { nonNullable: true });
+  readonly propertyKey = new FormControl<string>('', { nonNullable: true });
+  readonly propertyValue = new FormControl<string>('', { nonNullable: true });
+  readonly provinceFilter = new FormControl<string>('', { nonNullable: true });
+  readonly yearFilter = new FormControl<number | null>(null);
+
+  readonly layers$ = this.spatialService.layers();
+  helpText = '';
+
+  selectedFeature: Record<string, unknown> | null = null;
   private map?: maplibregl.Map;
   private readonly destroy$ = new Subject<void>();
-  private readonly layerControls = new Map<string, FormControl<boolean>>();
-  private activeLayerIds: string[] = [];
-  selectedFeature: Record<string, unknown> | null = null;
+  private readonly layerStateMap = new Map<string, LayerState>();
+  private currentLayers: SpatialLayer[] = [];
+  aoiBbox: string | null = null;
 
-  readonly province = new FormControl<string>('');
-  readonly indicator = new FormControl<string>('');
-  readonly year = new FormControl<number | null>(null);
-  readonly layers$ = this.spatialService.layers();
-
-  layerControl(slug: string): FormControl<boolean> {
-    if (!this.layerControls.has(slug)) {
-      this.layerControls.set(slug, new FormControl<boolean>(true, { nonNullable: true }));
-    }
-    return this.layerControls.get(slug)!;
-  }
+  displayOpacity = (value: number): string => `${Math.round(value * 100)}%`;
 
   ngAfterViewInit(): void {
     this.map = new maplibregl.Map({
@@ -176,121 +322,410 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
         layers: [{ id: 'osm', type: 'raster', source: 'osm' }]
       },
       center: [24.0, -29.0],
-      zoom: 4.6
+      zoom: 4.4
     });
 
-    this.map.on('load', () => {
-      this.layers$
-        .pipe(
-          tap((payload) => {
-            payload.layers.forEach((layer) => this.layerControl(layer.slug));
-          }),
-          switchMap((payload) =>
-            combineLatest([
-              ...payload.layers.map((layer) =>
-                this.layerControl(layer.slug).valueChanges.pipe(startWith(this.layerControl(layer.slug).value))
-              ),
-              this.province.valueChanges.pipe(startWith(this.province.value)),
-              this.indicator.valueChanges.pipe(startWith(this.indicator.value)),
-              this.year.valueChanges.pipe(startWith(this.year.value))
-            ]).pipe(
-              debounceTime(250),
-              switchMap((state) => {
-                const visibility = state.slice(0, payload.layers.length) as boolean[];
-                const province = (state[payload.layers.length] as string) ?? '';
-                const indicator = (state[payload.layers.length + 1] as string) ?? '';
-                const year = state[payload.layers.length + 2] as number | null;
-
-                return combineLatest(
-                  payload.layers.map((layer, index) => {
-                    if (!visibility[index]) {
-                      return [layer, null] as const;
-                    }
-                    const bounds = this.map!.getBounds();
-                    const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`;
-                    return this.spatialService
-                      .features(layer.slug, {
-                        bbox,
-                        province: province || undefined,
-                        indicator: indicator || undefined,
-                        year: year ?? undefined,
-                        limit: 1500
-                      })
-                      .pipe(map((fc) => [layer, fc] as const));
-                  })
-                );
-              })
-            )
-          ),
-          takeUntil(this.destroy$)
-        )
-        .subscribe((entries) => this.renderLayers(entries as Array<readonly [SpatialLayer, any]>));
-
-      const mapInstance = this.map;
-      if (!mapInstance) {
-        return;
-      }
-      mapInstance.on('click', (event) => {
-        if (!this.map || !this.activeLayerIds.length) {
-          this.selectedFeature = null;
-          return;
-        }
-        const features = this.map.queryRenderedFeatures(event.point, { layers: this.activeLayerIds });
-        if (!features.length) {
-          this.selectedFeature = null;
-          return;
-        }
-        this.selectedFeature = { ...(features[0].properties ?? {}) };
+    this.helpService
+      .getSections()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((payload) => {
+        this.helpText = payload.sections?.['section_iv']?.['summary'] || '';
       });
+
+    const map = this.map;
+    if (!map) {
+      return;
+    }
+    map.on('load', () => {
+      this.layers$
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((payload) => {
+          this.currentLayers = payload.layers;
+          for (const layer of payload.layers) {
+            if (!this.layerStateMap.has(layer.layer_code)) {
+              this.layerStateMap.set(layer.layer_code, { enabled: true, opacity: 0.55, wmsEnabled: false });
+            }
+          }
+          this.syncMapLayers();
+        });
+
+      combineLatest([
+        this.layerSearch.valueChanges.pipe(startWith(this.layerSearch.value)),
+        this.propertyKey.valueChanges.pipe(startWith(this.propertyKey.value)),
+        this.propertyValue.valueChanges.pipe(startWith(this.propertyValue.value)),
+        this.provinceFilter.valueChanges.pipe(startWith(this.provinceFilter.value)),
+        this.yearFilter.valueChanges.pipe(startWith(this.yearFilter.value))
+      ])
+        .pipe(debounceTime(350), takeUntil(this.destroy$))
+        .subscribe(() => this.syncMapLayers(true));
+
+      map.on('moveend', () => this.syncMapLayers(true));
+      map.on('click', (event) => this.inspectFeature(event.point.x, event.point.y));
     });
   }
 
-  private renderLayers(entries: Array<readonly [SpatialLayer, any]>) {
+  layerState(layer: SpatialLayer): LayerState {
+    const current = this.layerStateMap.get(layer.layer_code);
+    if (current) {
+      return current;
+    }
+    const fallback: LayerState = { enabled: true, opacity: 0.55, wmsEnabled: false };
+    this.layerStateMap.set(layer.layer_code, fallback);
+    return fallback;
+  }
+
+  toggleLayer(layer: SpatialLayer, enabled: boolean): void {
+    this.layerStateMap.set(layer.layer_code, { ...this.layerState(layer), enabled });
+    this.syncMapLayers();
+  }
+
+  setLayerOpacity(layer: SpatialLayer, opacity: number): void {
+    this.layerStateMap.set(layer.layer_code, { ...this.layerState(layer), opacity: Number(opacity) || 0.4 });
+    this.applyLayerOpacity(layer);
+  }
+
+  toggleWms(layer: SpatialLayer, enabled: boolean): void {
+    this.layerStateMap.set(layer.layer_code, { ...this.layerState(layer), wmsEnabled: enabled });
+    this.syncMapLayers(true);
+  }
+
+  selectLayer(layer: SpatialLayer): void {
+    this.snackBar.open(
+      `${layer.title || layer.name} | ${layer.layer_code} | ${layer.sensitivity}`,
+      'Close',
+      { duration: 3000 }
+    );
+  }
+
+  useViewportAsAoi(): void {
     if (!this.map) {
       return;
     }
-    this.activeLayerIds = [];
-    for (const [layer, featureCollection] of entries) {
-      const sourceId = `layer-${layer.slug}`;
-      const fillId = `fill-${layer.slug}`;
-      const lineId = `line-${layer.slug}`;
+    const b = this.map.getBounds();
+    this.aoiBbox = `${b.getWest().toFixed(6)},${b.getSouth().toFixed(6)},${b.getEast().toFixed(6)},${b.getNorth().toFixed(6)}`;
+    this.syncMapLayers(true);
+  }
 
-      if (this.map.getLayer(fillId)) {
-        this.map.removeLayer(fillId);
-      }
-      if (this.map.getLayer(lineId)) {
-        this.map.removeLayer(lineId);
-      }
-      if (this.map.getSource(sourceId)) {
-        this.map.removeSource(sourceId);
-      }
+  clearAoi(): void {
+    this.aoiBbox = null;
+    this.syncMapLayers(true);
+  }
 
-      if (!featureCollection) {
+  groupedLayers(layers: SpatialLayer[]) {
+    const needle = (this.layerSearch.value || '').trim().toLowerCase();
+    const grouped: Record<string, SpatialLayer[]> = {};
+    for (const layer of layers) {
+      const haystack = `${layer.layer_code} ${layer.title || layer.name} ${layer.theme} ${layer.description}`.toLowerCase();
+      if (needle && !haystack.includes(needle)) {
         continue;
       }
-      this.map.addSource(sourceId, {
-        type: 'geojson',
-        data: featureCollection
+      const groupKey = (layer.theme || 'Other').trim() || 'Other';
+      grouped[groupKey] = grouped[groupKey] || [];
+      grouped[groupKey].push(layer);
+    }
+    for (const key of Object.keys(grouped)) {
+      grouped[key] = grouped[key].sort((a, b) => (a.title || a.name).localeCompare(b.title || b.name));
+    }
+    return grouped;
+  }
+
+  exportLayer(layer: SpatialLayer): void {
+    const params = this.queryParams();
+    this.spatialService
+      .exportGeoJson(layer.layer_code, { ...params, limit: 20000 })
+      .pipe(
+        switchMap((payload) => {
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/geo+json' });
+          const url = URL.createObjectURL(blob);
+          const anchor = document.createElement('a');
+          anchor.href = url;
+          anchor.download = `${layer.layer_code}.geojson`;
+          anchor.click();
+          URL.revokeObjectURL(url);
+          return of(payload);
+        }),
+        takeUntil(this.destroy$)
+      )
+      .subscribe({
+        next: (payload) => {
+          this.snackBar.open(`Exported ${payload.numberReturned ?? payload.features.length} features`, 'Close', {
+            duration: 3000
+          });
+        },
+        error: (error) => {
+          this.snackBar.open(error?.error?.detail || 'GeoJSON export failed.', 'Close', { duration: 4500 });
+        }
       });
+  }
+
+  addToReportProduct(layer: SpatialLayer): void {
+    this.api
+      .get(`report-products/nba_v1/preview`, { map_layer_code: layer.layer_code })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (payload: any) => {
+          this.snackBar.open(`Added to NBA preview. Run ${payload?.run_uuid ?? ''}`, 'Close', { duration: 3500 });
+        },
+        error: (error) => {
+          this.snackBar.open(error?.error?.detail || 'Could not add layer to report product.', 'Close', {
+            duration: 4500
+          });
+        }
+      });
+  }
+
+  private inspectFeature(x: number, y: number): void {
+    if (!this.map) {
+      return;
+    }
+    const ids = this.activeLayerIds();
+    if (!ids.length) {
+      this.selectedFeature = null;
+      return;
+    }
+    const features = this.map.queryRenderedFeatures([x, y], { layers: ids });
+    if (!features.length) {
+      this.selectedFeature = null;
+      return;
+    }
+    this.selectedFeature = { ...(features[0].properties ?? {}) };
+  }
+
+  private queryParams() {
+    const filters: string[] = [];
+    const key = this.propertyKey.value.trim();
+    const value = this.propertyValue.value.trim();
+    if (key && value) {
+      filters.push(`${key}=${value}`);
+    }
+    const province = this.provinceFilter.value.trim();
+    if (province) {
+      filters.push(`province_code=${province}`);
+    }
+    const year = this.yearFilter.value;
+    if (typeof year === 'number') {
+      filters.push(`year=${year}`);
+    }
+    return {
+      bbox: this.aoiBbox ?? this.currentMapBbox(),
+      filter: filters.join(',') || undefined
+    };
+  }
+
+  private currentMapBbox(): string | undefined {
+    if (!this.map) {
+      return undefined;
+    }
+    const b = this.map.getBounds();
+    return `${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`;
+  }
+
+  private activeLayerIds(): string[] {
+    const ids: string[] = [];
+    for (const layer of this.currentLayers) {
+      const state = this.layerState(layer);
+      if (!state.enabled) {
+        continue;
+      }
+      ids.push(`lyr-fill-${layer.layer_code}`, `lyr-line-${layer.layer_code}`, `lyr-circle-${layer.layer_code}`);
+    }
+    return ids.filter((id) => !!this.map?.getLayer(id));
+  }
+
+  private syncMapLayers(forceReload = false): void {
+    if (!this.map || !this.currentLayers.length) {
+      return;
+    }
+    for (const layer of this.currentLayers) {
+      const state = this.layerState(layer);
+      if (!state.enabled) {
+        this.removeLayer(layer);
+        continue;
+      }
+      if (state.wmsEnabled) {
+        this.addOrRefreshWmsLayer(layer, forceReload);
+        this.applyLayerOpacity(layer);
+        continue;
+      }
+      this.addOrRefreshLayer(layer, forceReload);
+      this.applyLayerOpacity(layer);
+    }
+  }
+
+  private addOrRefreshLayer(layer: SpatialLayer, forceReload: boolean): void {
+    if (!this.map) {
+      return;
+    }
+    const sourceId = `src-${layer.layer_code}`;
+    const fillId = `lyr-fill-${layer.layer_code}`;
+    const lineId = `lyr-line-${layer.layer_code}`;
+    const circleId = `lyr-circle-${layer.layer_code}`;
+    this.removeWmsLayer(layer);
+    if (forceReload) {
+      this.removeLayer(layer);
+    }
+    if (!this.map.getSource(sourceId)) {
+      const params = this.queryParams();
+      const query = new URLSearchParams();
+      if (params.bbox) {
+        query.set('bbox', params.bbox);
+      }
+      if (params.filter) {
+        query.set('filter', params.filter);
+      }
+      const tileUrl = `/api/tiles/${layer.layer_code}/{z}/{x}/{y}.pbf${query.toString() ? `?${query.toString()}` : ''}`;
+      this.map.addSource(sourceId, {
+        type: 'vector',
+        tiles: [tileUrl],
+        minzoom: 0,
+        maxzoom: 14
+      });
+    }
+    const sourceLayer = layer.layer_code.toLowerCase();
+    if (!this.map.getLayer(fillId)) {
       this.map.addLayer({
         id: fillId,
         type: 'fill',
         source: sourceId,
+        'source-layer': sourceLayer,
         paint: {
-          'fill-color': '#2f855a',
-          'fill-opacity': 0.3
+          'fill-color': (layer.default_style_json['fillColor'] as string) || '#2f855a',
+          'fill-opacity': this.layerState(layer).opacity
         }
       });
+    }
+    if (!this.map.getLayer(lineId)) {
       this.map.addLayer({
         id: lineId,
         type: 'line',
         source: sourceId,
+        'source-layer': sourceLayer,
         paint: {
-          'line-color': '#1b4332',
-          'line-width': 1.2
+          'line-color': (layer.default_style_json['lineColor'] as string) || '#1b4332',
+          'line-width': 1.1
         }
       });
-      this.activeLayerIds.push(fillId);
+    }
+    if (!this.map.getLayer(circleId)) {
+      this.map.addLayer({
+        id: circleId,
+        type: 'circle',
+        source: sourceId,
+        'source-layer': sourceLayer,
+        paint: {
+          'circle-color': (layer.default_style_json['circleColor'] as string) || '#14532d',
+          'circle-opacity': this.layerState(layer).opacity,
+          'circle-radius': Number(layer.default_style_json['circleRadius'] ?? 4)
+        }
+      });
+    }
+  }
+
+  private applyLayerOpacity(layer: SpatialLayer): void {
+    if (!this.map) {
+      return;
+    }
+    const opacity = this.layerState(layer).opacity;
+    const fillId = `lyr-fill-${layer.layer_code}`;
+    const circleId = `lyr-circle-${layer.layer_code}`;
+    const wmsLayerId = `lyr-wms-${layer.layer_code}`;
+    if (this.map.getLayer(fillId)) {
+      this.map.setPaintProperty(fillId, 'fill-opacity', opacity);
+    }
+    if (this.map.getLayer(circleId)) {
+      this.map.setPaintProperty(circleId, 'circle-opacity', opacity);
+    }
+    if (this.map.getLayer(wmsLayerId)) {
+      this.map.setPaintProperty(wmsLayerId, 'raster-opacity', opacity);
+    }
+  }
+
+  private removeVectorLayer(layer: SpatialLayer): void {
+    if (!this.map) {
+      return;
+    }
+    const sourceId = `src-${layer.layer_code}`;
+    const fillId = `lyr-fill-${layer.layer_code}`;
+    const lineId = `lyr-line-${layer.layer_code}`;
+    const circleId = `lyr-circle-${layer.layer_code}`;
+    if (this.map.getLayer(fillId)) {
+      this.map.removeLayer(fillId);
+    }
+    if (this.map.getLayer(lineId)) {
+      this.map.removeLayer(lineId);
+    }
+    if (this.map.getLayer(circleId)) {
+      this.map.removeLayer(circleId);
+    }
+    if (this.map.getSource(sourceId)) {
+      this.map.removeSource(sourceId);
+    }
+  }
+
+  private removeLayer(layer: SpatialLayer): void {
+    this.removeVectorLayer(layer);
+    this.removeWmsLayer(layer);
+  }
+
+  private wmsTileTemplate(layer: SpatialLayer): string {
+    const workspace = 'nbms';
+    const geoserverLayer = layer.geoserver_layer_name || `nbms_gs_${layer.layer_code.toLowerCase()}`;
+    const params = new URLSearchParams({
+      service: 'WMS',
+      request: 'GetMap',
+      layers: `${workspace}:${geoserverLayer}`,
+      styles: '',
+      format: 'image/png',
+      transparent: 'true',
+      version: '1.1.1',
+      width: '256',
+      height: '256',
+      srs: 'EPSG:3857',
+      bbox: '{bbox-epsg-3857}'
+    });
+    return `/geoserver/${workspace}/wms?${params.toString()}`;
+  }
+
+  private addOrRefreshWmsLayer(layer: SpatialLayer, forceReload: boolean): void {
+    if (!this.map) {
+      return;
+    }
+    const sourceId = `src-wms-${layer.layer_code}`;
+    const layerId = `lyr-wms-${layer.layer_code}`;
+    if (forceReload) {
+      this.removeWmsLayer(layer);
+    }
+    this.removeVectorLayer(layer);
+    if (!this.map.getSource(sourceId)) {
+      this.map.addSource(sourceId, {
+        type: 'raster',
+        tiles: [this.wmsTileTemplate(layer)],
+        tileSize: 256
+      });
+    }
+    if (!this.map.getLayer(layerId)) {
+      this.map.addLayer({
+        id: layerId,
+        type: 'raster',
+        source: sourceId,
+        paint: {
+          'raster-opacity': this.layerState(layer).opacity
+        }
+      });
+    }
+  }
+
+  private removeWmsLayer(layer: SpatialLayer): void {
+    if (!this.map) {
+      return;
+    }
+    const sourceId = `src-wms-${layer.layer_code}`;
+    const layerId = `lyr-wms-${layer.layer_code}`;
+    if (this.map.getLayer(layerId)) {
+      this.map.removeLayer(layerId);
+    }
+    if (this.map.getSource(sourceId)) {
+      this.map.removeSource(sourceId);
     }
   }
 

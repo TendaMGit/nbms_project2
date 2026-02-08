@@ -6,7 +6,8 @@
 - Command:
   - `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
 - Result:
-  - `352 passed` (full suite)
+  - `366 passed, 1 skipped` (host full suite)
+  - `367 passed` in docker backend runtime (`docker compose exec backend pytest -q`)
   - includes new API coverage for:
     - `src/nbms_app/tests/test_api_programme_ops.py`
     - `src/nbms_app/tests/test_programme_ops_commands.py`
@@ -22,14 +23,17 @@
 - Result:
   - build passes
   - `8 passed` (Angular app + NR7/system-health/programme-ops/template-pack/birdie/report-product component tests)
-  - Playwright smoke (`npm run e2e`) passes
+  - Playwright smoke (`npm run e2e`) passes (`2 passed`: anonymous + authenticated system-admin path)
 
 ### Docker smoke
 - Command:
   - `docker compose --profile minimal up -d --build`
+  - `docker compose --profile spatial up -d --build`
 - Verified:
   - backend health: `http://127.0.0.1:8000/health/`
   - frontend proxy health: `http://127.0.0.1:8081/health/`
+  - tile endpoint: `GET /api/tiles/ZA_PROVINCES/0/0/0.pbf` returns `200`
+  - OGC collections: `GET /api/ogc/collections` returns seeded collections
 - API surface through proxy: `http://127.0.0.1:8081/api/help/sections`
   - Angular route availability check: `http://127.0.0.1:8081/programmes`
 
@@ -57,8 +61,13 @@ File: `.github/workflows/ci.yml`
   - `manage.py check --deploy`
 - `docker-minimal-smoke`
   - build/start minimal compose profile
+  - seeds CI demo/admin identity via environment flags
   - verify backend and frontend availability
   - run Playwright smoke through docker-served frontend
+  - teardown stack
+- `docker-spatial-smoke`
+  - build/start spatial compose profile
+  - verify backend health and tilejson endpoint availability
   - teardown stack
 
 ## Testing Gaps
@@ -70,6 +79,7 @@ File: `.github/workflows/ci.yml`
 - Add performance tests for spatial feature query bounding and pagination.
 - Add Semgrep ruleset on top of Bandit for deeper framework-level checks.
 - Expand Playwright from smoke coverage to authenticated end-to-end flows (dashboard, map interactions, NR7 builder saves).
+- Add deeper authenticated interaction checks (form edits, save/reload assertions, and map filter state persistence) beyond current navigation smoke.
 
 ## Minimal Contributor Test Plan
 1. Backend: `pytest -q`
@@ -78,3 +88,6 @@ File: `.github/workflows/ci.yml`
 4. Health checks:
    - `http://127.0.0.1:8000/health/`
    - `http://127.0.0.1:8081/health/`
+5. Spatial checks:
+   - `http://127.0.0.1:8000/api/ogc/collections`
+   - `http://127.0.0.1:8000/api/tiles/ZA_PROVINCES/tilejson`

@@ -3,6 +3,63 @@
 ## Unreleased
 
 Highlights:
+- Spatial registry hardening and interoperability uplift:
+  - Added first-class spatial registry entities and ingestion runtime:
+    - `SpatialUnitType`, `SpatialUnit`, `SpatialIngestionRun`
+    - enriched `SpatialLayer` + `SpatialFeature` fields and indexes.
+  - Added standards-style spatial API surface:
+    - OGC landing/collections/items endpoints (`/api/ogc*`)
+    - vector tile endpoints (`/api/tiles/*`) with TileJSON, ETag and cache headers.
+  - Added spatial ingestion command/API:
+    - `python manage.py ingest_spatial_layer`
+    - `POST /api/spatial/layers/upload`
+  - Added South Africa protected-area source hardening:
+    - `NE_PROTECTED_LANDS_ZA` now syncs from DFFE SAPAD public ArcGIS feed.
+    - ArcGIS feature JSON is normalized to GeoJSON before PostGIS ingestion.
+  - Added GeoServer publication command:
+    - `python manage.py seed_geoserver_layers`
+    - idempotent rerun behavior for pre-existing published layers.
+  - Added GeoServer smoke verification command:
+    - `python manage.py verify_geoserver_smoke`
+  - Added Map Workspace UX upgrade:
+    - layer catalog with theme grouping/search/toggles/opacity
+    - AOI/property filters
+    - feature inspector
+    - GeoJSON export + report-product handoff.
+  - Added spatial runtime docs and ADR:
+    - `docs/SPATIAL_RUNBOOK.md`
+    - `docs/adr/0011-spatial-registry-ogc-apis.md`
+- Seed idempotency hardening for scale:
+  - Added unique seeding keys and backfill path:
+    - `Dataset.dataset_code`
+    - `Evidence.evidence_code`
+    - `IndicatorDataSeries.series_code`
+  - Updated indicator/spatial seed commands to avoid duplicate conflicts in reruns and mixed legacy states.
+- Docker/dev reproducibility hardening:
+  - backend docker image now installs `requirements-dev.txt` enabling in-container `pytest`.
+  - compose backend defaults now enforce GIS runtime in Docker (`ENABLE_GIS=true`) with PostGIS engine alignment.
+  - CSRF trusted origins now include frontend proxy origins (`http://localhost:8081`, `http://127.0.0.1:8081`) for cookie/session login through nginx.
+  - Docker build context now excludes Playwright artifacts (`frontend/test-results`, `frontend/playwright-report`) to prevent non-deterministic build failures.
+
+- Demo identity bootstrap hardening:
+  - Added `ensure_system_admin` command (env-driven, idempotent, enforces superuser + `SystemAdmin` role + `system_admin` permission).
+  - Added `seed_demo_users` command with strict non-production gating:
+    - requires DEBUG/dev/test runtime,
+    - requires `SEED_DEMO_USERS=1`,
+    - requires `ALLOW_INSECURE_DEMO_PASSWORDS=1`.
+  - Added `list_demo_users` command and generated `docs/ops/DEMO_USERS.md` warning matrix.
+  - Wired Docker backend entrypoint to run demo/admin bootstrap only for explicit dev-mode flags.
+  - Added nav/access hardening:
+    - backend `/api/auth/me` capability flags expanded,
+    - Angular side-nav hides unauthorized features,
+    - Angular route capability guards added,
+    - Django template nav hides inaccessible staff links.
+  - Added local login UX fix for two-factor template warning:
+    - `templates/two_factor/_base.html`.
+  - Strengthened migration verification tooling for Windows + Docker:
+    - `scripts/verify_migrations.ps1` now builds verify image and fails fast on non-zero exits,
+    - `scripts/verify_migrations.sh` normalizes runtime DB URL for container execution,
+    - `docker/verify/Dockerfile` includes cairo build dependencies required for `xhtml2pdf` tests.
 - Phase 7 report product framework:
   - Added report product runtime models:
     - `ReportProductTemplate`
@@ -44,6 +101,10 @@ Highlights:
   - `frontend/playwright.config.ts`
   - `frontend/e2e/smoke.spec.ts`
   - CI now runs playwright smoke in `docker-minimal-smoke` job.
+  - Angular nav now renders capability-filtered items only and route guards redirect unauthorized users to public surfaces.
+  - smoke now covers both:
+    - anonymous public-surface behavior (only public features visible),
+    - authenticated system-admin navigation across dashboard, indicators, spatial, NR7 builder, and MEA packs.
 - Phase 4 GBF indicator readiness increment:
   - Added full GBF COP16/31 indicator catalog seeding command:
     - `python manage.py seed_gbf_indicators`
@@ -104,6 +165,7 @@ Highlights:
 - Added SPA/BFF API layer under `/api/*`:
   - auth/help: `/api/auth/me`, `/api/auth/csrf`, `/api/help/sections`
   - dashboard: `/api/dashboard/summary`
+  - programme run reports: `/api/programmes/runs/{uuid}/report`
   - indicators: `/api/indicators*` detail/datasets/series/validation/transition
   - spatial: `/api/spatial/layers`, `/api/spatial/layers/{slug}/features`
   - template packs: `/api/template-packs*`

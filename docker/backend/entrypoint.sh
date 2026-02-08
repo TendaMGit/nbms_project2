@@ -30,7 +30,29 @@ python manage.py bootstrap_roles
 python manage.py seed_reporting_defaults
 python manage.py seed_mea_template_packs
 python manage.py seed_indicator_workflow_v1
-python manage.py seed_spatial_demo_layers
+python manage.py seed_demo_spatial
+python manage.py seed_programme_ops_v1
+
+if [ "${SYNC_SPATIAL_SOURCES_ON_BOOT:-0}" = "1" ]; then
+  python manage.py sync_spatial_sources
+fi
+
+DEV_RUNTIME="0"
+if [ "${DJANGO_DEBUG:-false}" = "true" ] || [ "${DJANGO_DEBUG:-false}" = "True" ]; then
+  DEV_RUNTIME="1"
+fi
+if [ "${ENVIRONMENT:-dev}" = "dev" ] || [ "${ENVIRONMENT:-dev}" = "test" ]; then
+  DEV_RUNTIME="1"
+fi
+
+if [ "$DEV_RUNTIME" = "1" ] && [ "${SEED_DEMO_USERS:-0}" = "1" ]; then
+  python manage.py seed_demo_users
+fi
+
+if [ "$DEV_RUNTIME" = "1" ] && [ -n "${NBMS_ADMIN_USERNAME:-}" ] && [ -n "${NBMS_ADMIN_EMAIL:-}" ] && [ -n "${NBMS_ADMIN_PASSWORD:-}" ]; then
+  python manage.py ensure_system_admin
+fi
+
 python manage.py collectstatic --noinput
 
 python manage.py runserver 0.0.0.0:8000

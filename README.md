@@ -323,6 +323,43 @@ BIRDIE integration:
 - `BIRDIE_TIMEOUT_SECONDS`
 - `BIRDIE_USE_FIXTURE` (`1` default; deterministic fixture fallback)
 
+Demo/admin bootstrap (local only):
+- `SEED_DEMO_USERS` (default `0`)
+- `ALLOW_INSECURE_DEMO_PASSWORDS` (default `0`; required for username=password demo logins)
+- `NBMS_ADMIN_USERNAME`, `NBMS_ADMIN_EMAIL`, `NBMS_ADMIN_PASSWORD`
+- Optional: `NBMS_ADMIN_FIRST_NAME`, `NBMS_ADMIN_LAST_NAME`
+
+## Demo & Admin Verification
+
+Local Docker demo bootstrap (dev profile only):
+
+```
+$env:SEED_DEMO_USERS='1'
+$env:ALLOW_INSECURE_DEMO_PASSWORDS='1'
+$env:NBMS_ADMIN_USERNAME='admin_local'
+$env:NBMS_ADMIN_EMAIL='admin@example.org'
+$env:NBMS_ADMIN_PASSWORD='change-me-now'
+docker compose --profile minimal up -d --build
+```
+
+If the stack is already running:
+
+```
+docker compose exec backend python manage.py seed_demo_users
+docker compose exec backend python manage.py ensure_system_admin
+docker compose exec backend python manage.py list_demo_users
+```
+
+Login URLs:
+- App: `http://localhost:8081/`
+- Django admin: `http://localhost:8081/admin/`
+- MFA login: `http://localhost:8081/account/login/`
+
+Disable demo users and rotate credentials:
+1. Set `SEED_DEMO_USERS=0` and `ALLOW_INSECURE_DEMO_PASSWORDS=0` in `.env`.
+2. Reset demo user passwords in Django admin or deactivate demo accounts.
+3. Rotate `NBMS_ADMIN_PASSWORD` and rerun `python manage.py ensure_system_admin`.
+
 ## Settings
 
 - Dev settings: `config.settings.dev`

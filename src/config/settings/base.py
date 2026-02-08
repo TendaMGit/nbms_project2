@@ -22,12 +22,12 @@ logger = logging.getLogger(__name__)
 _default_hosts = "localhost,127.0.0.1,0.0.0.0"
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", _default_hosts).split(",") if h.strip()]
 
-_default_csrf = "http://localhost,http://127.0.0.1,http://0.0.0.0"
+_default_csrf = "http://localhost,http://127.0.0.1,http://0.0.0.0,http://localhost:8081,http://127.0.0.1:8081"
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", _default_csrf).split(",") if o.strip()
 ]
 
-ENABLE_GIS = os.environ.get("ENABLE_GIS", "true").lower() == "true"
+ENABLE_GIS = os.environ.get("ENABLE_GIS", "false").lower() == "true"
 
 GIS_APPS = ["django.contrib.gis"] if ENABLE_GIS else []
 
@@ -121,6 +121,8 @@ else:
         }
     }
 
+if ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.db.backends.postgresql"):
+    DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 if not ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.contrib.gis"):
     DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
 
@@ -344,6 +346,7 @@ RATE_LIMITS = {
             "/exports/",
             "/api/template-packs/",
             "/api/indicators/",
+            "/api/spatial/layers/",
         ],
     },
     "public_api": {
@@ -352,8 +355,15 @@ RATE_LIMITS = {
         "paths": [
             "/api/indicators",
             "/api/spatial/layers",
+            "/api/ogc",
+            "/api/tiles",
             "/api/help/sections",
         ],
+    },
+    "spatial_heavy": {
+        "rate": os.environ.get("RATE_LIMIT_SPATIAL_HEAVY", "120/60"),
+        "methods": ["GET"],
+        "paths": ["/api/ogc/collections/", "/api/tiles/"],
     },
     "metrics": {
         "rate": os.environ.get("RATE_LIMIT_METRICS", "30/60"),

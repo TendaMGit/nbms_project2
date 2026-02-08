@@ -81,10 +81,10 @@ services:
       DJANGO_DEBUG: "true"
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-not-for-production}
       DJANGO_ALLOWED_HOSTS: localhost,127.0.0.1,0.0.0.0,backend,frontend
-      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost,http://127.0.0.1,http://0.0.0.0
+      DJANGO_CSRF_TRUSTED_ORIGINS: http://localhost,http://127.0.0.1,http://0.0.0.0,http://localhost:8081,http://127.0.0.1:8081
       PYTHONPATH: /app/src
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgis:5432/${NBMS_DB_NAME:-nbms_project_db2}
-      ENABLE_GIS: ${ENABLE_GIS:-false}
+      ENABLE_GIS: "true"
       POSTGRES_HOST: postgis
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -102,6 +102,18 @@ services:
       S3_BUCKET: ${S3_BUCKET:-nbms-media}
       EXPORT_REQUIRE_SECTIONS: ${EXPORT_REQUIRE_SECTIONS:-false}
       EXPORT_REQUIRE_READINESS: ${EXPORT_REQUIRE_READINESS:-false}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-0}
+      ALLOW_INSECURE_DEMO_PASSWORDS: ${ALLOW_INSECURE_DEMO_PASSWORDS:-0}
+      NBMS_ADMIN_USERNAME: ${NBMS_ADMIN_USERNAME:-}
+      NBMS_ADMIN_EMAIL: ${NBMS_ADMIN_EMAIL:-}
+      NBMS_ADMIN_PASSWORD: ${NBMS_ADMIN_PASSWORD:-}
+      NBMS_ADMIN_FIRST_NAME: ${NBMS_ADMIN_FIRST_NAME:-}
+      NBMS_ADMIN_LAST_NAME: ${NBMS_ADMIN_LAST_NAME:-}
+      GEOSERVER_URL: http://geoserver:8080/geoserver
+      GEOSERVER_USER: ${GEOSERVER_USER:-admin}
+      GEOSERVER_PASSWORD: ${GEOSERVER_PASSWORD:-geoserver}
+      SYNC_SPATIAL_SOURCES_ON_BOOT: ${SYNC_SPATIAL_SOURCES_ON_BOOT:-0}
+      WDPA_API_TOKEN: ${WDPA_API_TOKEN:-}
     ports:
       - "8000:8000"
     volumes:
