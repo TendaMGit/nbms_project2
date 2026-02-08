@@ -10,6 +10,10 @@ export interface AuthMeResponse {
   capabilities: Record<string, boolean>;
 }
 
+export interface AuthCapabilitiesResponse {
+  capabilities: Record<string, boolean>;
+}
+
 export interface DashboardSummary {
   counts: Record<string, number>;
   approvals_queue: number;
@@ -54,6 +58,12 @@ export interface IndicatorListResponse {
 
 export interface IndicatorDetailResponse {
   indicator: IndicatorListItem;
+  narrative?: {
+    summary?: string;
+    limitations?: string;
+    spatial_coverage?: string;
+    temporal_coverage?: string;
+  };
   methodologies: Array<{
     methodology_code: string;
     methodology_title: string;
@@ -96,6 +106,12 @@ export interface IndicatorDetailResponse {
     cadence: string;
     notes: string;
     last_checked_at: string | null;
+  };
+  pipeline?: {
+    data_last_refreshed_at: string | null;
+    latest_year: number | null;
+    latest_pipeline_run_uuid: string | null;
+    latest_pipeline_run_status: string | null;
   };
 }
 
@@ -177,6 +193,13 @@ export interface SpatialLayer {
   publish_to_geoserver?: boolean;
   geoserver_layer_name?: string;
   indicator: { uuid: string; code: string; title: string } | null;
+}
+
+export interface IndicatorMapResponse extends FeatureCollectionPayload {
+  indicator_uuid: string;
+  indicator_code: string;
+  year: number | null;
+  layer_code?: string;
 }
 
 export interface FeatureCollectionPayload {

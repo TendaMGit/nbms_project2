@@ -5,6 +5,7 @@ import {
   IndicatorDetailResponse,
   IndicatorListResponse,
   IndicatorMethodProfileResponse,
+  IndicatorMapResponse,
   IndicatorSeriesResponse
 } from '../models/api.models';
 import { ApiClientService } from './api-client.service';
@@ -27,6 +28,10 @@ export class IndicatorService {
 
   series(uuid: string, filters: Record<string, string | number | undefined>) {
     return this.api.get<IndicatorSeriesResponse>(`indicators/${uuid}/series`, filters);
+  }
+
+  map(uuid: string, filters: Record<string, string | number | undefined>) {
+    return this.api.get<IndicatorMapResponse>(`indicators/${uuid}/map`, filters);
   }
 
   validation(uuid: string) {

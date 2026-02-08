@@ -77,8 +77,20 @@ type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
 
             <section class="aoi-block">
               <div class="aoi-title">Area of Interest</div>
-              <button mat-stroked-button type="button" (click)="useViewportAsAoi()">Use current viewport</button>
+              <div class="aoi-actions">
+                <button mat-stroked-button type="button" (click)="toggleAoiDraw()">
+                  <mat-icon>{{ drawAoiEnabled ? 'close' : 'polyline' }}</mat-icon>
+                  {{ drawAoiEnabled ? 'Cancel draw' : 'Draw AOI' }}
+                </button>
+                <button mat-stroked-button type="button" (click)="useViewportAsAoi()">Use current viewport</button>
+              </div>
               <button mat-button type="button" (click)="clearAoi()">Clear AOI</button>
+              <div class="aoi-value" *ngIf="drawAoiEnabled && !drawAoiStartPoint">
+                Click the map to set the first AOI corner.
+              </div>
+              <div class="aoi-value" *ngIf="drawAoiEnabled && drawAoiStartPoint">
+                Click the opposite corner to complete AOI.
+              </div>
               <div class="aoi-value" *ngIf="aoiBbox">{{ aoiBbox }}</div>
             </section>
           </mat-card-content>
@@ -151,6 +163,18 @@ type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
 
       <section class="map-pane">
         <div #mapContainer class="map-canvas"></div>
+        <article class="legend-panel" *ngIf="activeLegendRows().length">
+          <header><h3>Legend</h3></header>
+          <div class="legend-row" *ngFor="let item of activeLegendRows()">
+            <span class="swatch" [style.background]="item.fill" [style.border-color]="item.line"></span>
+            <div>
+              <strong>{{ item.title }}</strong>
+              <div class="legend-meta" *ngIf="item.attribution || item.license">
+                {{ item.attribution || 'No attribution' }}{{ item.license ? ' | ' + item.license : '' }}
+              </div>
+            </div>
+          </div>
+        </article>
         <article class="inspect-panel" *ngIf="selectedFeature">
           <header>
             <h3>Feature Inspector</h3>
@@ -220,6 +244,11 @@ type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
         display: grid;
         gap: 0.4rem;
       }
+      .aoi-actions {
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+      }
       .aoi-title {
         font-size: 0.85rem;
         font-weight: 600;
@@ -251,6 +280,35 @@ type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
         border-radius: 12px;
         padding: 0.6rem;
       }
+      .legend-panel {
+        position: absolute;
+        left: 0.8rem;
+        bottom: 0.8rem;
+        width: min(360px, 45%);
+        max-height: 42vh;
+        overflow: auto;
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(27, 67, 50, 0.2);
+        border-radius: 12px;
+        padding: 0.55rem;
+      }
+      .legend-row {
+        display: flex;
+        gap: 0.45rem;
+        align-items: center;
+        border-bottom: 1px dashed rgba(20, 50, 40, 0.2);
+        padding: 0.35rem 0;
+      }
+      .swatch {
+        width: 22px;
+        height: 14px;
+        border: 2px solid #1b4332;
+        border-radius: 3px;
+      }
+      .legend-meta {
+        font-size: 0.75rem;
+        color: #355;
+      }
       .inspect-panel header {
         display: flex;
         align-items: center;
@@ -275,6 +333,11 @@ type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
         }
         .map-canvas {
           height: 62vh;
+        }
+        .legend-panel,
+        .inspect-panel {
+          width: calc(100% - 1.6rem);
+          max-height: 32vh;
         }
       }
     `
@@ -303,6 +366,8 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
   private readonly layerStateMap = new Map<string, LayerState>();
   private currentLayers: SpatialLayer[] = [];
   aoiBbox: string | null = null;
+  drawAoiEnabled = false;
+  drawAoiStartPoint: maplibregl.LngLat | null = null;
 
   displayOpacity = (value: number): string => `${Math.round(value * 100)}%`;
 
@@ -360,7 +425,13 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
         .subscribe(() => this.syncMapLayers(true));
 
       map.on('moveend', () => this.syncMapLayers(true));
-      map.on('click', (event) => this.inspectFeature(event.point.x, event.point.y));
+      map.on('click', (event) => {
+        if (this.drawAoiEnabled) {
+          this.captureAoiPoint(event.lngLat);
+          return;
+        }
+        this.inspectFeature(event.point.x, event.point.y);
+      });
     });
   }
 
@@ -403,12 +474,26 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
     }
     const b = this.map.getBounds();
     this.aoiBbox = `${b.getWest().toFixed(6)},${b.getSouth().toFixed(6)},${b.getEast().toFixed(6)},${b.getNorth().toFixed(6)}`;
+    this.renderAoiFromBbox(this.aoiBbox);
     this.syncMapLayers(true);
   }
 
   clearAoi(): void {
     this.aoiBbox = null;
+    this.drawAoiEnabled = false;
+    this.drawAoiStartPoint = null;
+    this.removeAoiOverlay();
     this.syncMapLayers(true);
+  }
+
+  toggleAoiDraw(): void {
+    this.drawAoiEnabled = !this.drawAoiEnabled;
+    this.drawAoiStartPoint = null;
+    if (!this.drawAoiEnabled) {
+      this.snackBar.open('AOI drawing cancelled.', 'Close', { duration: 2000 });
+    } else {
+      this.snackBar.open('Click two corners on the map to draw AOI.', 'Close', { duration: 2600 });
+    }
   }
 
   groupedLayers(layers: SpatialLayer[]) {
@@ -549,6 +634,94 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
       }
       this.addOrRefreshLayer(layer, forceReload);
       this.applyLayerOpacity(layer);
+    }
+  }
+
+  activeLegendRows() {
+    return this.currentLayers
+      .filter((layer) => this.layerState(layer).enabled)
+      .map((layer) => ({
+        title: layer.title || layer.name,
+        fill: (layer.default_style_json['fillColor'] as string) || '#2f855a',
+        line: (layer.default_style_json['lineColor'] as string) || '#1b4332',
+        attribution: layer.attribution,
+        license: layer.license
+      }));
+  }
+
+  private captureAoiPoint(point: maplibregl.LngLat): void {
+    if (!this.drawAoiStartPoint) {
+      this.drawAoiStartPoint = point;
+      return;
+    }
+    const minx = Math.min(this.drawAoiStartPoint.lng, point.lng);
+    const miny = Math.min(this.drawAoiStartPoint.lat, point.lat);
+    const maxx = Math.max(this.drawAoiStartPoint.lng, point.lng);
+    const maxy = Math.max(this.drawAoiStartPoint.lat, point.lat);
+    this.aoiBbox = `${minx.toFixed(6)},${miny.toFixed(6)},${maxx.toFixed(6)},${maxy.toFixed(6)}`;
+    this.drawAoiEnabled = false;
+    this.drawAoiStartPoint = null;
+    this.renderAoiFromBbox(this.aoiBbox);
+    this.syncMapLayers(true);
+  }
+
+  private renderAoiFromBbox(bbox: string | null): void {
+    if (!this.map || !bbox) {
+      return;
+    }
+    const parts = bbox.split(',').map((item) => Number(item));
+    if (parts.length !== 4 || parts.some((item) => Number.isNaN(item))) {
+      return;
+    }
+    const [minx, miny, maxx, maxy] = parts;
+    const sourceId = 'aoi-draw-source';
+    const fillId = 'aoi-draw-fill';
+    const lineId = 'aoi-draw-line';
+    const featureCollection = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[minx, miny], [maxx, miny], [maxx, maxy], [minx, maxy], [minx, miny]]]
+          }
+        }
+      ]
+    } as GeoJSON.FeatureCollection;
+    if (!this.map.getSource(sourceId)) {
+      this.map.addSource(sourceId, { type: 'geojson', data: featureCollection });
+      this.map.addLayer({
+        id: fillId,
+        type: 'fill',
+        source: sourceId,
+        paint: { 'fill-color': '#38a169', 'fill-opacity': 0.15 }
+      });
+      this.map.addLayer({
+        id: lineId,
+        type: 'line',
+        source: sourceId,
+        paint: { 'line-color': '#1b4332', 'line-width': 1.4 }
+      });
+    } else {
+      const source = this.map.getSource(sourceId) as maplibregl.GeoJSONSource;
+      source.setData(featureCollection);
+    }
+  }
+
+  private removeAoiOverlay(): void {
+    if (!this.map) {
+      return;
+    }
+    if (this.map.getLayer('aoi-draw-fill')) {
+      this.map.removeLayer('aoi-draw-fill');
+    }
+    if (this.map.getLayer('aoi-draw-line')) {
+      this.map.removeLayer('aoi-draw-line');
+    }
+    if (this.map.getSource('aoi-draw-source')) {
+      this.map.removeSource('aoi-draw-source');
     }
   }
 
@@ -732,6 +905,7 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+    this.removeAoiOverlay();
     this.map?.remove();
   }
 }
