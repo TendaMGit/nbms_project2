@@ -235,6 +235,228 @@ export interface TileJsonPayload {
   maxzoom: number;
 }
 
+export interface EcosystemRegistryItem {
+  uuid: string;
+  ecosystem_code: string;
+  name: string;
+  realm: string;
+  biome: string;
+  bioregion: string;
+  vegmap_version: string;
+  get_node: string | null;
+  status: string;
+  sensitivity: string;
+  qa_status: string;
+  organisation: string | null;
+  updated_at: string;
+}
+
+export interface EcosystemRegistryListResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  results: EcosystemRegistryItem[];
+}
+
+export interface EcosystemRegistryDetailResponse {
+  ecosystem: EcosystemRegistryItem & {
+    vegmap_source_id: string;
+    description: string;
+  };
+  crosswalks: Array<{
+    uuid: string;
+    get_code: string;
+    get_level: number;
+    get_label: string;
+    confidence: number;
+    review_status: string;
+    is_primary: boolean;
+    evidence: string;
+    reviewed_by: string | null;
+    reviewed_at: string | null;
+  }>;
+  risk_assessments: Array<{
+    uuid: string;
+    assessment_year: number;
+    assessment_scope: string;
+    category: string;
+    criterion_a: string;
+    criterion_b: string;
+    criterion_c: string;
+    criterion_d: string;
+    criterion_e: string;
+    review_status: string;
+    assessor: string | null;
+    reviewed_by: string | null;
+    updated_at: string;
+  }>;
+}
+
+export interface TaxonRegistryItem {
+  uuid: string;
+  taxon_code: string;
+  scientific_name: string;
+  canonical_name: string;
+  taxon_rank: string;
+  taxonomic_status: string;
+  kingdom: string;
+  family: string;
+  genus: string;
+  is_native: boolean | null;
+  is_endemic: boolean;
+  has_national_voucher_specimen: boolean;
+  voucher_specimen_count: number;
+  primary_source_system: string;
+  status: string;
+  sensitivity: string;
+  qa_status: string;
+  organisation: string | null;
+  updated_at: string;
+}
+
+export interface TaxonRegistryListResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  results: TaxonRegistryItem[];
+}
+
+export interface TaxonRegistryDetailResponse {
+  taxon: TaxonRegistryItem & {
+    classification: {
+      kingdom: string;
+      phylum: string;
+      class_name: string;
+      order: string;
+      family: string;
+      genus: string;
+      species: string;
+    };
+    gbif_taxon_key: number | null;
+    gbif_usage_key: number | null;
+    gbif_accepted_taxon_key: number | null;
+  };
+  names: Array<{
+    uuid: string;
+    name: string;
+    name_type: string;
+    language: string;
+    is_preferred: boolean;
+  }>;
+  source_records: Array<{
+    uuid: string;
+    source_system: string;
+    source_ref: string;
+    source_url: string;
+    retrieved_at: string;
+    payload_hash: string;
+    licence: string;
+    citation: string;
+    is_primary: boolean;
+  }>;
+  vouchers: Array<{
+    uuid: string;
+    occurrence_id: string;
+    institution_code: string;
+    collection_code: string;
+    catalog_number: string;
+    basis_of_record: string;
+    event_date: string | null;
+    country_code: string;
+    locality: string;
+    decimal_latitude: number | null;
+    decimal_longitude: number | null;
+    has_sensitive_locality: boolean;
+    sensitivity: string;
+    status: string;
+  }>;
+}
+
+export interface IasRegistryItem {
+  uuid: string;
+  taxon_uuid: string;
+  taxon_code: string;
+  scientific_name: string;
+  country_code: string;
+  establishment_means_code: string;
+  degree_of_establishment_code: string;
+  pathway_code: string;
+  is_invasive: boolean;
+  regulatory_status: string;
+  latest_eicat: string | null;
+  latest_seicat: string | null;
+  status: string;
+  sensitivity: string;
+  qa_status: string;
+  updated_at: string;
+}
+
+export interface IasRegistryListResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  results: IasRegistryItem[];
+}
+
+export interface IasRegistryDetailResponse {
+  profile: IasRegistryItem & {
+    establishment_means_label: string;
+    degree_of_establishment_label: string;
+    pathway_label: string;
+    habitat_types_json: string[];
+  };
+  checklist_records: Array<{
+    uuid: string;
+    source_dataset: string;
+    source_identifier: string;
+    country_code: string;
+    is_alien: boolean;
+    is_invasive: boolean;
+    establishment_means_code: string;
+    degree_of_establishment_code: string;
+    pathway_code: string;
+    retrieved_at: string | null;
+  }>;
+  eicat_assessments: Array<{
+    uuid: string;
+    category: string;
+    mechanisms_json: string[];
+    impact_scope: string;
+    confidence: number;
+    review_status: string;
+    assessed_on: string | null;
+    assessed_by: string | null;
+    reviewed_by: string | null;
+  }>;
+  seicat_assessments: Array<{
+    uuid: string;
+    category: string;
+    wellbeing_constituents_json: string[];
+    activity_change_narrative: string;
+    confidence: number;
+    review_status: string;
+    assessed_on: string | null;
+    assessed_by: string | null;
+    reviewed_by: string | null;
+  }>;
+}
+
+export interface ProgrammeTemplateRow {
+  uuid: string;
+  template_code: string;
+  title: string;
+  description: string;
+  domain: string;
+  pipeline_definition_json: Record<string, unknown>;
+  required_outputs_json: Array<Record<string, unknown>>;
+  status: string;
+  sensitivity: string;
+  qa_status: string;
+  organisation: string | null;
+  updated_at: string;
+  linked_programme_uuid?: string | null;
+}
+
 export interface TemplatePack {
   uuid: string;
   code: string;
