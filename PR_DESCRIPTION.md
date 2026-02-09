@@ -1,4 +1,52 @@
-# PR: Spatial Programme + Overlay + E2E + Phase 10 Registries
+# PR: Phase 12 National Report Collaboration + Sign-Off + Dossier Integrity (on top of spatial/programme baseline)
+
+## Phase 12 Increment Summary
+This increment adds a production-style CBD National Report workspace (NR7/NR8 unified pack), multi-author revisioning/comments/suggestions, a defensible sign-off chain (including Technical Committee and Publishing Authority steps), print-ready exports (PDF + DOCX), and deterministic reporting dossiers with integrity manifests.
+
+Primary additions:
+- Unified pack/runtime:
+  - `cbd_national_report_v1` template pack used for both NR7 and NR8 instances.
+- Multi-author collaboration:
+  - section revision chain (`ReportSectionRevision`)
+  - comment threads/messages (`ReportCommentThread`, `ReportComment`)
+  - suggestion workflow (`ReportSuggestedChange`)
+- Sign-off chain:
+  - workflow definitions/instances/actions/section approvals (`ReportWorkflow*`)
+  - evidence gate before technical approval
+  - lock/finalize behavior with final content hash
+- Exports + dossier:
+  - export artifacts (`ReportExportArtifact`)
+  - dossier artifacts (`ReportDossierArtifact`)
+  - deterministic ZIP bundle with integrity/audit/evidence manifests
+- Angular National Report workspace:
+  - section nav + schema-driven editor
+  - comments/suggestions/history/workflow panels
+  - export and dossier actions
+
+## Phase 12 Commands Run
+```powershell
+docker compose --profile minimal up -d --build
+docker compose --profile spatial up -d --build
+docker compose exec backend python manage.py migrate
+docker compose exec backend pytest -q
+npm --prefix frontend run build
+npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless
+npm --prefix frontend run e2e
+
+docker compose exec -e NBMS_ADMIN_USERNAME=Tenda -e NBMS_ADMIN_EMAIL=tmunyai56@gmail.com -e NBMS_ADMIN_PASSWORD=GraniteT33 backend python manage.py ensure_system_admin
+docker compose exec -e SEED_DEMO_USERS=1 -e ALLOW_INSECURE_DEMO_PASSWORDS=1 backend python manage.py seed_demo_users
+docker compose exec backend python manage.py seed_demo_reports
+```
+
+## Phase 12 Results
+- Docker stacks: healthy (`minimal` and `spatial`)
+- Migrations: `No migrations to apply`
+- Backend tests: `401 passed`
+- Frontend unit tests: `11 files, 12 tests passed`
+- Playwright e2e: `3 passed`
+- System admin ensured: `Tenda` with `SystemAdmin` group + superuser
+- Demo users ensured: 17 seeded (idempotent)
+- Demo reports ensured: NR7 + NR8 seeded
 
 ## Phase 11 Update (Registry Operationalization)
 - Added workflow-governed registry transitions with evidence gates and audit logging:

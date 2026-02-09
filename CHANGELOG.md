@@ -3,6 +3,52 @@
 ## Unreleased
 
 Highlights:
+- Phase 12 national-report collaboration, sign-off, and dossier integrity:
+  - Unified NR7/NR8 authoring on a single pack:
+    - seeded pack `cbd_national_report_v1` via `seed_mea_template_packs`
+    - added `seed_demo_reports` for deterministic NR7 + NR8 demo instances
+  - Extended reporting models for full workspace metadata and governance:
+    - `ReportingCycle`: submission window and language controls
+    - `ReportingInstance`: report metadata (`report_title`, `country_name`, focal/publishing orgs), `is_public`, final hash fields
+    - `ReportTemplatePackResponse`: version/hash + edit locking metadata
+  - Added multi-author collaboration tables and services:
+    - `ReportSectionRevision`, `ReportCommentThread`, `ReportComment`, `ReportSuggestedChange`
+    - services: `reporting_collab.py`
+  - Added role-gated sign-off workflow engine:
+    - `ReportWorkflowDefinition`, `ReportWorkflowInstance`, `ReportWorkflowAction`, `ReportWorkflowSectionApproval`
+    - Technical Committee and Publishing Authority steps enforced
+    - evidence gate before technical approval
+  - Added export + dossier artifact integrity layer:
+    - `ReportExportArtifact`, `ReportDossierArtifact`
+    - services: `reporting_exports.py`, `reporting_dossier.py`
+    - deterministic dossier ZIP with:
+      - `submission.json`
+      - `report.pdf`
+      - `report.docx`
+      - `evidence_manifest.json`
+      - `audit_log.json`
+      - `integrity.json`
+      - `visibility.json`
+  - Added National Report workspace API surface:
+    - `/api/reports/{uuid}/workspace`
+    - `/api/reports/{uuid}/sections/*` (CRUD/history/comments/suggestions)
+    - `/api/reports/{uuid}/workflow` + `/workflow/action`
+    - `/api/reports/{uuid}/export(.pdf|.docx|.json)`
+    - `/api/reports/{uuid}/dossier` + `/dossier/latest`
+    - `/api/reports/{uuid}/public`
+  - Angular reporting UX upgraded to a full National Report workspace:
+    - section navigation
+    - dynamic field rendering from schema
+    - suggestion mode, comments, revision history
+    - workflow action panel
+    - export + dossier actions
+  - Added Phase 12 docs:
+    - `docs/SCHEMA_REDUNDANCY_REVIEW_PHASE12.md`
+    - `docs/SIGNOFF_CHAIN.md`
+    - `docs/NR_WORKSPACE_RUNBOOK.md`
+    - `docs/NR_DOSSIER_RUNBOOK.md`
+  - Added backend tests:
+    - `test_reporting_workspace_phase12.py` (collaboration, workflow, export, dossier, ABAC gating)
 - Phase 11 registries operationalization:
   - Added registry workflow governance components:
     - `RegistryEvidenceLink`

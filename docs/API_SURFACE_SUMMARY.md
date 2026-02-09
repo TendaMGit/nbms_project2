@@ -37,10 +37,29 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/programmes/templates` (`IsAuthenticated`, template catalog for programme-driven setup)
 - `GET /api/integrations/birdie/dashboard` (`IsAuthenticated`, BIRDIE programme scope)
 
-### Reporting (NR7 builder)
+### Reporting (National Report workspace + legacy NR7 builder)
+- Legacy:
 - `GET /api/reporting/instances` (`IsAuthenticated`, staff/system-admin + instance scope)
 - `GET /api/reporting/instances/{uuid}/nr7/summary` (`IsAuthenticated`, instance scope)
 - `GET /api/reporting/instances/{uuid}/nr7/export.pdf` (`IsAuthenticated`, instance scope)
+- Workspace:
+- `GET /api/reports/{uuid}/workspace` (`IsAuthenticated`, ABAC instance scope)
+- `GET|POST /api/reports/{uuid}/sections/{section_code}` (`IsAuthenticated`, ABAC + role-gated edit)
+- `GET /api/reports/{uuid}/sections/{section_code}/history` (`IsAuthenticated`, ABAC instance scope)
+- `POST /api/reports/{uuid}/sections/section-iii/generate-skeleton` (`IsAuthenticated`, ABAC + author role)
+- `POST /api/reports/{uuid}/sections/section-iv/recompute-rollup` (`IsAuthenticated`, ABAC + author role)
+- `GET|POST /api/reports/{uuid}/sections/{section_code}/comments` (`IsAuthenticated`, ABAC instance scope)
+- `POST /api/reports/{uuid}/sections/{section_code}/comments/{thread_uuid}/status` (`IsAuthenticated`, ABAC + thread scope)
+- `GET|POST /api/reports/{uuid}/sections/{section_code}/suggestions` (`IsAuthenticated`, ABAC instance scope)
+- `POST /api/reports/{uuid}/sections/{section_code}/suggestions/{suggestion_uuid}/decision` (`IsAuthenticated`, ABAC + reviewer role)
+- `GET /api/reports/{uuid}/workflow` (`IsAuthenticated`, ABAC instance scope)
+- `POST /api/reports/{uuid}/workflow/action` (`IsAuthenticated`, role-gated sign-off transitions)
+- `GET /api/reports/{uuid}/export.pdf` (`AllowAny`, ABAC/public gating in handler)
+- `GET /api/reports/{uuid}/export.docx` (`AllowAny`, ABAC/public gating in handler)
+- `GET /api/reports/{uuid}/export` (`AllowAny`, ABAC/public gating in handler)
+- `POST /api/reports/{uuid}/dossier` (`IsAuthenticated`, ABAC instance scope)
+- `GET /api/reports/{uuid}/dossier/latest` (`AllowAny`, ABAC/public gating in handler; `?download=1` for ZIP bytes)
+- `GET /api/reports/{uuid}/public` (`AllowAny`, public reports only)
 
 ### Indicators
 - `GET /api/indicators` (`AllowAny`, ABAC-filtered)
@@ -128,6 +147,7 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
   - `python manage.py ensure_system_admin`
   - `python manage.py seed_demo_users`
   - `python manage.py list_demo_users`
+  - `python manage.py seed_demo_reports`
   - `python manage.py export_role_visibility_matrix`
   - `python manage.py issue_e2e_sessions --users <U1> <U2> ...`
 - BIRDIE connector runtime:

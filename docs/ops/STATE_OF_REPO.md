@@ -1,5 +1,39 @@
 # STATE OF REPO - NBMS Project 2
 
+## PHASE 12 NATIONAL REPORT COLLAB + SIGN-OFF + DOSSIER VERIFIED (2026-02-09)
+- Branch: `feat/national-report-collab-signoff-v1`
+- Scope: unified NR7/NR8 workspace, multi-author revisions/comments/suggestions, sign-off chain, PDF/DOCX/JSON exports, dossier integrity pack, and internal/public gating.
+
+Commands executed (docker, required set):
+- `docker compose --profile minimal up -d --build` -> pass (backend/frontend/postgis/redis/minio healthy)
+- `docker compose --profile spatial up -d --build` -> pass (GeoServer profile healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend pytest -q` -> `401 passed` (warnings only)
+
+Commands executed (frontend, required set):
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `11 files, 12 tests passed`
+- `npm --prefix frontend run e2e` -> `3 passed`
+  - note: updated stale selector `NR7 Builder` to `National Report` in Playwright smoke specs.
+
+Identity + demo data verification:
+- `docker compose exec -e NBMS_ADMIN_USERNAME=Tenda -e NBMS_ADMIN_EMAIL=tmunyai56@gmail.com -e NBMS_ADMIN_PASSWORD=GraniteT33 backend python manage.py ensure_system_admin`
+  -> `System admin updated: username=Tenda, staff=True, superuser=True, group=SystemAdmin`
+- `docker compose exec -e SEED_DEMO_USERS=1 -e ALLOW_INSECURE_DEMO_PASSWORDS=1 backend python manage.py seed_demo_users`
+  -> `Seeded demo users (17 rows)`, wrote `docs/ops/DEMO_USERS.md`
+- `docker compose exec backend python manage.py seed_demo_reports`
+  -> `Seeded demo report instances for NR7/NR8 (2 instances).`
+
+Phase outcomes:
+- New report workspace APIs operational under `/api/reports/{uuid}/*` for:
+  - sections/history/comments/suggestions
+  - workflow/status transitions
+  - PDF/DOCX/JSON exports
+  - dossier generation and retrieval
+- Dossier includes deterministic integrity files:
+  - `submission.json`, `report.pdf`, `report.docx`, `evidence_manifest.json`, `audit_log.json`, `integrity.json`, `visibility.json`
+- Internal report access controls are enforced for preview/export/dossier endpoints.
+
 ## PHASE 11 REGISTRY WORKFLOWS + MARTS + INDICATOR/REPORT INTEGRATION VERIFIED (2026-02-08)
 - Branch: `feat/phase10-registries-programmes`
 - Scope: registry approval/evidence workflows, gold summary marts, registry-derived indicator methods/readiness, and report-product auto-populated sections.
