@@ -13,6 +13,9 @@ ROLE_VIEWER = "Viewer"
 ROLE_SECURITY_OFFICER = "Security Officer"
 ROLE_COMMUNITY_REPRESENTATIVE = "Community Representative"
 ROLE_SYSTEM_ADMIN = "SystemAdmin"
+ROLE_TECHNICAL_COMMITTEE = "TechnicalCommittee"
+ROLE_PUBLISHING_AUTHORITY = "PublishingAuthority"
+ROLE_SECTION_LEAD = "SectionLead"
 
 
 def is_system_admin(user):

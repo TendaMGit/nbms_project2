@@ -1,5 +1,6 @@
 from collections import defaultdict
 from datetime import timedelta
+import json
 
 from django.conf import settings
 from django.core.cache import cache
@@ -7,7 +8,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections
 from django.db.models import Count, Q
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
@@ -51,10 +52,21 @@ from nbms_app.models import (
     ProgrammeRunType,
     ReportProductTemplate,
     ReportProductRun,
-    SEICATAssessment,
+    ReportComment,
+    ReportCommentThread,
+    ReportCommentThreadStatus,
+    ReportDossierArtifact,
+    ReportExportArtifact,
+    ReportSectionRevision,
+    ReportSuggestedChange,
     ReportTemplatePack,
+    SEICATAssessment,
     ReportTemplatePackResponse,
     ReportTemplatePackSection,
+    ReportWorkflowSectionApproval,
+    ReportWorkflowStatus,
+    SuggestedChangeStatus,
+    ReportWorkflowInstance,
     ReportingInstance,
     ReportingStatus,
     SpecimenVoucher,
@@ -69,13 +81,17 @@ from nbms_app.models import (
     SensitivityLevel,
 )
 from nbms_app.section_help import SECTION_FIELD_HELP, build_section_help_payload
+from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_DATA_STEWARD,
     ROLE_INDICATOR_LEAD,
+    ROLE_PUBLISHING_AUTHORITY,
     ROLE_SECURITY_OFFICER,
+    ROLE_SECTION_LEAD,
     ROLE_SECRETARIAT,
     ROLE_SYSTEM_ADMIN,
+    ROLE_TECHNICAL_COMMITTEE,
     filter_queryset_for_user,
     is_system_admin,
     user_has_role,
@@ -89,6 +105,25 @@ from nbms_app.services.nr7_builder import (
     build_nr7_validation_summary,
     render_nr7_pdf_bytes,
 )
+from nbms_app.services.reporting_collab import (
+    append_revision,
+    create_suggested_change,
+    decide_suggested_change,
+    ensure_initial_revision,
+)
+from nbms_app.services.reporting_dossier import generate_reporting_dossier, read_dossier_manifest
+from nbms_app.services.reporting_exports import (
+    build_cbd_report_payload,
+    render_cbd_docx_bytes,
+    render_cbd_pdf_bytes,
+    store_report_export_artifact,
+)
+from nbms_app.services.reporting_workflow import (
+    ensure_workflow_instance,
+    report_content_snapshot,
+    resolve_cbd_pack,
+    transition_report_workflow,
+)
 from nbms_app.services.programme_ops import execute_programme_run, queue_programme_run, user_can_manage_programme
 from nbms_app.services.readiness import get_instance_readiness
 from nbms_app.services.registry_marts import latest_snapshot_date
@@ -98,7 +133,7 @@ from nbms_app.services.registry_workflows import (
     list_registry_evidence_links,
     transition_registry_object,
 )
-from nbms_app.services.section_progress import scoped_national_targets
+from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 from nbms_app.services.spatial_access import (
     filter_spatial_layers_for_user,
     parse_bbox,
@@ -303,6 +338,83 @@ def _require_instance_scope(user, instance):
     if not approvals_exist:
         return True
     return scoped_national_targets(instance, user).exists()
+
+
+def _can_view_report_instance(user, instance):
+    if is_system_admin(user):
+        return True
+    if instance.is_public and instance.status in {ReportingStatus.SUBMITTED, ReportingStatus.RELEASED}:
+        return True
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if instance.created_by_id and instance.created_by_id == user.id:
+        return True
+    if instance.focal_point_org_id and instance.focal_point_org_id == getattr(user, "organisation_id", None):
+        return True
+    if instance.publishing_authority_org_id and instance.publishing_authority_org_id == getattr(user, "organisation_id", None):
+        return True
+    if user_has_role(
+        user,
+        ROLE_SECTION_LEAD,
+        ROLE_SECRETARIAT,
+        ROLE_DATA_STEWARD,
+        ROLE_TECHNICAL_COMMITTEE,
+        ROLE_PUBLISHING_AUTHORITY,
+        ROLE_ADMIN,
+    ):
+        return True
+    return False
+
+
+def _can_edit_report_instance(user, instance):
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if instance.finalized_at:
+        return False
+    if is_system_admin(user):
+        return True
+    return bool(
+        _can_view_report_instance(user, instance)
+        and user_has_role(
+            user,
+            ROLE_SECTION_LEAD,
+            ROLE_SECRETARIAT,
+            ROLE_DATA_STEWARD,
+            ROLE_ADMIN,
+            ROLE_TECHNICAL_COMMITTEE,
+            ROLE_PUBLISHING_AUTHORITY,
+        )
+    )
+
+
+def _serialize_section_response(row):
+    ensure_initial_revision(section_response=row, author=row.updated_by)
+    latest_revision = row.revisions.order_by("-version", "-id").first()
+    return {
+        "uuid": str(row.uuid),
+        "section_code": row.section.code,
+        "section_title": row.section.title,
+        "ordering": row.section.ordering,
+        "response_json": row.response_json,
+        "current_version": row.current_version,
+        "current_content_hash": row.current_content_hash,
+        "locked_for_editing": row.locked_for_editing,
+        "updated_by": row.updated_by.username if row.updated_by_id else None,
+        "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+        "latest_revision_uuid": str(latest_revision.uuid) if latest_revision else None,
+    }
+
+
+def _get_cbd_pack_response(instance, section_code):
+    pack = resolve_cbd_pack()
+    section = get_object_or_404(pack.sections.filter(is_active=True), code=section_code)
+    response, _created = ReportTemplatePackResponse.objects.get_or_create(
+        reporting_instance=instance,
+        section=section,
+        defaults={"response_json": build_default_response_payload(section)},
+    )
+    ensure_initial_revision(section_response=response, author=response.updated_by)
+    return pack, section, response
 
 
 def _programme_queryset_for_user(user):
@@ -1014,6 +1126,720 @@ def api_reporting_nr7_pdf(request, instance_uuid):
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="nr7-{instance.uuid}.pdf"'
     return response
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_summary(request, instance_uuid):
+    instance = get_object_or_404(
+        ReportingInstance.objects.select_related("cycle", "focal_point_org", "publishing_authority_org"),
+        uuid=instance_uuid,
+    )
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    pack = resolve_cbd_pack()
+    workflow = ensure_workflow_instance(instance)
+    _sections = list(pack.sections.filter(is_active=True).order_by("ordering", "code"))
+    responses = (
+        ReportTemplatePackResponse.objects.filter(reporting_instance=instance, section__pack=pack)
+        .select_related("section", "updated_by")
+        .prefetch_related("revisions")
+        .order_by("section__ordering", "section__code")
+    )
+    response_map = {row.section.code: row for row in responses}
+    section_rows = []
+    for section in _sections:
+        row = response_map.get(section.code)
+        if row is None:
+            row = ReportTemplatePackResponse.objects.create(
+                reporting_instance=instance,
+                section=section,
+                response_json=build_default_response_payload(section),
+                updated_by=request.user if request.user.is_authenticated else None,
+            )
+            ensure_initial_revision(section_response=row, author=request.user)
+        section_rows.append(_serialize_section_response(row))
+
+    validation = build_pack_validation(pack=pack, instance=instance, user=request.user)
+    payload = build_cbd_report_payload(instance=instance)
+    latest_dossier = instance.dossier_artifacts.order_by("-created_at", "-id").first()
+    approvals = {
+        row.section.code: row
+        for row in workflow.section_approvals.select_related("section", "approved_by").order_by("section__ordering", "section__code")
+    }
+    return Response(
+        {
+            "instance": {
+                "uuid": str(instance.uuid),
+                "cycle_code": instance.cycle.code if instance.cycle_id else "",
+                "cycle_title": instance.cycle.title if instance.cycle_id else "",
+                "version_label": instance.version_label,
+                "report_title": instance.report_title,
+                "country_name": instance.country_name,
+                "status": instance.status,
+                "is_public": bool(instance.is_public),
+                "focal_point_org": instance.focal_point_org.name if instance.focal_point_org_id else "",
+                "publishing_authority_org": (
+                    instance.publishing_authority_org.name if instance.publishing_authority_org_id else ""
+                ),
+                "finalized_at": instance.finalized_at.isoformat() if instance.finalized_at else None,
+                "final_content_hash": instance.final_content_hash,
+            },
+            "pack": {
+                "code": pack.code,
+                "title": pack.title,
+                "version": pack.version,
+            },
+            "sections": section_rows,
+            "section_approvals": [
+                {
+                    "section_code": section.code,
+                    "approved": bool(approvals.get(section.code) and approvals[section.code].approved),
+                    "approved_by": approvals[section.code].approved_by.username if approvals.get(section.code) and approvals[section.code].approved_by_id else None,
+                    "approved_at": (
+                        approvals[section.code].approved_at.isoformat()
+                        if approvals.get(section.code) and approvals[section.code].approved_at
+                        else None
+                    ),
+                }
+                for section in _sections
+            ],
+            "workflow": {
+                "uuid": str(workflow.uuid),
+                "status": workflow.status,
+                "current_step": workflow.current_step,
+                "locked": workflow.locked,
+                "latest_content_hash": workflow.latest_content_hash,
+                "actions": [
+                    {
+                        "uuid": str(row.uuid),
+                        "action_type": row.action_type,
+                        "actor": row.actor.username if row.actor_id else None,
+                        "comment": row.comment,
+                        "created_at": row.created_at.isoformat(),
+                    }
+                    for row in workflow.actions.select_related("actor").order_by("-created_at", "-id")[:25]
+                ],
+            },
+            "validation": validation,
+            "preview_payload": payload,
+            "latest_dossier": read_dossier_manifest(latest_dossier) if latest_dossier else None,
+            "capabilities": user_capabilities(request.user),
+        }
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_section(request, instance_uuid, section_code):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, section_code)
+
+    if request.method == "GET":
+        payload = _serialize_section_response(response_row)
+        payload["schema_json"] = _section.schema_json
+        return Response(payload)
+
+    if not _can_edit_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    body = request.data or {}
+    base_version = int(body.get("base_version") or response_row.current_version or 1)
+    if base_version != int(response_row.current_version or 1):
+        return Response(
+            {"detail": "Version conflict. Reload section and retry."},
+            status=status.HTTP_409_CONFLICT,
+        )
+    suggestion_mode = bool(body.get("suggestion_mode"))
+    response_json = body.get("response_json") or {}
+    if not isinstance(response_json, dict):
+        return Response({"detail": "response_json must be an object."}, status=status.HTTP_400_BAD_REQUEST)
+    if suggestion_mode:
+        patch_json = body.get("patch_json")
+        if not isinstance(patch_json, dict):
+            previous = response_row.response_json or {}
+            patch_json = {}
+            for key in sorted(set(previous.keys()) | set(response_json.keys())):
+                if previous.get(key) != response_json.get(key):
+                    patch_json[key] = response_json.get(key)
+        suggestion = create_suggested_change(
+            section_response=response_row,
+            user=request.user,
+            base_version=base_version,
+            patch_json=patch_json,
+            rationale=(body.get("rationale") or "").strip(),
+        )
+        return Response(
+            {
+                "mode": "suggestion",
+                "suggested_change_uuid": str(suggestion.uuid),
+                "status": suggestion.status,
+            },
+            status=status.HTTP_201_CREATED,
+        )
+
+    revision = append_revision(
+        section_response=response_row,
+        content=response_json,
+        author=request.user,
+        note="direct_edit",
+    )
+    record_audit_event(
+        request.user,
+        "report_section_update",
+        response_row,
+        metadata={
+            "instance_uuid": str(instance.uuid),
+            "section_code": section_code,
+            "revision_uuid": str(revision.uuid),
+            "version": revision.version,
+        },
+    )
+    return Response(_serialize_section_response(response_row))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_generate_section_iii(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_edit_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, "section-iii")
+    targets = scoped_national_targets(instance, request.user).order_by("code", "id")
+    rows = []
+    for target in targets:
+        rows.append(
+            {
+                "national_target_uuid": str(target.uuid),
+                "national_target_code": target.code,
+                "national_target_title": target.title,
+                "actions_taken": "",
+                "progress_level": "unknown",
+                "progress_summary_outcomes": "",
+                "challenges_and_future_approaches": "",
+                "headline_indicator_data": [],
+                "binary_indicator_responses": [],
+                "component_indicators": [],
+                "effectiveness_examples": "",
+                "sdg_other_agreements": "",
+            }
+        )
+    payload = dict(response_row.response_json or {})
+    payload["target_progress_rows"] = rows
+    revision = append_revision(
+        section_response=response_row,
+        content=payload,
+        author=request.user,
+        note="generate_section_iii_skeleton",
+    )
+    return Response(
+        {
+            "section_code": "section-iii",
+            "target_count": len(rows),
+            "revision_uuid": str(revision.uuid),
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_recompute_section_iv(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_edit_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, "section-iv")
+    _pack_iii, _section_iii, section_iii = _get_cbd_pack_response(instance, "section-iii")
+    target_rows = (section_iii.response_json or {}).get("target_progress_rows") or []
+    goal_rows = []
+    grouped = defaultdict(list)
+    for row in target_rows:
+        target_code = str(row.get("national_target_code") or "")
+        if target_code:
+            grouped[target_code[:1]].append(row)
+    framework_goals = scoped_framework_targets(instance, request.user).select_related("goal", "framework")
+    for framework_target in framework_goals.order_by("framework__code", "code"):
+        goal = framework_target.goal
+        if not goal:
+            continue
+        key = goal.code
+        rows = grouped.get(key, [])
+        goal_rows.append(
+            {
+                "framework_goal_code": goal.code,
+                "framework_goal_title": goal.title,
+                "summary_national_progress": " ".join(
+                    (str(item.get("progress_summary_outcomes") or "").strip() for item in rows if item)
+                ).strip(),
+                "selected_headline_binary_indicators": [],
+                "selected_component_indicators": [],
+                "sources_of_data": [],
+                "curated_override": "",
+            }
+        )
+    payload = dict(response_row.response_json or {})
+    payload["goal_progress_rows"] = goal_rows
+    revision = append_revision(
+        section_response=response_row,
+        content=payload,
+        author=request.user,
+        note="recompute_section_iv_rollup",
+    )
+    return Response(
+        {
+            "section_code": "section-iv",
+            "goal_count": len(goal_rows),
+            "revision_uuid": str(revision.uuid),
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_section_history(request, instance_uuid, section_code):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, section_code)
+    revisions = list(
+        response_row.revisions.select_related("author").order_by("-version", "-id")
+    )
+    diff_from = request.GET.get("from")
+    diff_to = request.GET.get("to")
+    diff_payload = None
+    if diff_from and diff_to:
+        from_row = next((row for row in revisions if str(row.version) == str(diff_from)), None)
+        to_row = next((row for row in revisions if str(row.version) == str(diff_to)), None)
+        if from_row and to_row:
+            from_content = from_row.content_snapshot or {}
+            to_content = to_row.content_snapshot or {}
+            changed_keys = sorted(
+                key
+                for key in set(from_content.keys()) | set(to_content.keys())
+                if from_content.get(key) != to_content.get(key)
+            )
+            diff_payload = {
+                "from_version": from_row.version,
+                "to_version": to_row.version,
+                "changed_keys": changed_keys,
+            }
+    return Response(
+        {
+            "section_code": section_code,
+            "current_version": response_row.current_version,
+            "revisions": [
+                {
+                    "uuid": str(row.uuid),
+                    "version": row.version,
+                    "author": row.author.username if row.author_id else None,
+                    "content_hash": row.content_hash,
+                    "parent_hash": row.parent_hash,
+                    "note": row.note,
+                    "created_at": row.created_at.isoformat(),
+                }
+                for row in revisions
+            ],
+            "diff": diff_payload,
+        }
+    )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_section_comments(request, instance_uuid, section_code):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, section_code)
+
+    if request.method == "POST":
+        if not _can_edit_report_instance(request.user, instance):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        body = request.data or {}
+        thread_uuid = (body.get("thread_uuid") or "").strip()
+        body_text = (body.get("body") or "").strip()
+        if not body_text:
+            return Response({"detail": "Comment body is required."}, status=status.HTTP_400_BAD_REQUEST)
+        if thread_uuid:
+            thread = get_object_or_404(
+                ReportCommentThread.objects.filter(section_response=response_row),
+                uuid=thread_uuid,
+            )
+        else:
+            json_path = (body.get("json_path") or "").strip()
+            if not json_path:
+                return Response({"detail": "json_path is required when creating a thread."}, status=status.HTTP_400_BAD_REQUEST)
+            thread = ReportCommentThread.objects.create(
+                section_response=response_row,
+                json_path=json_path,
+                created_by=request.user,
+            )
+        comment = ReportComment.objects.create(
+            thread=thread,
+            author=request.user,
+            body=body_text,
+        )
+        record_audit_event(
+            request.user,
+            "report_comment_create",
+            response_row,
+            metadata={
+                "thread_uuid": str(thread.uuid),
+                "comment_uuid": str(comment.uuid),
+                "json_path": thread.json_path,
+            },
+        )
+
+    threads = (
+        ReportCommentThread.objects.filter(section_response=response_row)
+        .select_related("created_by", "resolved_by")
+        .prefetch_related("comments__author")
+        .order_by("-created_at", "-id")
+    )
+    return Response(
+        {
+            "threads": [
+                {
+                    "uuid": str(thread.uuid),
+                    "json_path": thread.json_path,
+                    "status": thread.status,
+                    "created_by": thread.created_by.username if thread.created_by_id else None,
+                    "created_at": thread.created_at.isoformat(),
+                    "resolved_at": thread.resolved_at.isoformat() if thread.resolved_at else None,
+                    "resolved_by": thread.resolved_by.username if thread.resolved_by_id else None,
+                    "comments": [
+                        {
+                            "uuid": str(comment.uuid),
+                            "author": comment.author.username if comment.author_id else None,
+                            "body": comment.body,
+                            "created_at": comment.created_at.isoformat(),
+                        }
+                        for comment in thread.comments.all().order_by("created_at", "id")
+                    ],
+                }
+                for thread in threads
+            ]
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_comment_thread_status(request, instance_uuid, section_code, thread_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_edit_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, section_code)
+    thread = get_object_or_404(
+        ReportCommentThread.objects.filter(section_response=response_row),
+        uuid=thread_uuid,
+    )
+    new_status = (request.data.get("status") or "").strip().lower()
+    if new_status not in {ReportCommentThreadStatus.OPEN, ReportCommentThreadStatus.RESOLVED}:
+        return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+    thread.status = new_status
+    if new_status == ReportCommentThreadStatus.RESOLVED:
+        thread.resolved_at = timezone.now()
+        thread.resolved_by = request.user
+    else:
+        thread.resolved_at = None
+        thread.resolved_by = None
+    thread.save(update_fields=["status", "resolved_at", "resolved_by", "updated_at"])
+    record_audit_event(
+        request.user,
+        "report_comment_thread_status",
+        response_row,
+        metadata={"thread_uuid": str(thread.uuid), "status": thread.status},
+    )
+    return Response({"thread_uuid": str(thread.uuid), "status": thread.status})
+
+
+@api_view(["GET", "POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_section_suggestions(request, instance_uuid, section_code):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, section_code)
+
+    if request.method == "POST":
+        if not _can_edit_report_instance(request.user, instance):
+            return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+        base_version = int(request.data.get("base_version") or response_row.current_version or 1)
+        patch_json = request.data.get("patch_json") or {}
+        suggestion = create_suggested_change(
+            section_response=response_row,
+            user=request.user,
+            base_version=base_version,
+            patch_json=patch_json,
+            rationale=(request.data.get("rationale") or "").strip(),
+        )
+        return Response(
+            {"uuid": str(suggestion.uuid), "status": suggestion.status},
+            status=status.HTTP_201_CREATED,
+        )
+
+    suggestions = (
+        ReportSuggestedChange.objects.filter(section_response=response_row)
+        .select_related("created_by", "decided_by")
+        .order_by("-created_at", "-id")
+    )
+    return Response(
+        {
+            "suggestions": [
+                {
+                    "uuid": str(row.uuid),
+                    "base_version": row.base_version,
+                    "patch_json": row.patch_json,
+                    "rationale": row.rationale,
+                    "status": row.status,
+                    "created_by": row.created_by.username if row.created_by_id else None,
+                    "created_at": row.created_at.isoformat(),
+                    "decided_by": row.decided_by.username if row.decided_by_id else None,
+                    "decided_at": row.decided_at.isoformat() if row.decided_at else None,
+                    "decision_note": row.decision_note,
+                }
+                for row in suggestions
+            ]
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_suggestion_decide(request, instance_uuid, section_code, suggestion_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_edit_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    _pack, _section, response_row = _get_cbd_pack_response(instance, section_code)
+    suggestion = get_object_or_404(
+        ReportSuggestedChange.objects.filter(section_response=response_row),
+        uuid=suggestion_uuid,
+    )
+    action = (request.data.get("action") or "").strip().lower()
+    if action not in {"accept", "reject"}:
+        return Response({"detail": "action must be accept or reject."}, status=status.HTTP_400_BAD_REQUEST)
+    suggestion, revision = decide_suggested_change(
+        suggestion=suggestion,
+        user=request.user,
+        accept=(action == "accept"),
+        note=(request.data.get("note") or "").strip(),
+    )
+    return Response(
+        {
+            "uuid": str(suggestion.uuid),
+            "status": suggestion.status,
+            "revision_uuid": str(revision.uuid) if revision else None,
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_workflow(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    workflow = ensure_workflow_instance(instance)
+    return Response(
+        {
+            "workflow": {
+                "uuid": str(workflow.uuid),
+                "status": workflow.status,
+                "current_step": workflow.current_step,
+                "locked": workflow.locked,
+                "latest_content_hash": workflow.latest_content_hash,
+                "started_at": workflow.started_at.isoformat() if workflow.started_at else None,
+                "completed_at": workflow.completed_at.isoformat() if workflow.completed_at else None,
+            },
+            "section_approvals": [
+                {
+                    "section_code": row.section.code,
+                    "approved": row.approved,
+                    "approved_by": row.approved_by.username if row.approved_by_id else None,
+                    "approved_at": row.approved_at.isoformat() if row.approved_at else None,
+                    "note": row.note,
+                }
+                for row in workflow.section_approvals.select_related("section", "approved_by").order_by(
+                    "section__ordering",
+                    "section__code",
+                )
+            ],
+            "actions": [
+                {
+                    "uuid": str(row.uuid),
+                    "action_type": row.action_type,
+                    "actor": row.actor.username if row.actor_id else None,
+                    "comment": row.comment,
+                    "payload_hash": row.payload_hash,
+                    "created_at": row.created_at.isoformat(),
+                }
+                for row in workflow.actions.select_related("actor").order_by("-created_at", "-id")
+            ],
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_workflow_action(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _can_view_report_instance(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    action = (request.data.get("action") or "").strip().lower()
+    section_code = (request.data.get("section_code") or "").strip()
+    comment = (request.data.get("comment") or "").strip()
+    try:
+        workflow, workflow_action = transition_report_workflow(
+            instance=instance,
+            user=request.user,
+            action=action,
+            comment=comment,
+            section_code=section_code,
+        )
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {
+            "workflow_uuid": str(workflow.uuid),
+            "workflow_status": workflow.status,
+            "current_step": workflow.current_step,
+            "instance_status": instance.status,
+            "action_uuid": str(workflow_action.uuid),
+        }
+    )
+
+
+def _report_export_allowed(user, instance):
+    if instance.is_public and instance.status in {ReportingStatus.SUBMITTED, ReportingStatus.RELEASED}:
+        return True
+    return _can_view_report_instance(user, instance)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_reporting_workspace_export_pdf(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _report_export_allowed(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    payload = build_cbd_report_payload(instance=instance)
+    pdf_bytes = render_cbd_pdf_bytes(payload=payload)
+    artifact = store_report_export_artifact(
+        instance=instance,
+        generated_by=request.user,
+        format_name=ReportExportArtifact.FORMAT_PDF,
+        content_bytes=pdf_bytes,
+        metadata={"api": "workspace_export_pdf"},
+    )
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="cbd-report-{instance.uuid}.pdf"'
+    response["ETag"] = artifact.content_hash
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_reporting_workspace_export_docx(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _report_export_allowed(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    payload = build_cbd_report_payload(instance=instance)
+    docx_bytes = render_cbd_docx_bytes(payload=payload)
+    artifact = store_report_export_artifact(
+        instance=instance,
+        generated_by=request.user,
+        format_name=ReportExportArtifact.FORMAT_DOCX,
+        content_bytes=docx_bytes,
+        metadata={"api": "workspace_export_docx"},
+    )
+    response = HttpResponse(
+        docx_bytes,
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
+    response["Content-Disposition"] = f'attachment; filename="cbd-report-{instance.uuid}.docx"'
+    response["ETag"] = artifact.content_hash
+    return response
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_reporting_workspace_export_json(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not _report_export_allowed(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    payload = build_cbd_report_payload(instance=instance)
+    json_bytes = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    artifact = store_report_export_artifact(
+        instance=instance,
+        generated_by=request.user,
+        format_name=ReportExportArtifact.FORMAT_JSON,
+        content_bytes=json_bytes,
+        metadata={"api": "workspace_export_json"},
+    )
+    response = HttpResponse(json_bytes, content_type="application/json")
+    response["Content-Disposition"] = f'attachment; filename="cbd-report-{instance.uuid}.json"'
+    response["ETag"] = artifact.content_hash
+    return response
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_generate_dossier(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _report_export_allowed(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    workflow = ensure_workflow_instance(instance)
+    linked_action = workflow.actions.order_by("-created_at", "-id").first()
+    dossier = generate_reporting_dossier(instance=instance, user=request.user, linked_action=linked_action)
+    return Response(
+        {
+            "dossier": read_dossier_manifest(dossier),
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_reporting_workspace_latest_dossier(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
+    if not _report_export_allowed(request.user, instance):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    dossier = instance.dossier_artifacts.order_by("-created_at", "-id").first()
+    if not dossier:
+        return Response({"detail": "No dossier generated yet."}, status=status.HTTP_404_NOT_FOUND)
+    if request.GET.get("download") == "1":
+        file_handle = default_storage.open(dossier.storage_path, mode="rb")
+        response = FileResponse(file_handle, content_type="application/zip")
+        response["Content-Disposition"] = f'attachment; filename="report-dossier-{instance.uuid}.zip"'
+        response["ETag"] = dossier.content_hash
+        return response
+    return Response({"dossier": read_dossier_manifest(dossier)})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_reporting_public_view(request, instance_uuid):
+    instance = get_object_or_404(ReportingInstance.objects.select_related("cycle"), uuid=instance_uuid)
+    if not instance.is_public:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    if instance.status not in {ReportingStatus.SUBMITTED, ReportingStatus.RELEASED}:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    payload = build_cbd_report_payload(instance=instance)
+    return Response(
+        {
+            "instance": {
+                "uuid": str(instance.uuid),
+                "report_title": instance.report_title,
+                "country_name": instance.country_name,
+                "cycle_code": instance.cycle.code if instance.cycle_id else "",
+                "status": instance.status,
+            },
+            "payload": payload,
+        }
+    )
 
 
 @api_view(["GET"])

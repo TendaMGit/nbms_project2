@@ -48,7 +48,7 @@ def build_default_response_payload(section: ReportTemplatePackSection):
                 }
                 for item in field.get("question_catalog", [])
             ]
-        elif field_type == "multivalue":
+        elif field_type in {"multivalue", "table"}:
             payload[key] = []
         else:
             payload[key] = ""
@@ -125,6 +125,9 @@ def build_pack_validation(*, pack: ReportTemplatePack, instance, user):
                             )
                 elif field_type == "multivalue":
                     if not _normalise_multivalue(value):
+                        missing_fields.append(key)
+                elif field_type == "table":
+                    if not isinstance(value, list) or not value:
                         missing_fields.append(key)
                 elif not str(value or "").strip():
                     missing_fields.append(key)

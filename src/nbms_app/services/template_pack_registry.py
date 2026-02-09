@@ -1,6 +1,7 @@
 from nbms_app.exports.ort_nr7_narrative import build_ort_nr7_narrative_payload
 from nbms_app.exports.ort_nr7_v2 import build_ort_nr7_v2_payload
 from nbms_app.models import ReportTemplatePack, ReportTemplatePackResponse, ReportTemplatePackSection
+from nbms_app.services.reporting_exports import build_cbd_report_payload
 from nbms_app.services.template_packs import build_default_response_payload
 
 
@@ -10,6 +11,10 @@ def _export_cbd_ort_nr7_v2(instance, user):
 
 def _export_cbd_ort_nr7_narrative(instance, user):
     return build_ort_nr7_narrative_payload(instance=instance, user=user)
+
+
+def _export_cbd_national_report_v1(instance, user):
+    return build_cbd_report_payload(instance=instance)
 
 
 def _export_stub(instance, user, pack_code):
@@ -104,6 +109,7 @@ def _export_ramsar_v1(instance, user):
 
 
 EXPORT_HANDLER_REGISTRY = {
+    "cbd_national_report_v1": _export_cbd_national_report_v1,
     "cbd_ort_nr7_v2": _export_cbd_ort_nr7_v2,
     "cbd_ort_nr7_narrative": _export_cbd_ort_nr7_narrative,
     "ramsar_v1": _export_ramsar_v1,

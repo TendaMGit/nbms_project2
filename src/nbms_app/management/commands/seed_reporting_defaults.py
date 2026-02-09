@@ -10,6 +10,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         self.stdout.write("Seeding report section templates...")
         call_command("seed_report_templates")
+        self.stdout.write("Seeding MEA template packs...")
+        call_command("seed_mea_template_packs")
         self.stdout.write("Seeding validation rules...")
         call_command("seed_validation_rules")
         self.stdout.write(

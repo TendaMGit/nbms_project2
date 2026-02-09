@@ -43,8 +43,12 @@ class DemoUserSpec:
 DEMO_USER_SPECS = [
     DemoUserSpec("Contributor", "SANBI", ("Contributor",), first_name="Demo", last_name="Contributor"),
     DemoUserSpec("IndicatorLead", "SANBI", ("Indicator Lead",), first_name="Demo", last_name="Indicator Lead"),
+    DemoUserSpec("SectionLead", "SANBI", ("SectionLead",), first_name="Demo", last_name="Section Lead"),
     DemoUserSpec("ProgrammeSteward", "SAEON", ("Data Steward",), first_name="Demo", last_name="Programme Steward"),
     DemoUserSpec("DatasetSteward", "STATS-SA", ("Data Steward",), first_name="Demo", last_name="Dataset Steward"),
+    DemoUserSpec("Secretariat", "DFFE", ("Secretariat",), first_name="Demo", last_name="Secretariat"),
+    DemoUserSpec("TechnicalCommittee", "SANBI", ("TechnicalCommittee",), first_name="Demo", last_name="Technical Committee"),
+    DemoUserSpec("PublishingAuthority", "DFFE", ("PublishingAuthority",), first_name="Demo", last_name="Publishing Authority"),
     DemoUserSpec("Reviewer", "DFFE", ("Secretariat",), first_name="Demo", last_name="Reviewer"),
     DemoUserSpec("Approver", "DFFE", ("Admin",), first_name="Demo", last_name="Approver"),
     DemoUserSpec("Publisher", "DFFE", ("Admin",), first_name="Demo", last_name="Publisher"),

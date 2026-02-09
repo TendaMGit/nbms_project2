@@ -12,6 +12,181 @@ from nbms_app.models import (
 
 PACK_DEFINITIONS = [
     {
+        "code": "cbd_national_report_v1",
+        "title": "CBD National Report (NR7/NR8 Unified)",
+        "mea_code": "CBD",
+        "version": "v1",
+        "description": "Unified CBD national report pack for NR7 and NR8 with Sections I-V and annex module.",
+        "export_handler": "cbd_national_report_v1",
+        "sections": [
+            (
+                "section-i",
+                "Section I - Process Overview",
+                {
+                    "fields": [
+                        {"key": "country_name", "label": "Country name", "type": "text", "required": True},
+                        {"key": "authorities", "label": "National authorities responsible", "type": "multivalue", "required": True},
+                        {"key": "contact_name", "label": "Contact person name", "type": "text", "required": True},
+                        {"key": "contact_title", "label": "Contact person title", "type": "text", "required": False},
+                        {"key": "contact_email", "label": "Contact email", "type": "text", "required": True},
+                        {"key": "contact_phone", "label": "Contact phone", "type": "text", "required": False},
+                        {"key": "contact_address", "label": "Contact address", "type": "textarea", "required": False},
+                        {
+                            "key": "preparation_process",
+                            "label": "Preparation process narrative",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                        {
+                            "key": "coordination_mechanisms",
+                            "label": "Coordination mechanisms and methodology",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                        {
+                            "key": "consultations",
+                            "label": "Consultations and stakeholder engagement",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                        {
+                            "key": "challenges_encountered",
+                            "label": "Challenges encountered",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                    ]
+                },
+            ),
+            (
+                "section-ii",
+                "Section II - NBSAP Status",
+                {
+                    "fields": [
+                        {
+                            "key": "nbsap_aligned_status",
+                            "label": "Revised/updated NBSAP aligned with KMGBF",
+                            "type": "select",
+                            "required": True,
+                            "allowed_values": ["yes", "no", "in_progress"],
+                        },
+                        {
+                            "key": "nbsap_expected_completion_date",
+                            "label": "Expected completion date",
+                            "type": "date",
+                            "required": False,
+                        },
+                        {
+                            "key": "stakeholders_engaged",
+                            "label": "Stakeholders engaged",
+                            "type": "select",
+                            "required": True,
+                            "allowed_values": ["yes", "no"],
+                        },
+                        {
+                            "key": "stakeholder_groups",
+                            "label": "Stakeholder groups",
+                            "type": "multivalue",
+                            "required": False,
+                        },
+                        {
+                            "key": "adopted_status",
+                            "label": "Adopted as policy/legal instrument and/or integrated",
+                            "type": "select",
+                            "required": True,
+                            "allowed_values": ["yes", "no", "in_progress", "other"],
+                        },
+                        {"key": "adoption_expected_date", "label": "Expected adoption date", "type": "date", "required": False},
+                        {"key": "adoption_specification", "label": "Adoption specification", "type": "textarea", "required": False},
+                        {"key": "adoption_methods", "label": "Adoption methods", "type": "multivalue", "required": False},
+                        {
+                            "key": "monitoring_system_description",
+                            "label": "National biodiversity monitoring system narrative",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                    ]
+                },
+            ),
+            (
+                "section-iii",
+                "Section III - National Target Progress",
+                {
+                    "fields": [
+                        {
+                            "key": "target_progress_rows",
+                            "label": "Per-target progress rows",
+                            "type": "table",
+                            "required": True,
+                        }
+                    ]
+                },
+            ),
+            (
+                "section-iv",
+                "Section IV - Progress towards 2050 Goals",
+                {
+                    "fields": [
+                        {
+                            "key": "goal_progress_rows",
+                            "label": "Goal progress rollup rows",
+                            "type": "table",
+                            "required": True,
+                        }
+                    ]
+                },
+            ),
+            (
+                "section-v",
+                "Section V - Conclusions",
+                {
+                    "fields": [
+                        {"key": "summary_assessment", "label": "Summary assessment of implementation", "type": "textarea", "required": True},
+                        {"key": "achievements", "label": "Achievements", "type": "textarea", "required": True},
+                        {
+                            "key": "challenges_and_gaps",
+                            "label": "Challenges and obstacles including gaps",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                        {
+                            "key": "support_provided",
+                            "label": "Support provided for implementation",
+                            "type": "textarea",
+                            "required": True,
+                        },
+                        {
+                            "key": "finance_table",
+                            "label": "Structured finance table",
+                            "type": "table",
+                            "required": False,
+                        },
+                        {
+                            "key": "cross_references",
+                            "label": "Covered in section pointers",
+                            "type": "multivalue",
+                            "required": False,
+                        },
+                    ]
+                },
+            ),
+            (
+                "annex",
+                "Annex - Other Information Requested by COP Decisions",
+                {
+                    "fields": [
+                        {
+                            "key": "annex_items",
+                            "label": "Annex decision/topic entries",
+                            "type": "table",
+                            "required": False,
+                        }
+                    ]
+                },
+            ),
+        ],
+    },
+    {
         "code": "cbd_ort_nr7_v2",
         "title": "CBD ORT NR7 v2",
         "mea_code": "CBD",
