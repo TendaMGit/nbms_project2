@@ -137,7 +137,7 @@ test('anonymous user sees public workspace only', async ({ page }) => {
 
   await expect(page.getByRole('link', { name: 'Indicator Explorer' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'NR7 Builder' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'National Report' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
 
   await page.goto('/dashboard');
@@ -160,7 +160,7 @@ test('authenticated system admin can access core workspaces', async ({ page }) =
   await page.getByRole('link', { name: 'Programme Ops' }).click();
   await expect(page).toHaveURL(/programmes/);
 
-  await page.getByRole('link', { name: 'NR7 Builder' }).click();
+  await page.getByRole('link', { name: 'National Report' }).click();
   await expect(page).toHaveURL(/nr7-builder/);
 
   await page.getByRole('link', { name: 'MEA Packs' }).click();
@@ -176,7 +176,7 @@ test('role visibility matrix is enforced in UI navigation', async ({ browser }) 
   await loginAsSeededUser(contributorPage, CONTRIBUTOR_USERNAME, 'can_view_dashboard');
   await expect(contributorPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await expect(contributorPage.getByRole('link', { name: 'Indicator Explorer' })).toBeVisible();
-  await expect(contributorPage.getByRole('link', { name: 'NR7 Builder' })).toHaveCount(0);
+  await expect(contributorPage.getByRole('link', { name: 'National Report' })).toHaveCount(0);
   await expect(contributorPage.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
   await contributorContext.close();
 
@@ -185,7 +185,7 @@ test('role visibility matrix is enforced in UI navigation', async ({ browser }) 
   await loginAsSeededUser(reviewerPage, REVIEWER_USERNAME, 'can_view_programmes');
   await expect(reviewerPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
   await expect(reviewerPage.getByRole('link', { name: 'Programme Ops' })).toBeVisible();
-  await expect(reviewerPage.getByRole('link', { name: 'NR7 Builder' })).toBeVisible();
+  await expect(reviewerPage.getByRole('link', { name: 'National Report' })).toBeVisible();
   await expect(reviewerPage.getByRole('link', { name: 'MEA Packs' })).toBeVisible();
   await reviewerContext.close();
 
@@ -194,7 +194,7 @@ test('role visibility matrix is enforced in UI navigation', async ({ browser }) 
   await loginAsSeededUser(publicPage, PUBLIC_USERNAME, 'can_view_dashboard');
   await expect(publicPage.getByRole('link', { name: 'Indicator Explorer' })).toBeVisible();
   await expect(publicPage.getByRole('link', { name: 'Programme Ops' })).toHaveCount(0);
-  await expect(publicPage.getByRole('link', { name: 'NR7 Builder' })).toHaveCount(0);
+  await expect(publicPage.getByRole('link', { name: 'National Report' })).toHaveCount(0);
   await expect(publicPage.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
   await publicContext.close();
 });

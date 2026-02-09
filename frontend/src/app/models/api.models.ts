@@ -681,6 +681,126 @@ export interface Nr7BuilderSummary {
   links: Record<string, string>;
 }
 
+export interface ReportWorkspaceSection {
+  uuid: string;
+  section_code: string;
+  section_title: string;
+  ordering: number;
+  response_json: Record<string, unknown>;
+  current_version: number;
+  current_content_hash: string;
+  locked_for_editing: boolean;
+  updated_by: string | null;
+  updated_at: string | null;
+  latest_revision_uuid: string | null;
+  schema_json?: Record<string, unknown>;
+}
+
+export interface ReportWorkspaceSummary {
+  instance: {
+    uuid: string;
+    cycle_code: string;
+    cycle_title: string;
+    version_label: string;
+    report_title: string;
+    country_name: string;
+    status: string;
+    is_public: boolean;
+    focal_point_org: string;
+    publishing_authority_org: string;
+    finalized_at: string | null;
+    final_content_hash: string;
+  };
+  pack: {
+    code: string;
+    title: string;
+    version: string;
+  };
+  sections: ReportWorkspaceSection[];
+  section_approvals: Array<{
+    section_code: string;
+    approved: boolean;
+    approved_by: string | null;
+    approved_at: string | null;
+  }>;
+  workflow: {
+    uuid: string;
+    status: string;
+    current_step: string;
+    locked: boolean;
+    latest_content_hash: string;
+    actions: Array<{
+      uuid: string;
+      action_type: string;
+      actor: string | null;
+      comment: string;
+      created_at: string;
+    }>;
+  };
+  validation: TemplatePackValidationSummary;
+  preview_payload: Record<string, unknown>;
+  latest_dossier: {
+    uuid: string;
+    storage_path: string;
+    content_hash: string;
+    manifest_json: Record<string, unknown>;
+    created_at: string;
+  } | null;
+  capabilities: Record<string, boolean>;
+}
+
+export interface ReportSectionHistory {
+  section_code: string;
+  current_version: number;
+  revisions: Array<{
+    uuid: string;
+    version: number;
+    author: string | null;
+    content_hash: string;
+    parent_hash: string;
+    note: string;
+    created_at: string;
+  }>;
+  diff: {
+    from_version: number;
+    to_version: number;
+    changed_keys: string[];
+  } | null;
+}
+
+export interface ReportCommentThreadPayload {
+  threads: Array<{
+    uuid: string;
+    json_path: string;
+    status: string;
+    created_by: string | null;
+    created_at: string;
+    resolved_at: string | null;
+    resolved_by: string | null;
+    comments: Array<{
+      uuid: string;
+      author: string | null;
+      body: string;
+      created_at: string;
+    }>;
+  }>;
+}
+
+export interface ReportSuggestionPayload {
+  suggestions: Array<{
+    uuid: string;
+    base_version: number;
+    patch_json: Record<string, unknown>;
+    rationale: string;
+    status: string;
+    created_by: string | null;
+    created_at: string;
+    decided_by: string | null;
+    decided_at: string | null;
+    decision_note: string;
+  }>;
+}
+
 export interface BirdieDashboardResponse {
   programme: ProgrammeSummary;
   site_reports: Array<{

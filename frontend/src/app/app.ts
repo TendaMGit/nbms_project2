@@ -58,7 +58,7 @@ export class App {
     { route: '/registries/ecosystems', label: 'Ecosystem Registry', icon: 'terrain', capability: 'can_view_registries' },
     { route: '/registries/taxa', label: 'Taxon Registry', icon: 'pets', capability: 'can_view_registries' },
     { route: '/registries/ias', label: 'IAS Registry', icon: 'bug_report', capability: 'can_view_registries' },
-    { route: '/nr7-builder', label: 'NR7 Builder', icon: 'assignment', capability: 'can_view_reporting_builder' },
+    { route: '/nr7-builder', label: 'National Report', icon: 'assignment', capability: 'can_view_reporting_builder' },
     { route: '/template-packs', label: 'MEA Packs', icon: 'account_tree', capability: 'can_view_template_packs' },
     { route: '/report-products', label: 'Report Products', icon: 'auto_stories', capability: 'can_view_report_products' },
     { route: '/system-health', label: 'System Health', icon: 'monitor_heart', capability: 'can_view_system_health' }

@@ -61,7 +61,7 @@ export const routes: Routes = [
     path: 'nr7-builder',
     component: ReportingPageComponent,
     canActivate: [requireCapability('can_view_reporting_builder')],
-    data: { title: 'NR7 Report Builder', sectionKey: 'section_v' }
+    data: { title: 'National Report Workspace', sectionKey: 'section_v' }
   },
   {
     path: 'template-packs',
