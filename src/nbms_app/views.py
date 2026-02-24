@@ -9,6 +9,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections, transaction
+from django.db.migrations.executor import MigrationExecutor
 from django.db.models import Prefetch, Q
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -333,12 +334,33 @@ def home(request):
 
 def health_db(request):
     try:
-        with connections["default"].cursor() as cursor:
-            cursor.execute("SELECT 1")
+        _database_available()
         return JsonResponse({"status": "ok"})
     except Exception:  # noqa: BLE001
         logger.exception("Database health check failed.")
         return JsonResponse({"status": "error"}, status=503)
+
+
+def healthz(request):
+    return JsonResponse({"status": "ok"})
+
+
+def readyz(request):
+    checks = {"database": "ok", "migrations": "ok"}
+
+    try:
+        _database_available()
+    except Exception:  # noqa: BLE001
+        logger.exception("Readiness database check failed.")
+        checks["database"] = "error"
+        checks["migrations"] = "unknown"
+        return JsonResponse({"status": "not-ready", "checks": checks}, status=503)
+
+    if _pending_migrations():
+        checks["migrations"] = "pending"
+        return JsonResponse({"status": "not-ready", "checks": checks}, status=503)
+
+    return JsonResponse({"status": "ready", "checks": checks})
 
 
 def health_storage(request):
@@ -351,6 +373,21 @@ def health_storage(request):
     except Exception:  # noqa: BLE001
         logger.exception("Storage health check failed.")
         return JsonResponse({"status": "error"}, status=503)
+
+
+def _database_available():
+    with connections["default"].cursor() as cursor:
+        cursor.execute("SELECT 1")
+
+
+def _pending_migrations():
+    if getattr(settings, "HEALTHCHECK_SKIP_MIGRATION_CHECK", False):
+        return False
+
+    connection = connections["default"]
+    executor = MigrationExecutor(connection)
+    targets = executor.loader.graph.leaf_nodes()
+    return bool(executor.migration_plan(targets))
 
 
 def staff_or_system_admin_required(view_func):

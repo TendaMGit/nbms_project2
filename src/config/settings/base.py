@@ -85,6 +85,7 @@ MIDDLEWARE = [
     "nbms_app.middleware_metrics.MetricsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "nbms_app.middleware_request_logging.RequestLoggingMiddleware",
     "nbms_app.middleware_security.SessionSecurityMiddleware",
     "nbms_app.middleware_security.SecurityHeadersMiddleware",
     "nbms_app.middleware_audit.AuditContextMiddleware",
@@ -298,10 +299,17 @@ LOGGING = {
         "request_id": {
             "()": "nbms_app.logging_utils.RequestIdLogFilter",
         },
+        "sensitive_data": {
+            "()": "nbms_app.logging_utils.SensitiveDataFilter",
+        },
     },
     "formatters": {
         "plain": {
-            "format": "%(asctime)s %(levelname)s %(name)s [request_id=%(request_id)s] %(message)s",
+            "format": (
+                "%(asctime)s %(levelname)s %(name)s "
+                "[request_id=%(request_id)s user_id=%(user_id)s method=%(method)s "
+                "path=%(path)s status=%(status_code)s latency_ms=%(latency_ms)s] %(message)s"
+            ),
         },
         "json": {
             "()": "nbms_app.logging_utils.JsonLogFormatter",
@@ -310,13 +318,40 @@ LOGGING = {
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "filters": ["request_id"],
+            "filters": ["request_id", "sensitive_data"],
             "formatter": LOGGING_FORMATTER,
         }
     },
     "root": {"handlers": ["console"], "level": LOG_LEVEL},
-    "loggers": {"django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False}},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "nbms.request": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+    },
 }
+
+SENTRY_DSN = env("SENTRY_DSN", default="")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default=ENVIRONMENT)
+SENTRY_TRACES_SAMPLE_RATE = env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0)
+SENTRY_PROFILES_SAMPLE_RATE = env.float("SENTRY_PROFILES_SAMPLE_RATE", default=0.0)
+SENTRY_SEND_DEFAULT_PII = env.bool("SENTRY_SEND_DEFAULT_PII", default=False)
+SENTRY_RELEASE = env("SENTRY_RELEASE", default="")
+
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
+            send_default_pii=SENTRY_SEND_DEFAULT_PII,
+            environment=SENTRY_ENVIRONMENT,
+            release=SENTRY_RELEASE or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Sentry initialization skipped: %s", exc)
 
 def _bool_env(value):
     return str(value).lower() in ("1", "true", "yes")
@@ -416,6 +451,7 @@ RATE_LIMITS = {
 
 METRICS_TOKEN = env("METRICS_TOKEN", default="")
 METRICS_ALLOW_QUERY_TOKEN = env.bool("METRICS_ALLOW_QUERY_TOKEN", default=False)
+HEALTHCHECK_SKIP_MIGRATION_CHECK = env.bool("HEALTHCHECK_SKIP_MIGRATION_CHECK", default=False)
 
 BIRDIE_BASE_URL = env("BIRDIE_BASE_URL", default="")
 BIRDIE_API_TOKEN = env("BIRDIE_API_TOKEN", default="")
