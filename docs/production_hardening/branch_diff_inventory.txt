@@ -1,5 +1,5 @@
 Branch diff inventory against origin/main...HEAD
-Generated: 2026-02-24 10:27:25 +02:00
+Generated: 2026-02-24 10:33:30 +02:00
 
 Status | Path | Rationale
 --- | --- | ---
@@ -101,12 +101,14 @@ Modified | docs/ops/STATE_OF_REPO.md | Documentation and operational notes retai
 Added | docs/ops/db_schema.drawio | Documentation and operational notes retained in branch history.
 Added | docs/ops/db_schema.mmd | Documentation and operational notes retained in branch history.
 Added | docs/ops/db_schema_v2.drawio | Documentation and operational notes retained in branch history.
+Added | docs/production_hardening/branch_diff_inventory.txt | Production hardening documentation and verification artifacts.
 Added | docs/production_hardening/current_state.md | Production hardening documentation and verification artifacts.
 Added | docs/production_hardening/db_backup_pitr_runbook.md | Production hardening documentation and verification artifacts.
 Added | docs/production_hardening/deployment_runbook.md | Production hardening documentation and verification artifacts.
 Added | docs/production_hardening/production_hardening_plan.md | Production hardening documentation and verification artifacts.
 Added | docs/production_hardening/secure_settings_reference.md | Production hardening documentation and verification artifacts.
 Added | docs/production_hardening/security_verification.md | Production hardening documentation and verification artifacts.
+Added | docs/production_hardening/verification_outputs.md | Production hardening documentation and verification artifacts.
 Added | docs/reporting/MEA_TEMPLATE_PACKS.md | Documentation and operational notes retained in branch history.
 Added | frontend/.editorconfig | Frontend/API workspace and supporting UI additions included in branch history.
 Added | frontend/.gitignore | Frontend/API workspace and supporting UI additions included in branch history.
