@@ -39,4 +39,20 @@ class SecurityHeadersMiddleware:
 
         if "X-Content-Type-Options" not in response and getattr(settings, "SECURE_CONTENT_TYPE_NOSNIFF", False):
             response["X-Content-Type-Options"] = "nosniff"
+
+        referrer_policy = getattr(settings, "SECURE_REFERRER_POLICY", "")
+        if referrer_policy and "Referrer-Policy" not in response:
+            response["Referrer-Policy"] = referrer_policy
+
+        x_frame_options = getattr(settings, "X_FRAME_OPTIONS", "")
+        if x_frame_options and "X-Frame-Options" not in response:
+            response["X-Frame-Options"] = x_frame_options
+
+        permissions_policy = getattr(settings, "PERMISSIONS_POLICY", "")
+        if permissions_policy and "Permissions-Policy" not in response:
+            response["Permissions-Policy"] = permissions_policy
+
+        cross_origin_opener_policy = getattr(settings, "SECURE_CROSS_ORIGIN_OPENER_POLICY", "")
+        if cross_origin_opener_policy and "Cross-Origin-Opener-Policy" not in response:
+            response["Cross-Origin-Opener-Policy"] = cross_origin_opener_policy
         return response

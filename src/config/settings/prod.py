@@ -34,6 +34,7 @@ SECURE_HSTS_SECONDS = env.int("SECURE_HSTS_SECONDS", default=31536000)  # noqa: 
 SECURE_HSTS_INCLUDE_SUBDOMAINS = _bool_env("SECURE_HSTS_INCLUDE_SUBDOMAINS", True)
 SECURE_HSTS_PRELOAD = _bool_env("SECURE_HSTS_PRELOAD", False)
 SECURE_SSL_REDIRECT = _bool_env("SECURE_SSL_REDIRECT", True)
+SECURE_REDIRECT_EXEMPT = [pattern for pattern in env.list("SECURE_REDIRECT_EXEMPT", default=[]) if pattern]  # noqa: F405
 SESSION_COOKIE_SECURE = _bool_env("SESSION_COOKIE_SECURE", True)
 CSRF_COOKIE_SECURE = _bool_env("CSRF_COOKIE_SECURE", True)
 
@@ -41,11 +42,17 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = _bool_env("CSRF_COOKIE_HTTPONLY", True)
 SESSION_COOKIE_SAMESITE = env("SESSION_COOKIE_SAMESITE", default="Lax")  # noqa: F405
 CSRF_COOKIE_SAMESITE = env("CSRF_COOKIE_SAMESITE", default="Lax")  # noqa: F405
+CSRF_COOKIE_NAME = env("CSRF_COOKIE_NAME", default="csrftoken")  # noqa: F405
+CSRF_USE_SESSIONS = _bool_env("CSRF_USE_SESSIONS", False)
 
 SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_REFERRER_POLICY = env("SECURE_REFERRER_POLICY", default="same-origin")  # noqa: F405
+SECURE_REFERRER_POLICY = env("SECURE_REFERRER_POLICY", default="strict-origin-when-cross-origin")  # noqa: F405
 SECURE_CROSS_ORIGIN_OPENER_POLICY = env("SECURE_CROSS_ORIGIN_OPENER_POLICY", default="same-origin")  # noqa: F405
 X_FRAME_OPTIONS = env("X_FRAME_OPTIONS", default="DENY")  # noqa: F405
+PERMISSIONS_POLICY = env(
+    "PERMISSIONS_POLICY",
+    default="geolocation=(), camera=(), microphone=(), payment=()",
+)  # noqa: F405
 
 _csp_default = " ".join(
     [
@@ -68,6 +75,8 @@ SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="nbms_sessionid")  # no
 SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 12)  # noqa: F405
 SESSION_EXPIRE_AT_BROWSER_CLOSE = _bool_env("SESSION_EXPIRE_AT_BROWSER_CLOSE", False)
 SESSION_SAVE_EVERY_REQUEST = _bool_env("SESSION_SAVE_EVERY_REQUEST", False)
+USE_X_FORWARDED_HOST = _bool_env("USE_X_FORWARDED_HOST", True)
+USE_X_FORWARDED_PORT = _bool_env("USE_X_FORWARDED_PORT", True)
 
 _proxy_header = env("SECURE_PROXY_SSL_HEADER", default="HTTP_X_FORWARDED_PROTO,https").strip()  # noqa: F405
 if _proxy_header:

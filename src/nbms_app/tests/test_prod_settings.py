@@ -39,6 +39,10 @@ def test_prod_secure_defaults_are_enabled(monkeypatch):
     assert "default-src 'self'" in prod.CONTENT_SECURITY_POLICY
     assert prod.SESSION_COOKIE_NAME == "nbms_sessionid"
     assert prod.SESSION_COOKIE_AGE == 43200
+    assert prod.USE_X_FORWARDED_HOST is True
+    assert prod.USE_X_FORWARDED_PORT is True
+    assert prod.SECURE_REFERRER_POLICY == "strict-origin-when-cross-origin"
+    assert "geolocation=()" in prod.PERMISSIONS_POLICY
 
 
 def test_prod_proxy_ssl_header_parsing(monkeypatch):
