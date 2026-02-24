@@ -1,5 +1,8 @@
 import importlib
 
+import pytest
+from django.core.exceptions import ImproperlyConfigured
+
 
 def _reload_prod_settings():
     import config.settings.base as base
@@ -10,8 +13,11 @@ def _reload_prod_settings():
 
 
 def test_prod_secure_defaults_are_enabled(monkeypatch):
+    monkeypatch.setenv("DJANGO_READ_DOT_ENV_FILE", "0")
     monkeypatch.setenv("DJANGO_SECRET_KEY", "prod-secret")
-    monkeypatch.setenv("NBMS_DB_PASSWORD", "prod-db-password")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///tmp-prod-settings.sqlite3")
+    monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "example.org")
+    monkeypatch.setenv("DJANGO_CSRF_TRUSTED_ORIGINS", "https://example.org")
     for key in (
         "SECURE_SSL_REDIRECT",
         "SESSION_COOKIE_SECURE",
@@ -23,6 +29,7 @@ def test_prod_secure_defaults_are_enabled(monkeypatch):
 
     prod = _reload_prod_settings()
 
+    assert prod.DEBUG is False
     assert prod.SECURE_SSL_REDIRECT is True
     assert prod.SESSION_COOKIE_SECURE is True
     assert prod.CSRF_COOKIE_SECURE is True
@@ -35,10 +42,24 @@ def test_prod_secure_defaults_are_enabled(monkeypatch):
 
 
 def test_prod_proxy_ssl_header_parsing(monkeypatch):
+    monkeypatch.setenv("DJANGO_READ_DOT_ENV_FILE", "0")
     monkeypatch.setenv("DJANGO_SECRET_KEY", "prod-secret")
-    monkeypatch.setenv("NBMS_DB_PASSWORD", "prod-db-password")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///tmp-prod-settings.sqlite3")
+    monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "example.org")
+    monkeypatch.setenv("DJANGO_CSRF_TRUSTED_ORIGINS", "https://example.org")
     monkeypatch.setenv("SECURE_PROXY_SSL_HEADER", "HTTP_X_FORWARDED_PROTO,https")
 
     prod = _reload_prod_settings()
 
     assert prod.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
+
+
+def test_prod_fails_fast_when_database_url_missing(monkeypatch):
+    monkeypatch.setenv("DJANGO_READ_DOT_ENV_FILE", "0")
+    monkeypatch.setenv("DJANGO_SECRET_KEY", "prod-secret")
+    monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "example.org")
+    monkeypatch.setenv("DJANGO_CSRF_TRUSTED_ORIGINS", "https://example.org")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+
+    with pytest.raises(ImproperlyConfigured, match="DATABASE_URL must be set for production."):
+        _reload_prod_settings()
