@@ -1,0 +1,4 @@
+# Example cron schedule for pgBackRest backups
+# m h dom mon dow command
+0 1 * * 0 PGBACKREST_STANZA=nbms PGBACKREST_TYPE=full /opt/nbms/scripts/ops/pgbackrest_backup.sh >> /var/log/nbms/pgbackrest.log 2>&1
+0 1 * * 1-6 PGBACKREST_STANZA=nbms PGBACKREST_TYPE=incr /opt/nbms/scripts/ops/pgbackrest_backup.sh >> /var/log/nbms/pgbackrest.log 2>&1

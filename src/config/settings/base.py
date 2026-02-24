@@ -117,13 +117,14 @@ ASGI_APPLICATION = "config.asgi.application"
 
 
 DATABASE_URL = env("DATABASE_URL", default="")
+DB_CONN_MAX_AGE = env.int("DB_CONN_MAX_AGE", default=600)
 if DATABASE_URL:
     import dj_database_url
 
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
-            conn_max_age=600,
+            conn_max_age=DB_CONN_MAX_AGE,
         )
     }
 else:
@@ -141,6 +142,7 @@ else:
             "PASSWORD": db_password,
             "HOST": db_host,
             "PORT": db_port,
+            "CONN_MAX_AGE": DB_CONN_MAX_AGE,
             "TEST": {"NAME": test_db_name},
         }
     }
@@ -149,6 +151,9 @@ if ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.db.backends.
     DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 if not ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.contrib.gis"):
     DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
+
+if env.bool("DB_DISABLE_SERVER_SIDE_CURSORS", default=False):
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 
 
 AUTH_USER_MODEL = "nbms_app.User"
