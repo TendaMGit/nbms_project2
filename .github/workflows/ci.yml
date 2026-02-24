@@ -47,6 +47,11 @@ jobs:
         run: python -m pip check
       - name: Syntax check
         run: python -m compileall src scripts manage.py
+      - name: Lint (Ruff, optional)
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check src scripts manage.py
       - name: Django checks
         run: |
           python manage.py check
@@ -121,11 +126,11 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DJANGO_SETTINGS_MODULE: config.settings.prod
-      DJANGO_DB_ENGINE: django.db.backends.sqlite3
-      NBMS_DB_NAME: nbms_security.sqlite3
-      NBMS_DB_PASSWORD: security-db-password
+      DJANGO_READ_DOT_ENV_FILE: "0"
+      DATABASE_URL: sqlite:///nbms_security.sqlite3
       DJANGO_SECRET_KEY: CI_SECURITY_SECRET_KEY_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ
       DJANGO_ALLOWED_HOSTS: example.org
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://example.org
       SECURE_HSTS_PRELOAD: "true"
       PYTHONPATH: ${{ github.workspace }}/src
     steps:
@@ -166,7 +171,14 @@ jobs:
           ignore-unfixed: true
           exit-code: "0"
       - name: Deploy checks
-        run: python manage.py check --deploy
+        env:
+          DJANGO_SECRET_KEY: CI_SECURITY_SECRET_KEY_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ
+          DATABASE_URL: sqlite:///nbms_security.sqlite3
+          DJANGO_ALLOWED_HOSTS: example.org
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.org
+        run: |
+          python manage.py check --deploy
+          make deploy-check --always-make
 
   docker-minimal-smoke:
     runs-on: ubuntu-latest
