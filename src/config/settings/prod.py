@@ -26,6 +26,12 @@ CSRF_TRUSTED_ORIGINS = [  # noqa: F405
 if not CSRF_TRUSTED_ORIGINS:
     raise ImproperlyConfigured("DJANGO_CSRF_TRUSTED_ORIGINS must be set for production.")
 
+if CORS_ALLOW_ALL_ORIGINS:  # noqa: F405
+    raise ImproperlyConfigured("CORS_ALLOW_ALL_ORIGINS cannot be enabled in production.")
+
+if any(origin == "*" for origin in CORS_ALLOWED_ORIGINS):  # noqa: F405
+    raise ImproperlyConfigured("CORS_ALLOWED_ORIGINS cannot contain wildcard entries in production.")
+
 def _bool_env(name, default):
     return env.bool(name, default=default)  # noqa: F405
 

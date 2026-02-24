@@ -32,6 +32,21 @@ _default_csrf = [
     "http://127.0.0.1:8081",
 ]
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=_default_csrf) if o.strip()]
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in env.list("CORS_ALLOWED_ORIGINS", default=[]) if origin.strip()]
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=True)
+_cors_headers_default = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+CORS_ALLOW_HEADERS = [header.strip().lower() for header in env.list("CORS_ALLOW_HEADERS", default=_cors_headers_default)]
 
 ENABLE_GIS = env.bool("ENABLE_GIS", default=False)
 
@@ -44,6 +59,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     *GIS_APPS,
     "django.contrib.sites",
     "rest_framework",
@@ -62,6 +78,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "nbms_app.middleware_request_id.RequestIDMiddleware",
     "django.middleware.common.CommonMiddleware",
     "nbms_app.middleware.RateLimitMiddleware",
@@ -158,6 +175,9 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=10 * 1024 * 1024)
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=5 * 1024 * 1024)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = env.int("DATA_UPLOAD_MAX_NUMBER_FIELDS", default=2000)
 
 EVIDENCE_MAX_FILE_SIZE = env.int("EVIDENCE_MAX_FILE_SIZE", default=25 * 1024 * 1024)
 EVIDENCE_ALLOWED_EXTENSIONS = [
@@ -221,6 +241,14 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("DRF_THROTTLE_ANON", default="120/min"),
+        "user": env("DRF_THROTTLE_USER", default="600/min"),
+    },
 }
 
 SPECTACULAR_SETTINGS = {

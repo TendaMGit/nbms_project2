@@ -67,3 +67,15 @@ def test_prod_fails_fast_when_database_url_missing(monkeypatch):
 
     with pytest.raises(ImproperlyConfigured, match="DATABASE_URL must be set for production."):
         _reload_prod_settings()
+
+
+def test_prod_rejects_cors_wildcard(monkeypatch):
+    monkeypatch.setenv("DJANGO_READ_DOT_ENV_FILE", "0")
+    monkeypatch.setenv("DJANGO_SECRET_KEY", "prod-secret")
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///tmp-prod-settings.sqlite3")
+    monkeypatch.setenv("DJANGO_ALLOWED_HOSTS", "example.org")
+    monkeypatch.setenv("DJANGO_CSRF_TRUSTED_ORIGINS", "https://example.org")
+    monkeypatch.setenv("CORS_ALLOW_ALL_ORIGINS", "true")
+
+    with pytest.raises(ImproperlyConfigured, match="CORS_ALLOW_ALL_ORIGINS cannot be enabled in production."):
+        _reload_prod_settings()
