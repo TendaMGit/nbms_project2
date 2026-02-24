@@ -1,0 +1,361 @@
+Branch diff inventory against origin/main...HEAD
+Generated: 2026-02-24 10:27:25 +02:00
+
+Status | Path | Rationale
+--- | --- | ---
+Added | .dockerignore | Change retained in branch history for this PR scope.
+Modified | .env.example | Repository policy and safe environment template updates.
+Added | .github/workflows/ci.yml | CI/CD quality gate and deploy readiness automation.
+Modified | .gitignore | Repository policy and safe environment template updates.
+Modified | CHANGELOG.md | Change retained in branch history for this PR scope.
+Added | Dockerfile | Production runtime scaffold for app, proxy, and process manager.
+Added | Makefile | CI/CD quality gate and deploy readiness automation.
+Modified | PR_DESCRIPTION.md | Change retained in branch history for this PR scope.
+Modified | README.md | Change retained in branch history for this PR scope.
+Added | compose.yml | Container stack and local/runtime composition updates retained in branch history.
+Added | docker-compose.prod.yml | Production runtime scaffold for app, proxy, and process manager.
+Added | docker/backend/Dockerfile | Container stack and local/runtime composition updates retained in branch history.
+Added | docker/backend/entrypoint.sh | Container stack and local/runtime composition updates retained in branch history.
+Modified | docker/docker-compose.yml | Container stack and local/runtime composition updates retained in branch history.
+Added | docker/frontend/Dockerfile | Container stack and local/runtime composition updates retained in branch history.
+Added | docker/frontend/nginx.conf | Container stack and local/runtime composition updates retained in branch history.
+Added | docker/production/entrypoint.prod.sh | Production runtime scaffold for app, proxy, and process manager.
+Added | docs/API_SURFACE_SUMMARY.md | Documentation and operational notes retained in branch history.
+Added | docs/CROSSWALK_EDITOR_RUNBOOK.md | Documentation and operational notes retained in branch history.
+Added | docs/GLOBAL_READINESS.md | Documentation and operational notes retained in branch history.
+Added | docs/INTEGRATIONS_MATRIX.md | Documentation and operational notes retained in branch history.
+Modified | docs/MIGRATION_VERIFICATION.md | Documentation and operational notes retained in branch history.
+Added | docs/NR_DOSSIER_RUNBOOK.md | Documentation and operational notes retained in branch history.
+Added | docs/NR_WORKSPACE_RUNBOOK.md | Documentation and operational notes retained in branch history.
+Added | docs/REGISTRIES_OVERVIEW.md | Documentation and operational notes retained in branch history.
+Added | docs/REVIEW_SYSTEM_OVERVIEW.md | Documentation and operational notes retained in branch history.
+Added | docs/SCHEMA_REDUNDANCY_REVIEW_PHASE12.md | Documentation and operational notes retained in branch history.
+Added | docs/SECURITY_GOVERNANCE_REVIEW.md | Documentation and operational notes retained in branch history.
+Added | docs/SIGNOFF_CHAIN.md | Documentation and operational notes retained in branch history.
+Added | docs/SPATIAL_RUNBOOK.md | Documentation and operational notes retained in branch history.
+Added | docs/TESTING_AND_CI_PLAN.md | Documentation and operational notes retained in branch history.
+Added | docs/TIGHTENING_BACKLOG.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0001-docker-first-runtime-profiles.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0002-angular-auth-session-csrf.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0003-spatial-capability-phasing.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0004-indicator-workflow-v1-pack.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0005-security-observability-hardening-v1.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0006-nr7-builder-validation-and-pdf-export.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0007-programme-job-runner-lineage-model.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0008-gbf-indicator-catalog-import-strategy.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0009-birdie-integration-connector-pattern.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0010-report-product-framework.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0011-spatial-registry-ogc-apis.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0012-spatial-baselines-overlay-method.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0013-registries-standards-programme-templates.md | Documentation and operational notes retained in branch history.
+Added | docs/adr/0014-registry-workflow-gold-marts-and-indicator-integration.md | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-00-LEGEND.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-01-CORE.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-02-FRAMEWORKS.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-03-DATASETS.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-04-METHODOLOGY.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-05-REPORTING.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-06-GOVERNANCE.mmd | Documentation and operational notes retained in branch history.
+Added | docs/erd/mermaid/Page-07-INTEGRATION-2BI.mmd | Documentation and operational notes retained in branch history.
+Added | docs/external/BIRDIE_NOTES.md | Documentation and operational notes retained in branch history.
+Added | docs/external/BIRDIE_README.md | Documentation and operational notes retained in branch history.
+Added | docs/external/COP16_31_NOTES.md | Documentation and operational notes retained in branch history.
+Added | docs/external/DART_NOTES.md | Documentation and operational notes retained in branch history.
+Added | docs/external/GBF_REPOSITORY_NOTES.md | Documentation and operational notes retained in branch history.
+Added | docs/external/RAMSAR_COP14_NOTES.md | Documentation and operational notes retained in branch history.
+Added | docs/external/README.md | Documentation and operational notes retained in branch history.
+Added | docs/external/birdie-integration-notes.md | Documentation and operational notes retained in branch history.
+Added | docs/external/birdie-swagger-ui.html | Documentation and operational notes retained in branch history.
+Added | docs/external/birdie_application.json | Documentation and operational notes retained in branch history.
+Added | docs/external/cbd-cop16-31-notes.md | Documentation and operational notes retained in branch history.
+Added | docs/external/cop-16-dec-31-en.pdf | Documentation and operational notes retained in branch history.
+Added | docs/external/gbf-headline-A-1.html | Documentation and operational notes retained in branch history.
+Added | docs/external/gbf-headline-B-1.html | Documentation and operational notes retained in branch history.
+Added | docs/external/gbf-indicator-repository-notes.md | Documentation and operational notes retained in branch history.
+Added | docs/external/informea_dart.html | Documentation and operational notes retained in branch history.
+Added | docs/external/ramsar-cop14-reporting-notes.md | Documentation and operational notes retained in branch history.
+Added | docs/external/ramsar_notification_2021_19.html | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/README.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/darwin_core.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/eicat.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/gbif_taxonomy_interpretation.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/griis.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/iucn_get.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/iucn_rle.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/sanbi_vegmap.md | Documentation and operational notes retained in branch history.
+Added | docs/external/registry_standards/seicat.md | Documentation and operational notes retained in branch history.
+Added | docs/external/spatial_sources/README.md | Documentation and operational notes retained in branch history.
+Added | docs/external/spatial_sources/dffe_sapad_protected_areas.md | Documentation and operational notes retained in branch history.
+Added | docs/external/spatial_sources/natural_earth_admin1.md | Documentation and operational notes retained in branch history.
+Added | docs/external/spatial_sources/natural_earth_geography_regions.md | Documentation and operational notes retained in branch history.
+Added | docs/external/spatial_sources/natural_earth_protected_lands.md | Documentation and operational notes retained in branch history.
+Added | docs/external/spatial_sources/wdpa_optional.md | Documentation and operational notes retained in branch history.
+Added | docs/external/unep-dart-notes.md | Documentation and operational notes retained in branch history.
+Added | docs/external/unep_wcmc_dart_cbd_approval_news.html | Documentation and operational notes retained in branch history.
+Added | docs/external/unep_wcmc_dart_tool_news.html | Documentation and operational notes retained in branch history.
+Added | docs/ops/BACKUP_RESTORE.md | Documentation and operational notes retained in branch history.
+Added | docs/ops/DEMO_USERS.md | Documentation and operational notes retained in branch history.
+Added | docs/ops/ROLE_VISIBILITY_MATRIX.csv | Documentation and operational notes retained in branch history.
+Added | docs/ops/ROLE_VISIBILITY_MATRIX.md | Documentation and operational notes retained in branch history.
+Modified | docs/ops/STATE_OF_REPO.md | Documentation and operational notes retained in branch history.
+Added | docs/ops/db_schema.drawio | Documentation and operational notes retained in branch history.
+Added | docs/ops/db_schema.mmd | Documentation and operational notes retained in branch history.
+Added | docs/ops/db_schema_v2.drawio | Documentation and operational notes retained in branch history.
+Added | docs/production_hardening/current_state.md | Production hardening documentation and verification artifacts.
+Added | docs/production_hardening/db_backup_pitr_runbook.md | Production hardening documentation and verification artifacts.
+Added | docs/production_hardening/deployment_runbook.md | Production hardening documentation and verification artifacts.
+Added | docs/production_hardening/production_hardening_plan.md | Production hardening documentation and verification artifacts.
+Added | docs/production_hardening/secure_settings_reference.md | Production hardening documentation and verification artifacts.
+Added | docs/production_hardening/security_verification.md | Production hardening documentation and verification artifacts.
+Added | docs/reporting/MEA_TEMPLATE_PACKS.md | Documentation and operational notes retained in branch history.
+Added | frontend/.editorconfig | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/.gitignore | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/README.md | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/angular.json | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/e2e/bootstrap-users.mjs | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/e2e/smoke.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/package-lock.json | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/package.json | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/playwright.config.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/public/favicon.ico | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/app.config.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/app.html | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/app.routes.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/app.scss | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/app.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/app.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/components/help-tooltip.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/components/indicator-map-panel.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/components/plotly-chart.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/guards/capability.guard.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/models/api.models.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/birdie-programme-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/birdie-programme-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/dashboard-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/ecosystem-registry-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/ecosystem-registry-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/ias-registry-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/ias-registry-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/indicator-detail-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/indicator-explorer-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/map-viewer-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/programme-ops-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/programme-ops-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/programme-templates-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/programme-templates-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/report-products-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/report-products-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/reporting-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/reporting-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/system-health-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/system-health-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/taxon-registry-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/taxon-registry-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/template-packs-page.component.spec.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/pages/template-packs-page.component.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/api-client.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/auth.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/birdie.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/dashboard.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/help.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/indicator.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/national-report.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/nr7-builder.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/programme-ops.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/registry.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/report-product.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/spatial.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/system-health.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/app/services/template-pack.service.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/index.html | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/main.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/styles.scss | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/src/types/plotly.js-dist-min.d.ts | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/tsconfig.app.json | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/tsconfig.json | Frontend/API workspace and supporting UI additions included in branch history.
+Added | frontend/tsconfig.spec.json | Frontend/API workspace and supporting UI additions included in branch history.
+Added | gunicorn.conf.py | Production runtime scaffold for app, proxy, and process manager.
+Added | nginx/conf.d/nbms.conf | Production runtime scaffold for app, proxy, and process manager.
+Modified | requirements.txt | Change retained in branch history for this PR scope.
+Added | scripts/backup_stack.ps1 | Change retained in branch history for this PR scope.
+Added | scripts/backup_stack.sh | Change retained in branch history for this PR scope.
+Added | scripts/bootstrap.ps1 | Change retained in branch history for this PR scope.
+Added | scripts/generate_erd_v2.py | Change retained in branch history for this PR scope.
+Added | scripts/ops/pgbackrest.cron.example | Operational backup/PITR script template for production operations.
+Added | scripts/ops/pgbackrest_backup.sh | Operational backup/PITR script template for production operations.
+Added | scripts/ops/pgbackrest_restore_drill.sh | Operational backup/PITR script template for production operations.
+Added | scripts/restore_stack.ps1 | Change retained in branch history for this PR scope.
+Added | scripts/restore_stack.sh | Change retained in branch history for this PR scope.
+Added | scripts/smoke.ps1 | Change retained in branch history for this PR scope.
+Added | scripts/smoke.sh | Change retained in branch history for this PR scope.
+Added | scripts/test.ps1 | Change retained in branch history for this PR scope.
+Modified | src/config/settings/base.py | Security, environment, and observability hardening configuration.
+Modified | src/config/settings/prod.py | Security, environment, and observability hardening configuration.
+Modified | src/config/urls.py | Change retained in branch history for this PR scope.
+Modified | src/nbms_app/admin.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/api_spa.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/api_spatial.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/api_urls.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/demo_users.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/exports/ort_nr7_v2.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/forms.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/indicator_methods/__init__.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/indicator_methods/base.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/indicator_methods/methods.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/indicator_methods/registry.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/integrations/__init__.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/integrations/birdie/__init__.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/integrations/birdie/client.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/integrations/birdie/fixtures_seed.json | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/integrations/birdie/service.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/logging_utils.py | Security, environment, and observability hardening configuration.
+Added | src/nbms_app/management/commands/ensure_system_admin.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/export_role_visibility_matrix.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/ingest_spatial_layer.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/issue_e2e_sessions.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/list_demo_users.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/predeploy_check.py | Security, environment, and observability hardening configuration.
+Modified | src/nbms_app/management/commands/reference_catalog_export.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/management/commands/reference_catalog_import.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/refresh_registry_marts.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/run_monitoring_programmes.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/run_programme.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/management/commands/seed_binary_indicator_questions.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_birdie_integration.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_demo_reports.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_demo_spatial.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_demo_users.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_gbf_indicators.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_geoserver_layers.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_get_reference.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_ias_demo.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_indicator_workflow_v1.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_mea_template_packs.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_programme_ops_v1.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_programme_templates.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_registry_demo.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_registry_workflow_rules.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_report_products.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/management/commands/seed_reporting_defaults.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_spatial_demo_layers.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_taxon_demo.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/seed_vegmap_demo.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/sync_griis_za.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/sync_spatial_sources.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/sync_specimen_vouchers.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/sync_taxon_backbone.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/sync_vegmap_baseline.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/management/commands/verify_geoserver_smoke.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/middleware.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/middleware_request_id.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/middleware_request_logging.py | Security, environment, and observability hardening configuration.
+Added | src/nbms_app/middleware_security.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0029_indicator_coverage_geography_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0030_alter_indicator_reporting_capability.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0031_reporttemplatepack_reporttemplatepacksection_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0032_monitoringprogramme_data_quality_rules_json_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0033_indicatormethodprofile_indicatormethodrun_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0034_birdiesite_birdiespecies_integrationdataasset_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0035_spatialunit_spatialunittype_dataset_dataset_code_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0036_spatiallayer_geoserver_layer_name_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0037_indicatordatapoint_programme_run_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0038_alientaxonprofile_ecosystemtype_iucngetnode_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0039_ecosystemgoldsummary_iasgoldsummary_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0040_reportingcycle_allowed_languages_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/migrations/0041_reportcontext_reportnarrativeblock_and_more.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/models.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/role_visibility.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/roles.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/section_help.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/services/alignment_bulk.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/services/authorization.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/capabilities.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/services/catalog_access.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/export_contracts.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/indicator_method_sdk.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/nr7_builder.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/policy_registry.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/programme_ops.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/services/readiness.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/registry_catalog.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/registry_marts.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/registry_workflows.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/report_products.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/reporting_collab.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/reporting_dossier.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/reporting_exports.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/reporting_narratives.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/reporting_workflow.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/request_id.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/services/snapshots.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/spatial_access.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/spatial_ingest.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/spatial_sources.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/template_pack_registry.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/services/template_packs.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/spatial_fields.py | Backend/domain/reporting updates included in branch history and retained.
+Added | src/nbms_app/tests/conftest.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/fixtures/exports/ort_indicator_tabular_submission_minimal.json | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/tests/fixtures/exports/ort_nr7_v2_expected.json | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/tests/golden/ort_nr7_v2_minimal.json | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_birdie_integration.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_indicator_explorer.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_indicator_methods.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_nr7_builder.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_programme_ops.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_registries.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_report_products.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_spa_auth.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_spatial.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_spatial_ogc.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_system_health.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_api_template_packs.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_audit_transition_coverage.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_demo_user_commands.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_export_contracts.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_health_checks.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_indicator_registry_methods.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_indicator_reporting_metadata.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_logging_utils.py | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/tests/test_metrics.py | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/tests/test_ort_nr7_v2_export.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_policy_registry.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_predeploy_check_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_prod_settings.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_programme_ops_commands.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_programme_ops_spatial_pipeline.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_rate_limiting.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_refresh_registry_marts_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_registry_commands.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_registry_workflows_and_marts.py | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/tests/test_reporting_approvals_ui.py | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/tests/test_reporting_freeze.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_reporting_workspace_phase12.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_request_id.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_security_headers.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_binary_indicator_questions_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_demo_spatial_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_gbf_indicators_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_geoserver_layers_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_indicator_workflow_v1_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_indicator_workflow_v1_idempotency.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_seed_spatial_demo_layers_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_session_security.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_spatial_ingestion_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_sync_spatial_sources_command.py | Automated verification coverage for platform capabilities and controls.
+Added | src/nbms_app/tests/test_verify_geoserver_smoke_command.py | Automated verification coverage for platform capabilities and controls.
+Modified | src/nbms_app/urls.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/views.py | Backend/domain/reporting updates included in branch history and retained.
+Modified | src/nbms_app/views_metrics.py | Backend/domain/reporting updates included in branch history and retained.
+Added | templates/nbms_app/partials/_field_with_help.html | Backend/domain/reporting updates included in branch history and retained.
+Added | templates/nbms_app/reporting/national_report_pdf.html | Backend/domain/reporting updates included in branch history and retained.
+Added | templates/nbms_app/reporting/nr7_report_pdf.html | Backend/domain/reporting updates included in branch history and retained.
+Added | templates/nbms_app/reporting/report_product_preview.html | Backend/domain/reporting updates included in branch history and retained.
+Modified | templates/nbms_app/reporting/section_i_edit.html | Backend/domain/reporting updates included in branch history and retained.
+Modified | templates/nbms_app/reporting/section_ii_edit.html | Backend/domain/reporting updates included in branch history and retained.
+Modified | templates/nbms_app/reporting/section_iii_edit.html | Backend/domain/reporting updates included in branch history and retained.
+Modified | templates/nbms_app/reporting/section_iv_edit.html | Backend/domain/reporting updates included in branch history and retained.
+Modified | templates/nbms_app/reporting/section_iv_goal_edit.html | Backend/domain/reporting updates included in branch history and retained.
+Modified | templates/nbms_app/reporting/section_v_edit.html | Backend/domain/reporting updates included in branch history and retained.
+Added | templates/nbms_app/reporting/template_pack_pdf.html | Backend/domain/reporting updates included in branch history and retained.
+Added | templates/two_factor/_base.html | Backend/domain/reporting updates included in branch history and retained.

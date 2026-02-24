@@ -146,3 +146,23 @@ curl -fsS http://127.0.0.1/readyz/
 ```bash
 docker compose -f docker-compose.prod.yml down -v
 ```
+
+## PR-ready status
+- Status: PR-ready baseline prepared on branch `feature/production-hardening`.
+- Branch diff inventory file: `docs/production_hardening/branch_diff_inventory.txt`
+- Verification outputs file: `docs/production_hardening/verification_outputs.md`
+
+Known limitations:
+- `python manage.py check --deploy` and `predeploy_check` pass with non-blocking DRF Spectacular schema warnings.
+- `security.W021` (`SECURE_HSTS_PRELOAD`) remains env-toggle controlled and intentionally not forced true by default.
+- If Docker daemon is unavailable on host, runtime `docker compose up` execution cannot be performed locally in that session.
+
+How reviewer should test:
+1. `git checkout feature/production-hardening`
+2. `PYTHONPATH=src pytest -q`
+3. `PYTHONPATH=src python manage.py check --settings=config.settings.dev`
+4. Run prod checks with dummy env vars:
+   - `python manage.py check --deploy --settings=config.settings.prod`
+   - `python manage.py predeploy_check --settings=config.settings.prod`
+5. Validate compose syntax:
+   - `docker compose -f docker-compose.prod.yml config`
