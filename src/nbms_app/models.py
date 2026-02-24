@@ -145,6 +145,14 @@ class ExportStatus(models.TextChoices):
 
 class ReportingStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
+    IN_PROGRESS = "in_progress", "In progress"
+    INTERNAL_REVIEW = "internal_review", "Internal review"
+    TECHNICAL_COMMITTEE_REVIEW = "technical_committee_review", "Technical Committee review"
+    TECHNICAL_COMMITTEE_APPROVED = "technical_committee_approved", "Technical Committee approved"
+    DFFE_CLEARANCE = "dffe_clearance", "DFFE clearance"
+    FINAL_SIGNED_OFF = "final_signed_off", "Final signed off"
+    FROZEN = "frozen", "Frozen"
+    PUBLIC_RELEASED = "public_released", "Public released"
     SECTION_REVIEW = "section_review", "Section review"
     TECHNICAL_REVIEW = "technical_review", "Technical review"
     SECRETARIAT_CONSOLIDATION = "secretariat_consolidation", "Secretariat consolidation"
@@ -162,6 +170,7 @@ class ReportCommentThreadStatus(models.TextChoices):
 
 
 class SuggestedChangeStatus(models.TextChoices):
+    PROPOSED = "proposed", "Proposed"
     PENDING = "pending", "Pending"
     ACCEPTED = "accepted", "Accepted"
     REJECTED = "rejected", "Rejected"
@@ -174,6 +183,15 @@ class ReportWorkflowStatus(models.TextChoices):
 
 
 class ReportWorkflowActionType(models.TextChoices):
+    START_PROGRESS = "start_progress", "Start progress"
+    REQUEST_INTERNAL_REVIEW = "request_internal_review", "Request internal review"
+    REQUEST_TECHNICAL_COMMITTEE_REVIEW = "request_technical_committee_review", "Request Technical Committee review"
+    TECHNICAL_COMMITTEE_APPROVE = "technical_committee_approve", "Technical Committee approve"
+    DFFE_CLEARANCE_APPROVE = "dffe_clearance_approve", "DFFE clearance approve"
+    FINAL_SIGNOFF = "final_signoff", "Final sign-off"
+    FREEZE = "freeze", "Freeze"
+    PUBLIC_RELEASE = "public_release", "Public release"
+    SECTION_COMPLETE = "section_complete", "Section complete"
     SUBMIT = "submit", "Submit"
     REVIEW = "review", "Review"
     APPROVE = "approve", "Approve"
@@ -188,6 +206,15 @@ class ReportWorkflowActionType(models.TextChoices):
 class ReviewDecisionStatus(models.TextChoices):
     APPROVED = "approved", "Approved"
     CHANGES_REQUESTED = "changes_requested", "Changes requested"
+
+
+class ReportFamily(models.TextChoices):
+    CBD_NATIONAL_REPORT = "CBD_NATIONAL_REPORT", "CBD National Report"
+
+
+class ReportLabel(models.TextChoices):
+    NR7 = "NR7", "NR7"
+    NR8 = "NR8", "NR8"
 
 
 class AccessLevel(models.TextChoices):
@@ -476,7 +503,19 @@ class ReportingCycle(TimeStampedModel):
 class ReportingInstance(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     cycle = models.ForeignKey(ReportingCycle, on_delete=models.CASCADE, related_name="instances")
+    report_family = models.CharField(
+        max_length=64,
+        choices=ReportFamily.choices,
+        default=ReportFamily.CBD_NATIONAL_REPORT,
+    )
+    report_label = models.CharField(
+        max_length=20,
+        choices=ReportLabel.choices,
+        default=ReportLabel.NR7,
+    )
     version_label = models.CharField(max_length=50, default="v1")
+    reporting_period_start = models.DateField(blank=True, null=True)
+    reporting_period_end = models.DateField(blank=True, null=True)
     report_title = models.CharField(max_length=255, blank=True)
     country_name = models.CharField(max_length=255, default="South Africa")
     focal_point_org = models.ForeignKey(
@@ -522,7 +561,8 @@ class ReportingInstance(TimeStampedModel):
     notes = models.TextField(blank=True)
 
     def __str__(self):
-        return f"{self.cycle.code} {self.version_label}"
+        cycle_code = self.cycle.code if self.cycle_id else ""
+        return f"{cycle_code} {self.version_label}".strip()
 
 
 class ReportingSnapshot(TimeStampedModel):
@@ -537,6 +577,19 @@ class ReportingSnapshot(TimeStampedModel):
     payload_hash = models.CharField(max_length=64)
     exporter_schema = models.CharField(max_length=100)
     exporter_version = models.CharField(max_length=50)
+    report_family = models.CharField(max_length=64, blank=True, default="")
+    report_label = models.CharField(max_length=20, blank=True, default="")
+    reporting_period_start = models.DateField(blank=True, null=True)
+    reporting_period_end = models.DateField(blank=True, null=True)
+    export_json_storage_path = models.CharField(max_length=512, blank=True)
+    export_json_hash = models.CharField(max_length=64, blank=True)
+    export_pdf_storage_path = models.CharField(max_length=512, blank=True)
+    export_pdf_hash = models.CharField(max_length=64, blank=True)
+    export_docx_storage_path = models.CharField(max_length=512, blank=True)
+    export_docx_hash = models.CharField(max_length=64, blank=True)
+    resolved_values_manifest_json = models.JSONField(default=list, blank=True)
+    context_filters_json = models.JSONField(default=dict, blank=True)
+    context_hash = models.CharField(max_length=64, blank=True)
     readiness_report_json = models.JSONField(default=dict, blank=True)
     readiness_overall_ready = models.BooleanField(default=False)
     readiness_blocking_gap_count = models.PositiveIntegerField(default=0)
@@ -4293,8 +4346,12 @@ class ReportCommentThread(TimeStampedModel):
         ReportTemplatePackResponse,
         on_delete=models.CASCADE,
         related_name="comment_threads",
+        blank=True,
+        null=True,
     )
-    json_path = models.CharField(max_length=255)
+    json_path = models.CharField(max_length=255, blank=True)
+    object_uuid = models.UUIDField(blank=True, null=True)
+    field_name = models.CharField(max_length=120, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -4320,11 +4377,13 @@ class ReportCommentThread(TimeStampedModel):
         indexes = [
             models.Index(fields=["section_response", "status"]),
             models.Index(fields=["json_path"]),
+            models.Index(fields=["object_uuid", "field_name", "status"]),
         ]
         ordering = ["-created_at", "-id"]
 
     def __str__(self):
-        return f"{self.section_response_id}:{self.json_path}:{self.status}"
+        scope = str(self.section_response_id) if self.section_response_id else str(self.object_uuid)
+        return f"{scope}:{self.json_path or self.field_name}:{self.status}"
 
 
 class ReportComment(TimeStampedModel):
@@ -4359,9 +4418,16 @@ class ReportSuggestedChange(TimeStampedModel):
         ReportTemplatePackResponse,
         on_delete=models.CASCADE,
         related_name="suggested_changes",
+        blank=True,
+        null=True,
     )
-    base_version = models.PositiveIntegerField()
+    object_uuid = models.UUIDField(blank=True, null=True)
+    field_name = models.CharField(max_length=120, blank=True)
+    base_version = models.PositiveIntegerField(blank=True, null=True)
     patch_json = models.JSONField(default=dict, blank=True)
+    diff_patch = models.JSONField(default=dict, blank=True)
+    old_value_hash = models.CharField(max_length=64, blank=True)
+    proposed_value = models.JSONField(default=dict, blank=True)
     rationale = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -4389,11 +4455,167 @@ class ReportSuggestedChange(TimeStampedModel):
         indexes = [
             models.Index(fields=["section_response", "status"]),
             models.Index(fields=["base_version"]),
+            models.Index(fields=["object_uuid", "field_name", "status"]),
         ]
         ordering = ["-created_at", "-id"]
 
     def __str__(self):
-        return f"{self.section_response_id}:v{self.base_version}:{self.status}"
+        scope = str(self.section_response_id) if self.section_response_id else str(self.object_uuid)
+        version = self.base_version if self.base_version is not None else 0
+        return f"{scope}:v{version}:{self.status}"
+
+
+class ReportContext(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="contexts",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="report_contexts",
+        blank=True,
+        null=True,
+    )
+    session_key = models.CharField(max_length=64, blank=True)
+    filters_json = models.JSONField(default=dict, blank=True)
+    context_hash = models.CharField(max_length=64, blank=True)
+    is_active = models.BooleanField(default=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="updated_report_contexts",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["reporting_instance", "user", "is_active"]),
+            models.Index(fields=["reporting_instance", "session_key"]),
+            models.Index(fields=["context_hash"]),
+        ]
+
+
+class ReportNarrativeBlock(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="narrative_blocks",
+    )
+    section_code = models.CharField(max_length=100)
+    block_key = models.CharField(max_length=100)
+    title = models.CharField(max_length=255)
+    storage_path = models.CharField(max_length=512, blank=True)
+    current_version = models.PositiveIntegerField(default=0)
+    current_content_hash = models.CharField(max_length=64, blank=True)
+    html_snapshot = models.TextField(blank=True)
+    text_snapshot = models.TextField(blank=True)
+    onlyoffice_document_key = models.CharField(max_length=128, blank=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="updated_narrative_blocks",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["reporting_instance", "section_code", "block_key"],
+                name="uq_reporting_narrative_block",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["reporting_instance", "section_code"]),
+            models.Index(fields=["onlyoffice_document_key"]),
+        ]
+        ordering = ["reporting_instance_id", "section_code", "block_key"]
+
+    def __str__(self):
+        return f"{self.reporting_instance_id}:{self.section_code}:{self.block_key}"
+
+
+class ReportNarrativeBlockVersion(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    block = models.ForeignKey(
+        ReportNarrativeBlock,
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+    version = models.PositiveIntegerField()
+    storage_path = models.CharField(max_length=512)
+    content_hash = models.CharField(max_length=64)
+    html_snapshot = models.TextField(blank=True)
+    text_snapshot = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_narrative_block_versions",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["block", "version"], name="uq_reporting_narrative_block_version"),
+            models.UniqueConstraint(fields=["block", "content_hash"], name="uq_reporting_narrative_block_hash"),
+        ]
+        indexes = [
+            models.Index(fields=["block", "version"]),
+            models.Index(fields=["content_hash"]),
+        ]
+        ordering = ["block_id", "-version", "-id"]
+
+    def __str__(self):
+        return f"{self.block_id}:v{self.version}"
+
+
+class ReportSignoffRecord(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    reporting_instance = models.ForeignKey(
+        ReportingInstance,
+        on_delete=models.CASCADE,
+        related_name="signoff_records",
+    )
+    snapshot = models.ForeignKey(
+        ReportingSnapshot,
+        on_delete=models.PROTECT,
+        related_name="signoff_records",
+        blank=True,
+        null=True,
+    )
+    signer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="report_signoff_records",
+        blank=True,
+        null=True,
+    )
+    signer_role = models.CharField(max_length=80, blank=True)
+    body = models.CharField(max_length=120, blank=True)
+    state_from = models.CharField(max_length=40, blank=True)
+    state_to = models.CharField(max_length=40, blank=True)
+    signed_at = models.DateTimeField(blank=True, null=True)
+    comment = models.TextField(blank=True)
+    snapshot_hash_pointer = models.CharField(max_length=64, blank=True)
+    metadata_json = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["reporting_instance", "signed_at"]),
+            models.Index(fields=["state_to", "signed_at"]),
+            models.Index(fields=["body"]),
+            models.Index(fields=["snapshot_hash_pointer"]),
+        ]
+        ordering = ["-signed_at", "-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.reporting_instance_id}:{self.state_to}:{self.body}"
 
 
 class ReportWorkflowDefinition(TimeStampedModel):
@@ -4463,7 +4685,7 @@ class ReportWorkflowAction(TimeStampedModel):
         blank=True,
         null=True,
     )
-    action_type = models.CharField(max_length=32, choices=ReportWorkflowActionType.choices)
+    action_type = models.CharField(max_length=64, choices=ReportWorkflowActionType.choices)
     comment = models.TextField(blank=True)
     payload_hash = models.CharField(max_length=64, blank=True)
     payload_json = models.JSONField(default=dict, blank=True)

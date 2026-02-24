@@ -53,6 +53,16 @@ from nbms_app.models import (
     ReportTemplatePack,
     ReportTemplatePackResponse,
     ReportTemplatePackSection,
+    ReportCommentThread,
+    ReportSuggestedChange,
+    ReportContext,
+    ReportNarrativeBlock,
+    ReportNarrativeBlockVersion,
+    ReportSignoffRecord,
+    ReportWorkflowInstance,
+    ReportWorkflowAction,
+    ReportWorkflowSectionApproval,
+    ReportingSnapshot,
     ProgrammeDatasetLink,
     ProgrammeIndicatorLink,
     DataAgreement,
@@ -72,6 +82,91 @@ from nbms_app.models import (
 from nbms_app.services.authorization import ROLE_ADMIN, is_system_admin, user_has_role
 from nbms_app.services.lifecycle_service import archive_object
 from nbms_app.services.readiness import compute_reporting_readiness
+
+
+ADMIN_DOMAIN_PREFIX = {
+    # Reporting
+    "ReportingCycle": "Reporting",
+    "ReportingInstance": "Reporting",
+    "ReportingSnapshot": "Reporting",
+    "ReportTemplatePack": "Reporting",
+    "ReportTemplatePackSection": "Reporting",
+    "ReportTemplatePackResponse": "Reporting",
+    "ReportSectionTemplate": "Reporting",
+    "ReportSectionResponse": "Reporting",
+    "ReportCommentThread": "Reporting",
+    "ReportSuggestedChange": "Reporting",
+    "ReportContext": "Reporting",
+    "ReportNarrativeBlock": "Reporting",
+    "ReportNarrativeBlockVersion": "Reporting",
+    "ReportSignoffRecord": "Reporting",
+    "ReportWorkflowInstance": "Reporting",
+    "ReportWorkflowAction": "Reporting",
+    "ReportWorkflowSectionApproval": "Reporting",
+    "ReportProductTemplate": "Reporting",
+    "ReportProductRun": "Reporting",
+    # Indicators
+    "Indicator": "Indicators",
+    "IndicatorMethodProfile": "Indicators",
+    "IndicatorMethodRun": "Indicators",
+    "IndicatorDataSeries": "Indicators",
+    "IndicatorDataPoint": "Indicators",
+    "IndicatorDatasetLink": "Indicators",
+    "IndicatorEvidenceLink": "Indicators",
+    "IndicatorFrameworkIndicatorLink": "Indicators",
+    # Registries
+    "NationalTarget": "Registries",
+    "NationalTargetFrameworkTargetLink": "Registries",
+    "Framework": "Registries",
+    "FrameworkGoal": "Registries",
+    "FrameworkTarget": "Registries",
+    "FrameworkIndicator": "Registries",
+    "BinaryIndicatorQuestion": "Registries",
+    "BinaryIndicatorResponse": "Registries",
+    # Programmes
+    "MonitoringProgramme": "Programmes",
+    "MonitoringProgrammeRun": "Programmes",
+    "MonitoringProgrammeRunStep": "Programmes",
+    "MonitoringProgrammeAlert": "Programmes",
+    # Data
+    "Evidence": "Data",
+    "Dataset": "Data",
+    "DatasetRelease": "Data",
+    "DatasetCatalog": "Data",
+    "DatasetCatalogIndicatorLink": "Data",
+    "SourceDocument": "Data",
+    "License": "Data",
+    # Security and system
+    "Organisation": "Security",
+    "User": "Security",
+    "DataAgreement": "Security",
+    "SensitivityClass": "Security",
+    "AuditEvent": "System",
+    "ValidationRuleSet": "System",
+    "ExportPackage": "System",
+}
+
+ADMIN_MODEL_ORDER = {name: idx for idx, name in enumerate(ADMIN_DOMAIN_PREFIX.keys())}
+
+
+_ORIGINAL_GET_APP_LIST = admin.AdminSite.get_app_list
+
+
+def _nbms_grouped_app_list(self, request, app_label=None):
+    app_list = _ORIGINAL_GET_APP_LIST(self, request, app_label=app_label)
+    for app in app_list:
+        if app.get("app_label") != "nbms_app":
+            continue
+        for model in app.get("models", []):
+            object_name = model.get("object_name", "")
+            domain = ADMIN_DOMAIN_PREFIX.get(object_name)
+            if domain and not str(model.get("name", "")).startswith(f"{domain} | "):
+                model["name"] = f"{domain} | {model['name']}"
+        app["models"].sort(key=lambda row: ADMIN_MODEL_ORDER.get(row.get("object_name", ""), 9999))
+    return app_list
+
+
+admin.AdminSite.get_app_list = _nbms_grouped_app_list
 
 
 class CatalogArchiveAdminMixin(admin.ModelAdmin):
@@ -673,9 +768,22 @@ class ReportTemplatePackSectionAdmin(admin.ModelAdmin):
 
 @admin.register(ReportTemplatePackResponse)
 class ReportTemplatePackResponseAdmin(admin.ModelAdmin):
-    list_display = ("section", "reporting_instance", "updated_by", "updated_at")
-    search_fields = ("section__pack__code", "section__code", "reporting_instance__uuid")
-    list_filter = ("section__pack__mea_code",)
+    list_display = (
+        "section",
+        "reporting_instance",
+        "current_version",
+        "locked_for_editing",
+        "updated_by",
+        "updated_at",
+    )
+    search_fields = (
+        "section__pack__code",
+        "section__code",
+        "section__title",
+        "reporting_instance__uuid",
+        "reporting_instance__cycle__code",
+    )
+    list_filter = ("section__pack__mea_code", "section__code", "locked_for_editing")
 
 
 @admin.register(ReportProductTemplate)
@@ -726,16 +834,21 @@ class ReportingCycleAdmin(admin.ModelAdmin):
 @admin.register(ReportingInstance)
 class ReportingInstanceAdmin(admin.ModelAdmin):
     list_display = (
+        "report_family",
+        "report_label",
         "cycle",
         "version_label",
+        "reporting_period_start",
+        "reporting_period_end",
+        "is_public",
         "status",
         "frozen_at",
         "frozen_by",
         "readiness_percent",
         "blocking_gap_count",
     )
-    search_fields = ("cycle__code", "version_label")
-    list_filter = ("status",)
+    search_fields = ("cycle__code", "version_label", "country_name", "report_title", "report_label")
+    list_filter = ("report_family", "report_label", "status", "is_public")
     actions = ["generate_readiness_report"]
 
     @admin.display(description="Readiness %")
@@ -773,6 +886,167 @@ class ReportSectionResponseAdmin(admin.ModelAdmin):
     list_display = ("template", "reporting_instance", "updated_by", "updated_at")
     search_fields = ("template__code", "template__title", "reporting_instance__cycle__code")
     list_filter = ("template",)
+
+
+@admin.register(ReportCommentThread)
+class ReportCommentThreadAdmin(admin.ModelAdmin):
+    list_display = (
+        "section_response",
+        "json_path",
+        "field_name",
+        "status",
+        "created_by",
+        "created_at",
+        "resolved_by",
+        "resolved_at",
+    )
+    search_fields = (
+        "json_path",
+        "field_name",
+        "section_response__section__code",
+        "section_response__reporting_instance__uuid",
+        "created_by__username",
+    )
+    list_filter = ("status", "field_name", "created_at")
+
+
+@admin.register(ReportSuggestedChange)
+class ReportSuggestedChangeAdmin(admin.ModelAdmin):
+    list_display = (
+        "section_response",
+        "field_name",
+        "base_version",
+        "status",
+        "created_by",
+        "created_at",
+        "decided_by",
+        "decided_at",
+    )
+    search_fields = (
+        "field_name",
+        "section_response__section__code",
+        "section_response__reporting_instance__uuid",
+        "created_by__username",
+        "decided_by__username",
+    )
+    list_filter = ("status", "field_name", "created_at", "decided_at")
+
+
+@admin.register(ReportContext)
+class ReportContextAdmin(admin.ModelAdmin):
+    list_display = (
+        "reporting_instance",
+        "user",
+        "session_key",
+        "context_hash",
+        "is_active",
+        "updated_at",
+    )
+    search_fields = ("reporting_instance__uuid", "user__username", "session_key", "context_hash")
+    list_filter = ("is_active", "updated_at")
+
+
+@admin.register(ReportNarrativeBlock)
+class ReportNarrativeBlockAdmin(admin.ModelAdmin):
+    list_display = (
+        "reporting_instance",
+        "section_code",
+        "block_key",
+        "title",
+        "current_version",
+        "updated_by",
+        "updated_at",
+    )
+    search_fields = (
+        "reporting_instance__uuid",
+        "section_code",
+        "block_key",
+        "title",
+        "onlyoffice_document_key",
+    )
+    list_filter = ("section_code", "updated_at")
+
+
+@admin.register(ReportNarrativeBlockVersion)
+class ReportNarrativeBlockVersionAdmin(admin.ModelAdmin):
+    list_display = ("block", "version", "content_hash", "created_by", "created_at")
+    search_fields = ("block__reporting_instance__uuid", "block__section_code", "block__block_key", "content_hash")
+    list_filter = ("created_at",)
+
+
+@admin.register(ReportingSnapshot)
+class ReportingSnapshotAdmin(admin.ModelAdmin):
+    list_display = (
+        "reporting_instance",
+        "snapshot_type",
+        "report_label",
+        "payload_hash",
+        "readiness_overall_ready",
+        "created_by",
+        "created_at",
+    )
+    search_fields = ("reporting_instance__uuid", "snapshot_type", "payload_hash", "report_label")
+    list_filter = ("snapshot_type", "report_label", "readiness_overall_ready", "created_at")
+    readonly_fields = (
+        "payload_json",
+        "payload_hash",
+        "context_filters_json",
+        "resolved_values_manifest_json",
+        "readiness_report_json",
+    )
+
+
+@admin.register(ReportSignoffRecord)
+class ReportSignoffRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "reporting_instance",
+        "signer",
+        "signer_role",
+        "body",
+        "state_from",
+        "state_to",
+        "signed_at",
+    )
+    search_fields = (
+        "reporting_instance__uuid",
+        "signer__username",
+        "signer_role",
+        "body",
+        "snapshot_hash_pointer",
+    )
+    list_filter = ("body", "state_to", "signed_at")
+
+
+@admin.register(ReportWorkflowInstance)
+class ReportWorkflowInstanceAdmin(admin.ModelAdmin):
+    list_display = ("reporting_instance", "status", "current_step", "locked", "started_at", "completed_at")
+    search_fields = ("reporting_instance__uuid", "reporting_instance__cycle__code", "current_step")
+    list_filter = ("status", "current_step", "locked")
+
+
+@admin.register(ReportWorkflowAction)
+class ReportWorkflowActionAdmin(admin.ModelAdmin):
+    list_display = ("workflow_instance", "action_type", "actor", "created_at")
+    search_fields = (
+        "workflow_instance__reporting_instance__uuid",
+        "workflow_instance__reporting_instance__cycle__code",
+        "action_type",
+        "actor__username",
+        "payload_hash",
+    )
+    list_filter = ("action_type", "created_at")
+
+
+@admin.register(ReportWorkflowSectionApproval)
+class ReportWorkflowSectionApprovalAdmin(admin.ModelAdmin):
+    list_display = ("workflow_instance", "section", "approved", "approved_by", "approved_at")
+    search_fields = (
+        "workflow_instance__reporting_instance__uuid",
+        "section__code",
+        "section__title",
+        "approved_by__username",
+    )
+    list_filter = ("approved", "section__code", "approved_at")
 
 
 @admin.register(ValidationRuleSet)

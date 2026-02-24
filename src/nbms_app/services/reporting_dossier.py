@@ -31,6 +31,7 @@ from nbms_app.services.reporting_exports import (
     store_report_export_artifact,
 )
 from nbms_app.services.reporting_workflow import report_content_snapshot
+from nbms_app.services.reporting_narratives import normalize_context_filters, render_section_narrative
 
 
 def _canonical_json(value):
@@ -172,8 +173,24 @@ def _workflow_audit_payload(instance):
     }
 
 
-def generate_reporting_dossier(*, instance, user, linked_action=None):
+def generate_reporting_dossier(*, instance, user, linked_action=None, context_filters=None):
     payload = build_cbd_report_payload(instance=instance)
+    context_filters = normalize_context_filters(context_filters)
+    resolved_manifest = []
+    for section in payload.get("sections", []):
+        section_code = section.get("code")
+        if not section_code:
+            continue
+        rendered = render_section_narrative(
+            instance=instance,
+            section_code=section_code,
+            context_filters=context_filters,
+        )
+        section["rendered_narrative_html"] = rendered.get("rendered_html", "")
+        section["resolved_values_manifest"] = rendered.get("resolved_values_manifest", [])
+        resolved_manifest.extend(rendered.get("resolved_values_manifest", []))
+    payload["context_filters"] = context_filters
+    payload["resolved_values_manifest"] = resolved_manifest
     pdf_bytes = render_cbd_pdf_bytes(payload=payload)
     docx_bytes = render_cbd_docx_bytes(payload=payload)
     json_bytes = _canonical_json(payload).encode("utf-8")
@@ -210,6 +227,11 @@ def generate_reporting_dossier(*, instance, user, linked_action=None):
             ),
             "registry_mart_refresh_timestamps": {},
         },
+        "context": {
+            "filters": context_filters,
+            "resolved_values_count": len(resolved_manifest),
+            "resolved_values_hash": _hash_bytes(_canonical_json(resolved_manifest).encode("utf-8")),
+        },
     }
 
     visibility = {
@@ -228,6 +250,8 @@ def generate_reporting_dossier(*, instance, user, linked_action=None):
         _zip_write(zf, "audit_log.json", _canonical_json(audit_payload).encode("utf-8"))
         _zip_write(zf, "integrity.json", _canonical_json(integrity).encode("utf-8"))
         _zip_write(zf, "visibility.json", _canonical_json(visibility).encode("utf-8"))
+        if resolved_manifest:
+            _zip_write(zf, "resolved_values_manifest.json", _canonical_json(resolved_manifest).encode("utf-8"))
     zip_bytes = zip_buffer.getvalue()
 
     pdf_artifact = store_report_export_artifact(
@@ -272,6 +296,7 @@ def generate_reporting_dossier(*, instance, user, linked_action=None):
             "docx_hash": docx_artifact.content_hash,
             "json_hash": json_artifact.content_hash,
             "dossier_hash": dossier_export_artifact.content_hash,
+            "resolved_values_count": len(resolved_manifest),
         },
         generated_by=user if getattr(user, "is_authenticated", False) else None,
         linked_action=linked_action,
@@ -287,6 +312,8 @@ def generate_reporting_dossier(*, instance, user, linked_action=None):
             "pdf_hash": pdf_artifact.content_hash,
             "docx_hash": docx_artifact.content_hash,
             "json_hash": json_artifact.content_hash,
+            "context_filters": context_filters,
+            "resolved_values_count": len(resolved_manifest),
         },
     )
     return dossier

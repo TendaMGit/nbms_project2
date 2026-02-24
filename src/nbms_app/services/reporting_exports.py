@@ -15,7 +15,6 @@ from nbms_app.models import (
     ReportExportArtifact,
     ReportTemplatePackResponse,
 )
-from nbms_app.services.reporting_workflow import resolve_cbd_pack
 
 
 def _canonical_json(value):
@@ -53,6 +52,8 @@ def _normalise_response_rows(instance, pack):
 
 
 def build_cbd_report_payload(*, instance):
+    from nbms_app.services.reporting_workflow import resolve_cbd_pack
+
     pack = resolve_cbd_pack()
     sections = _normalise_response_rows(instance, pack)
     annex_rows = (
@@ -159,6 +160,8 @@ def render_cbd_docx_bytes(*, payload):
 
 def store_report_export_artifact(*, instance, generated_by, format_name, content_bytes, linked_action=None, metadata=None):
     timestamp = timezone.now().strftime("%Y%m%dT%H%M%S")
+    label = str(getattr(instance, "report_label", "") or getattr(instance, "version_label", "") or "report").strip().lower()
+    label = "".join(ch for ch in label if ch.isalnum() or ch in {"-", "_"}) or "report"
     suffix = "bin"
     if format_name == ReportExportArtifact.FORMAT_PDF:
         suffix = "pdf"
@@ -168,7 +171,7 @@ def store_report_export_artifact(*, instance, generated_by, format_name, content
         suffix = "json"
     elif format_name == ReportExportArtifact.FORMAT_DOSSIER:
         suffix = "zip"
-    storage_path = f"reports/{instance.uuid}/{timestamp}_{format_name}.{suffix}"
+    storage_path = f"reports/{instance.uuid}/{timestamp}_{label}_{format_name}.{suffix}"
     if default_storage.exists(storage_path):
         default_storage.delete(storage_path)
     default_storage.save(storage_path, ContentFile(content_bytes))

@@ -64,6 +64,46 @@ urlpatterns = [
         name="api_reporting_workspace_section_history",
     ),
     path(
+        "reports/<uuid:instance_uuid>/context",
+        api_spa.api_reporting_workspace_context,
+        name="api_reporting_workspace_context",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/sections/<str:section_code>/preview",
+        api_spa.api_reporting_workspace_section_preview,
+        name="api_reporting_workspace_section_preview",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/sections/<str:section_code>/charts",
+        api_spa.api_reporting_workspace_section_charts,
+        name="api_reporting_workspace_section_charts",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/sections/<str:section_code>/narrative/render",
+        api_spa.api_reporting_workspace_section_narrative_render,
+        name="api_reporting_workspace_section_narrative_render",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/sections/<str:section_code>/narrative/blocks",
+        api_spa.api_reporting_workspace_section_narrative_blocks,
+        name="api_reporting_workspace_section_narrative_blocks",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/sections/<str:section_code>/narrative/blocks/<str:block_key>/editor-config",
+        api_spa.api_reporting_workspace_section_narrative_editor_config,
+        name="api_reporting_workspace_section_narrative_editor_config",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/sections/<str:section_code>/narrative/blocks/<str:block_key>/document",
+        api_spa.api_reporting_workspace_section_narrative_block_document,
+        name="api_reporting_workspace_section_narrative_block_document",
+    ),
+    path(
+        "reports/narrative/callback/<uuid:block_uuid>",
+        api_spa.api_reporting_workspace_onlyoffice_callback,
+        name="api_reporting_workspace_onlyoffice_callback",
+    ),
+    path(
         "reports/<uuid:instance_uuid>/sections/section-iii/generate-skeleton",
         api_spa.api_reporting_workspace_generate_section_iii,
         name="api_reporting_workspace_generate_section_iii",
@@ -127,6 +167,21 @@ urlpatterns = [
         "reports/<uuid:instance_uuid>/dossier/latest",
         api_spa.api_reporting_workspace_latest_dossier,
         name="api_reporting_workspace_latest_dossier",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/ort-validation",
+        api_spa.api_reporting_workspace_ort_validation,
+        name="api_reporting_workspace_ort_validation",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/carry-forward/nr8",
+        api_spa.api_reporting_workspace_create_nr8_from_nr7,
+        name="api_reporting_workspace_create_nr8_from_nr7",
+    ),
+    path(
+        "reports/<uuid:instance_uuid>/diff",
+        api_spa.api_reporting_workspace_diff,
+        name="api_reporting_workspace_diff",
     ),
     path(
         "reports/<uuid:instance_uuid>/public",

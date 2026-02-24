@@ -112,9 +112,12 @@ def create_suggested_change(*, section_response, user, base_version, patch_json,
         section_response=section_response,
         base_version=section_response.current_version,
         patch_json=patch_json,
+        diff_patch=patch_json,
+        old_value_hash=payload_hash(section_response.response_json or {}),
+        proposed_value=apply_patch(section_response.response_json or {}, patch_json or {}),
         rationale=rationale or "",
         created_by=user if getattr(user, "is_authenticated", False) else None,
-        status=SuggestedChangeStatus.PENDING,
+        status=SuggestedChangeStatus.PROPOSED,
     )
     record_audit_event(
         user,
@@ -131,11 +134,11 @@ def create_suggested_change(*, section_response, user, base_version, patch_json,
 
 @transaction.atomic
 def decide_suggested_change(*, suggestion, user, accept, note=""):
-    if suggestion.status != SuggestedChangeStatus.PENDING:
+    if suggestion.status not in {SuggestedChangeStatus.PROPOSED, SuggestedChangeStatus.PENDING}:
         raise ValidationError("Suggestion is not pending.")
 
     section_response = suggestion.section_response
-    if section_response.locked_for_editing:
+    if section_response and section_response.locked_for_editing:
         raise ValidationError("Section is locked for editing.")
 
     decision_status = SuggestedChangeStatus.ACCEPTED if accept else SuggestedChangeStatus.REJECTED
@@ -146,9 +149,9 @@ def decide_suggested_change(*, suggestion, user, accept, note=""):
     suggestion.save(update_fields=["status", "decided_by", "decided_at", "decision_note", "updated_at"])
 
     applied_revision = None
-    if accept:
+    if accept and section_response:
         current_content = section_response.response_json or {}
-        merged = apply_patch(current_content, suggestion.patch_json or {})
+        merged = apply_patch(current_content, suggestion.diff_patch or suggestion.patch_json or {})
         applied_revision = append_revision(
             section_response=section_response,
             content=merged,
@@ -159,9 +162,9 @@ def decide_suggested_change(*, suggestion, user, accept, note=""):
     record_audit_event(
         user,
         "report_suggestion_decide",
-        section_response,
+        section_response or suggestion,
         metadata={
-            "section_response_uuid": str(section_response.uuid),
+            "section_response_uuid": str(section_response.uuid) if section_response else None,
             "suggested_change_uuid": str(suggestion.uuid),
             "status": decision_status,
             "applied_revision_uuid": str(applied_revision.uuid) if applied_revision else None,

@@ -129,6 +129,33 @@ def build_pack_validation(*, pack: ReportTemplatePack, instance, user):
                 elif field_type == "table":
                     if not isinstance(value, list) or not value:
                         missing_fields.append(key)
+                    else:
+                        required_columns = field.get("required_columns") or field.get("columns") or []
+                        for idx, row in enumerate(value):
+                            if not isinstance(row, dict):
+                                qa_items.append(
+                                    {
+                                        "severity": "BLOCKER",
+                                        "section": section.code,
+                                        "field": key,
+                                        "code": "table_row_not_object",
+                                        "message": f"Row {idx + 1} in '{key}' must be an object.",
+                                    }
+                                )
+                                continue
+                            for column in required_columns:
+                                if not str(row.get(column) or "").strip():
+                                    qa_items.append(
+                                        {
+                                            "severity": "BLOCKER",
+                                            "section": section.code,
+                                            "field": key,
+                                            "code": "table_required_cell_missing",
+                                            "message": (
+                                                f"Row {idx + 1} in '{key}' is missing required value for '{column}'."
+                                            ),
+                                        }
+                                    )
                 elif not str(value or "").strip():
                     missing_fields.append(key)
 
@@ -185,6 +212,55 @@ def build_pack_validation(*, pack: ReportTemplatePack, instance, user):
                 }
             )
 
+        if section.code == "section-iii":
+            rows = response_payload.get("target_progress_rows") or []
+            if isinstance(rows, list) and rows:
+                rows_without_evidence = []
+                rows_without_links = []
+                for idx, row in enumerate(rows):
+                    if not isinstance(row, dict):
+                        continue
+                    evidence = row.get("evidence_links") or []
+                    datasets = row.get("dataset_links") or []
+                    indicators = row.get("indicator_links") or []
+                    if not evidence:
+                        rows_without_evidence.append(idx + 1)
+                    if not datasets and not indicators:
+                        rows_without_links.append(idx + 1)
+                if len(rows_without_evidence) == len(rows):
+                    qa_items.append(
+                        {
+                            "severity": "BLOCKER",
+                            "section": section.code,
+                            "code": "missing_evidence_links",
+                            "message": "At least one Section III target row must include evidence links.",
+                        }
+                    )
+                elif rows_without_evidence:
+                    qa_items.append(
+                        {
+                            "severity": "WARNING",
+                            "section": section.code,
+                            "code": "partial_missing_evidence_links",
+                            "message": (
+                                "Target rows missing evidence links: "
+                                + ", ".join(str(row) for row in rows_without_evidence[:8])
+                            ),
+                        }
+                    )
+                if rows_without_links:
+                    qa_items.append(
+                        {
+                            "severity": "WARNING",
+                            "section": section.code,
+                            "code": "partial_missing_data_links",
+                            "message": (
+                                "Target rows missing indicator/dataset links: "
+                                + ", ".join(str(row) for row in rows_without_links[:8])
+                            ),
+                        }
+                    )
+
         completion_total = len(schema_fields) or 1
         completed = completion_total - len(missing_fields)
         sections.append(
@@ -194,6 +270,16 @@ def build_pack_validation(*, pack: ReportTemplatePack, instance, user):
                 "completion": int((completed / completion_total) * 100),
                 "missing_fields": missing_fields,
                 "warning_count": len(warnings),
+            }
+        )
+
+    if not instance.is_public:
+        qa_items.append(
+            {
+                "severity": "WARNING",
+                "section": "instance",
+                "code": "internal_visibility",
+                "message": "Report visibility is internal only; confirm before public release workflow.",
             }
         )
 

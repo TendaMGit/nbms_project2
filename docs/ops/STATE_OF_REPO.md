@@ -17,7 +17,7 @@ Commands executed (frontend, required set):
   - note: updated stale selector `NR7 Builder` to `National Report` in Playwright smoke specs.
 
 Identity + demo data verification:
-- `docker compose exec -e NBMS_ADMIN_USERNAME=Tenda -e NBMS_ADMIN_EMAIL=tmunyai56@gmail.com -e NBMS_ADMIN_PASSWORD=GraniteT33 backend python manage.py ensure_system_admin`
+- `docker compose exec -e NBMS_ADMIN_USERNAME=admin_user -e NBMS_ADMIN_EMAIL=admin@example.org -e NBMS_ADMIN_PASSWORD=CHANGE_ME backend python manage.py ensure_system_admin`
   -> `System admin updated: username=Tenda, staff=True, superuser=True, group=SystemAdmin`
 - `docker compose exec -e SEED_DEMO_USERS=1 -e ALLOW_INSECURE_DEMO_PASSWORDS=1 backend python manage.py seed_demo_users`
   -> `Seeded demo users (17 rows)`, wrote `docs/ops/DEMO_USERS.md`
@@ -235,7 +235,7 @@ Commands executed (docker minimal):
   - POST `/account/login/?next=/dashboard` with `Tenda` credentials -> final URI `http://127.0.0.1:8081/dashboard`
   - authenticated `GET /admin/` -> `200`
 - `curl http://127.0.0.1:8081/account/login/` content check -> two-factor template warning absent
-- `docker compose exec backend python manage.py ensure_system_admin` (with `NBMS_ADMIN_USERNAME=Tenda`) -> updated in-container system admin; `authenticate(username='Tenda', password='GraniteT33') -> True`
+- `docker compose exec backend python manage.py ensure_system_admin` (with `NBMS_ADMIN_USERNAME=admin_user`) -> updated in-container system admin; `authenticate(username='admin_user', password='CHANGE_ME') -> True`
 
 Migration verification (canonical):
 - `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_migrations.ps1` -> PASS

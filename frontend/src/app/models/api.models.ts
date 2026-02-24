@@ -543,7 +543,12 @@ export interface ReportingInstanceSummary {
   uuid: string;
   cycle_code: string;
   cycle_title: string;
+  report_family?: string;
+  report_label?: string;
   version_label: string;
+  reporting_period_start?: string | null;
+  reporting_period_end?: string | null;
+  is_public?: boolean;
   status: string;
   frozen_at: string | null;
   readiness_status: string;
@@ -694,6 +699,17 @@ export interface ReportWorkspaceSection {
   updated_at: string | null;
   latest_revision_uuid: string | null;
   schema_json?: Record<string, unknown>;
+  narrative_blocks?: Array<{
+    uuid: string;
+    section_code: string;
+    block_key: string;
+    title: string;
+    storage_path: string;
+    current_version: number;
+    current_content_hash: string;
+    html_snapshot: string;
+    text_snapshot: string;
+  }>;
 }
 
 export interface ReportWorkspaceSummary {
@@ -701,7 +717,11 @@ export interface ReportWorkspaceSummary {
     uuid: string;
     cycle_code: string;
     cycle_title: string;
+    report_family: string;
+    report_label: string;
     version_label: string;
+    reporting_period_start: string | null;
+    reporting_period_end: string | null;
     report_title: string;
     country_name: string;
     status: string;
@@ -737,6 +757,17 @@ export interface ReportWorkspaceSummary {
       created_at: string;
     }>;
   };
+  signoff_records?: Array<{
+    uuid: string;
+    signer: string | null;
+    signer_role: string;
+    body: string;
+    state_from: string;
+    state_to: string;
+    signed_at: string | null;
+    comment: string;
+    snapshot_hash_pointer: string;
+  }>;
   validation: TemplatePackValidationSummary;
   preview_payload: Record<string, unknown>;
   latest_dossier: {
@@ -746,6 +777,10 @@ export interface ReportWorkspaceSummary {
     manifest_json: Record<string, unknown>;
     created_at: string;
   } | null;
+  context?: {
+    filters_json: Record<string, string>;
+    context_hash: string;
+  };
   capabilities: Record<string, boolean>;
 }
 
@@ -773,6 +808,8 @@ export interface ReportCommentThreadPayload {
     uuid: string;
     json_path: string;
     status: string;
+    object_uuid?: string | null;
+    field_name?: string;
     created_by: string | null;
     created_at: string;
     resolved_at: string | null;
@@ -789,16 +826,50 @@ export interface ReportCommentThreadPayload {
 export interface ReportSuggestionPayload {
   suggestions: Array<{
     uuid: string;
+    object_uuid?: string | null;
+    field_name?: string;
     base_version: number;
     patch_json: Record<string, unknown>;
+    diff_patch?: Record<string, unknown>;
+    old_value_hash?: string;
+    proposed_value?: unknown;
     rationale: string;
     status: string;
     created_by: string | null;
     created_at: string;
     decided_by: string | null;
+    reviewer?: string | null;
     decided_at: string | null;
     decision_note: string;
   }>;
+}
+
+export interface ReportContextPayload {
+  context: Record<string, string>;
+  context_hash: string;
+}
+
+export interface ReportSectionChartsPayload {
+  charts: Array<{
+    id: string;
+    title: string;
+    spec: {
+      data: Array<Record<string, unknown>>;
+      layout: Record<string, unknown>;
+      config: Record<string, unknown>;
+    };
+  }>;
+  context: Record<string, string>;
+  context_hash: string;
+}
+
+export interface ReportNarrativeRenderPayload {
+  section_code: string;
+  raw_html: string;
+  rendered_html: string;
+  resolved_values_manifest: Array<Record<string, unknown>>;
+  context: Record<string, string>;
+  context_hash: string;
 }
 
 export interface BirdieDashboardResponse {

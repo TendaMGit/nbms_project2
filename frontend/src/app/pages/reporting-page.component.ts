@@ -1,10 +1,14 @@
 import { NgFor, NgIf } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject } from '@angular/core';
 import { FormsModule, ReactiveFormsModule, FormControl } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Subject, debounceTime, forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -12,8 +16,12 @@ import { MatListModule } from '@angular/material/list';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatStepperModule } from '@angular/material/stepper';
 
 import {
+  ReportContextPayload,
+  ReportNarrativeRenderPayload,
+  ReportSectionChartsPayload,
   ReportCommentThreadPayload,
   ReportSectionHistory,
   ReportSuggestionPayload,
@@ -22,6 +30,7 @@ import {
   ReportingInstanceSummary
 } from '../models/api.models';
 import { HelpTooltipComponent } from '../components/help-tooltip.component';
+import { PlotlyChartComponent } from '../components/plotly-chart.component';
 import { NationalReportService } from '../services/national-report.service';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 
@@ -45,6 +54,7 @@ type SectionField = {
     MatCardModule,
     MatChipsModule,
     MatDividerModule,
+    MatExpansionModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
@@ -52,7 +62,9 @@ type SectionField = {
     MatSelectModule,
     MatSlideToggleModule,
     MatSnackBarModule,
-    HelpTooltipComponent
+    MatStepperModule,
+    HelpTooltipComponent,
+    PlotlyChartComponent
   ],
   template: `
     <section class="workspace-shell">
@@ -78,7 +90,7 @@ type SectionField = {
           <div class="export-actions" *ngIf="workspace">
             <a mat-stroked-button [href]="reportService.exportPdfUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export PDF</a>
             <a mat-stroked-button [href]="reportService.exportDocxUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export DOCX</a>
-            <a mat-stroked-button [href]="reportService.exportJsonUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export JSON</a>
+            <a mat-stroked-button [href]="reportService.exportJsonUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export ORT JSON</a>
             <button mat-flat-button color="primary" (click)="generateDossier()">Generate dossier</button>
             <a
               mat-stroked-button
@@ -91,6 +103,69 @@ type SectionField = {
             </a>
           </div>
         </div>
+        <mat-expansion-panel>
+          <mat-expansion-panel-header>
+            <mat-panel-title>Create National Report</mat-panel-title>
+            <mat-panel-description>Unified NR7/NR8 template pack</mat-panel-description>
+          </mat-expansion-panel-header>
+          <div class="create-grid">
+            <mat-form-field appearance="outline">
+              <mat-label>Report label</mat-label>
+              <mat-select [(ngModel)]="newReport.label">
+                <mat-option value="NR7">NR7</mat-option>
+                <mat-option value="NR8">NR8</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Period start</mat-label>
+              <input matInput type="date" [(ngModel)]="newReport.periodStart" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Period end</mat-label>
+              <input matInput type="date" [(ngModel)]="newReport.periodEnd" />
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Report title</mat-label>
+              <input matInput [(ngModel)]="newReport.reportTitle" />
+            </mat-form-field>
+            <mat-slide-toggle [(ngModel)]="newReport.isPublic">Public availability</mat-slide-toggle>
+            <button mat-flat-button color="primary" (click)="createNationalReport()">Create report</button>
+            <button mat-stroked-button (click)="createNr8FromNr7()" [disabled]="!workspace || workspace.instance.report_label !== 'NR7'">
+              Create NR8 from this NR7
+            </button>
+          </div>
+        </mat-expansion-panel>
+      </mat-card>
+
+      <mat-card *ngIf="workspace" class="context-bar">
+        <div class="context-grid">
+          <mat-form-field appearance="outline">
+            <mat-label>Report label</mat-label>
+            <mat-select [ngModel]="contextFilters['report_label']" (ngModelChange)="setContextFilter('report_label', $event)">
+              <mat-option value="">Current instance</mat-option>
+              <mat-option value="NR7">NR7</mat-option>
+              <mat-option value="NR8">NR8</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Geography</mat-label>
+            <input matInput [ngModel]="contextFilters['geography']" (ngModelChange)="setContextFilter('geography', $event)" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Disaggregation</mat-label>
+            <input matInput [ngModel]="contextFilters['disaggregation']" (ngModelChange)="setContextFilter('disaggregation', $event)" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Indicator</mat-label>
+            <input matInput [ngModel]="contextFilters['indicator']" (ngModelChange)="setContextFilter('indicator', $event)" />
+          </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Programme</mat-label>
+            <input matInput [ngModel]="contextFilters['programme']" (ngModelChange)="setContextFilter('programme', $event)" />
+          </mat-form-field>
+          <button mat-stroked-button (click)="refreshContextViews()">Refresh context</button>
+        </div>
+        <p class="context-hash">Context hash: {{ contextHash || 'none' }}</p>
       </mat-card>
 
       <mat-card *ngIf="workspace" class="qa-bar">
@@ -103,12 +178,16 @@ type SectionField = {
           <mat-chip [class.warn]="!workspace.instance.is_public">
             {{ workspace.instance.is_public ? 'Public' : 'Internal' }}
           </mat-chip>
+          <mat-chip [class.warn]="autosaveStatus !== 'idle'">Autosave: {{ autosaveStatus }}</mat-chip>
         </mat-chip-set>
         <div class="workflow-actions">
-          <button mat-stroked-button (click)="workflowAction('submit')">Submit</button>
-          <button mat-stroked-button (click)="workflowAction('technical_approve')">Technical approve</button>
-          <button mat-stroked-button (click)="workflowAction('consolidate')">Secretariat consolidate</button>
-          <button mat-stroked-button color="primary" (click)="workflowAction('publishing_approve')">Publishing authority approve</button>
+          <button mat-stroked-button (click)="workflowAction('start_progress')">Start progress</button>
+          <button mat-stroked-button (click)="workflowAction('request_internal_review')">Internal review</button>
+          <button mat-stroked-button (click)="workflowAction('request_technical_committee_review')">Technical Committee review</button>
+          <button mat-stroked-button (click)="workflowAction('technical_committee_approve')">Technical Committee approve</button>
+          <button mat-stroked-button (click)="workflowAction('dffe_clearance_approve')">DFFE clearance</button>
+          <button mat-stroked-button (click)="workflowAction('final_signoff')">Final sign-off</button>
+          <button mat-stroked-button color="primary" (click)="workflowAction('freeze')">Freeze & snapshot</button>
           <button mat-stroked-button color="warn" (click)="workflowAction('reject')">Reject to draft</button>
         </div>
       </mat-card>
@@ -124,20 +203,23 @@ type SectionField = {
               [class.active]="section.section_code === activeSection.section_code"
             >
               <span matListItemTitle>{{ section.section_title }}</span>
-              <span matListItemLine>v{{ section.current_version }} • {{ section.updated_by || 'unassigned' }}</span>
+              <span matListItemLine>v{{ section.current_version }} - {{ section.updated_by || 'unassigned' }}</span>
             </button>
           </mat-list>
           <mat-divider></mat-divider>
           <div class="helper-actions">
             <button mat-button (click)="generateSectionIiiSkeleton()">Generate Section III skeleton</button>
             <button mat-button (click)="recomputeSectionIv()">Recompute Section IV rollup</button>
+            <button mat-button (click)="loadDiffAgainstLatestNr7()" [disabled]="!workspace || workspace.instance.report_label !== 'NR8'">
+              Diff against latest NR7
+            </button>
           </div>
         </mat-card>
 
         <mat-card class="editor">
           <mat-card-title>{{ activeSection.section_title }}</mat-card-title>
           <mat-card-subtitle>
-            {{ activeSection.section_code }} • version {{ activeSection.current_version }}
+            {{ activeSection.section_code }} - version {{ activeSection.current_version }}
             <span *ngIf="activeSection.locked_for_editing">(locked)</span>
           </mat-card-subtitle>
 
@@ -149,12 +231,29 @@ type SectionField = {
                   matInput
                   *ngIf="field.type !== 'textarea' && field.type !== 'date' && field.type !== 'select'"
                   [(ngModel)]="draftResponse[field.key]"
+                  (ngModelChange)="onFieldValueChange()"
                 />
-                <input matInput type="date" *ngIf="field.type === 'date'" [(ngModel)]="draftResponse[field.key]" />
-                <mat-select *ngIf="field.type === 'select'" [(ngModel)]="draftResponse[field.key]">
+                <input
+                  matInput
+                  type="date"
+                  *ngIf="field.type === 'date'"
+                  [(ngModel)]="draftResponse[field.key]"
+                  (ngModelChange)="onFieldValueChange()"
+                />
+                <mat-select
+                  *ngIf="field.type === 'select'"
+                  [(ngModel)]="draftResponse[field.key]"
+                  (ngModelChange)="onFieldValueChange()"
+                >
                   <mat-option *ngFor="let value of (field.allowed_values || [])" [value]="value">{{ value }}</mat-option>
                 </mat-select>
-                <textarea matInput rows="4" *ngIf="field.type === 'textarea'" [(ngModel)]="draftResponse[field.key]"></textarea>
+                <textarea
+                  matInput
+                  rows="4"
+                  *ngIf="field.type === 'textarea'"
+                  [(ngModel)]="draftResponse[field.key]"
+                  (ngModelChange)="onFieldValueChange()"
+                ></textarea>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="full-width" *ngIf="field.type === 'multivalue'">
@@ -186,7 +285,39 @@ type SectionField = {
               {{ suggestionMode ? 'Submit suggestion' : 'Save section' }}
             </button>
             <button mat-stroked-button (click)="reloadActiveSection()">Discard changes</button>
-            <button mat-stroked-button (click)="workflowAction('section_approve', activeSection.section_code)">Approve section</button>
+            <button mat-stroked-button (click)="markSectionComplete()" [disabled]="missingRequiredFields().length > 0">Mark section complete</button>
+            <button mat-stroked-button (click)="loadOrtValidation()">ORT validation</button>
+          </div>
+
+          <mat-divider></mat-divider>
+
+          <div class="narrative-tools">
+            <mat-form-field appearance="outline">
+              <mat-label>Narrative block</mat-label>
+              <mat-select [ngModel]="activeNarrativeBlockKey" (ngModelChange)="selectNarrativeBlock($event)">
+                <mat-option *ngFor="let block of narrativeBlocks" [value]="block.block_key">
+                  {{ block.title }} (v{{ block.current_version }})
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+            <button mat-stroked-button (click)="saveNarrativeBlock()" [disabled]="!activeNarrativeBlockKey">Save narrative block</button>
+            <button mat-stroked-button (click)="openOnlyOffice()" [disabled]="!activeNarrativeBlockKey">Open ONLYOFFICE doc</button>
+          </div>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Narrative (plain text helper)</mat-label>
+            <textarea matInput rows="6" [(ngModel)]="narrativeEditorText"></textarea>
+          </mat-form-field>
+
+          <div class="preview-wrap" [innerHTML]="previewHtml"></div>
+          <div class="chart-wrap" *ngFor="let chart of charts.charts">
+            <h4>{{ chart.title }}</h4>
+            <app-plotly-chart [spec]="chart.spec"></app-plotly-chart>
+          </div>
+          <div class="ort-box" *ngIf="ortValidation">
+            <strong>ORT {{ ortValidation.contract }}</strong>
+            <p>Overall valid: {{ ortValidation.overall_valid ? 'yes' : 'no' }}</p>
+            <p>Blocking issues: {{ ortValidation.blocking_issues.length }}</p>
           </div>
         </mat-card>
 
@@ -209,8 +340,10 @@ type SectionField = {
           <h3>Comments</h3>
           <div class="comment-new">
             <mat-form-field appearance="outline" class="full-width">
-              <mat-label>JSON path (e.g. target_progress_rows[0].actions_taken)</mat-label>
-              <input matInput [(ngModel)]="newCommentPath" />
+              <mat-label>Field</mat-label>
+              <mat-select [(ngModel)]="newCommentField">
+                <mat-option *ngFor="let field of sectionFields()" [value]="field.key">{{ field.label }}</mat-option>
+              </mat-select>
             </mat-form-field>
             <mat-form-field appearance="outline" class="full-width">
               <mat-label>Comment</mat-label>
@@ -220,7 +353,7 @@ type SectionField = {
           </div>
           <div class="thread" *ngFor="let thread of comments.threads">
             <div class="thread-head">
-              <strong>{{ thread.json_path }}</strong>
+              <strong>{{ thread.field_name || thread.json_path }}</strong>
               <button mat-button *ngIf="thread.status === 'open'" (click)="setThreadStatus(thread.uuid, 'resolved')">Resolve</button>
             </div>
             <div *ngFor="let comment of thread.comments" class="thread-comment">
@@ -229,10 +362,27 @@ type SectionField = {
           </div>
 
           <h3>Suggestions</h3>
+          <div class="comment-new">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Field to suggest</mat-label>
+              <mat-select [(ngModel)]="newSuggestionField">
+                <mat-option *ngFor="let field of sectionFields()" [value]="field.key">{{ field.label }}</mat-option>
+              </mat-select>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Proposed value</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="newSuggestionValue"></textarea>
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Rationale</mat-label>
+              <textarea matInput rows="2" [(ngModel)]="newSuggestionRationale"></textarea>
+            </mat-form-field>
+            <button mat-stroked-button (click)="createFieldSuggestion()">Submit field suggestion</button>
+          </div>
           <div class="suggestion" *ngFor="let row of suggestions.suggestions">
-            <div>v{{ row.base_version }} • {{ row.created_by || 'unknown' }} • {{ row.status }}</div>
+            <div>{{ row.field_name || 'section patch' }} - v{{ row.base_version }} - {{ row.created_by || 'unknown' }} - {{ row.status }}</div>
             <div class="rationale">{{ row.rationale }}</div>
-            <div class="suggest-actions" *ngIf="row.status === 'pending'">
+            <div class="suggest-actions" *ngIf="row.status === 'pending' || row.status === 'proposed'">
               <button mat-stroked-button color="primary" (click)="decideSuggestion(row.uuid, 'accept')">Accept</button>
               <button mat-stroked-button color="warn" (click)="decideSuggestion(row.uuid, 'reject')">Reject</button>
             </div>
@@ -240,9 +390,11 @@ type SectionField = {
 
           <h3>History</h3>
           <div class="history-item" *ngFor="let rev of history.revisions">
-            v{{ rev.version }} • {{ rev.author || 'unknown' }} • {{ rev.created_at }}
+            v{{ rev.version }} - {{ rev.author || 'unknown' }} - {{ rev.created_at }}
           </div>
           <p *ngIf="history.diff">Diff keys: {{ history.diff.changed_keys.join(', ') }}</p>
+          <h3 *ngIf="changeSummary">Carry-forward change summary</h3>
+          <p *ngIf="changeSummary">{{ changeSummary }}</p>
         </mat-card>
       </div>
 
@@ -268,12 +420,26 @@ type SectionField = {
         align-items: center;
         gap: 0.5rem;
       }
-      .header-grid {
+      .header-grid,
+      .create-grid,
+      .context-grid {
         margin-top: 0.8rem;
         display: grid;
         gap: 0.8rem;
         grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
         align-items: end;
+      }
+      .context-bar {
+        position: sticky;
+        top: 0.6rem;
+        z-index: 5;
+        border: 1px solid rgba(18, 106, 78, 0.2);
+        background: linear-gradient(120deg, #f2faf7, #f9fcfb);
+      }
+      .context-hash {
+        margin: 0.25rem 0 0;
+        font-size: 0.82rem;
+        color: #3f5f53;
       }
       .export-actions {
         display: flex;
@@ -320,6 +486,30 @@ type SectionField = {
         display: flex;
         gap: 0.5rem;
         flex-wrap: wrap;
+      }
+      .narrative-tools {
+        display: flex;
+        gap: 0.6rem;
+        align-items: end;
+        margin-top: 0.9rem;
+        flex-wrap: wrap;
+      }
+      .preview-wrap {
+        margin-top: 0.9rem;
+        border: 1px solid rgba(15, 80, 58, 0.18);
+        border-radius: 8px;
+        padding: 0.8rem;
+        background: #ffffff;
+      }
+      .chart-wrap {
+        margin-top: 0.9rem;
+      }
+      .ort-box {
+        margin-top: 0.9rem;
+        border: 1px solid rgba(15, 80, 58, 0.18);
+        border-radius: 8px;
+        padding: 0.65rem;
+        background: #f7fbf9;
       }
       .side-actions {
         display: flex;
@@ -384,6 +574,7 @@ export class ReportingPageComponent implements OnInit {
   readonly reportService = inject(NationalReportService);
   private readonly nr7Service = inject(Nr7BuilderService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly instanceControl = new FormControl<string | null>(null);
   instances: ReportingInstanceSummary[] = [];
@@ -396,17 +587,90 @@ export class ReportingPageComponent implements OnInit {
   history: ReportSectionHistory = { section_code: '', current_version: 0, revisions: [], diff: null };
   comments: ReportCommentThreadPayload = { threads: [] };
   suggestions: ReportSuggestionPayload = { suggestions: [] };
-  newCommentPath = '';
+  newCommentField = '';
   newCommentBody = '';
+  newSuggestionField = '';
+  newSuggestionValue = '';
+  newSuggestionRationale = '';
+  changeSummary = '';
+
+  newReport = {
+    label: 'NR8' as 'NR7' | 'NR8',
+    periodStart: '',
+    periodEnd: '',
+    reportTitle: '',
+    isPublic: false
+  };
+
+  contextFilters: Record<string, string> = {
+    report_label: '',
+    geography: '',
+    disaggregation: '',
+    indicator: '',
+    programme: ''
+  };
+  contextHash = '';
+
+  charts: ReportSectionChartsPayload = {
+    charts: [],
+    context: {},
+    context_hash: ''
+  };
+  previewHtml = '';
+  ortValidation: {
+    contract: string;
+    overall_valid: boolean;
+    blocking_issues: Array<Record<string, unknown>>;
+    validation: Record<string, unknown>;
+  } | null = null;
+  narrativeRender: ReportNarrativeRenderPayload = {
+    section_code: '',
+    raw_html: '',
+    rendered_html: '',
+    resolved_values_manifest: [],
+    context: {},
+    context_hash: ''
+  };
+  narrativeBlocks: Array<{
+    uuid: string;
+    block_key: string;
+    title: string;
+    current_version: number;
+    current_content_hash: string;
+    html_snapshot: string;
+    text_snapshot: string;
+  }> = [];
+  activeNarrativeBlockKey = '';
+  narrativeEditorText = '';
+
+  autosaveStatus: 'idle' | 'queued' | 'saving' | 'saved' | 'error' = 'idle';
+  private readonly autosaveDebounce$ = new Subject<void>();
+  private readonly contextDebounce$ = new Subject<void>();
+  private autosaveInFlight = false;
+  private pendingAutosave = false;
 
   ngOnInit(): void {
-    this.nr7Service.listInstances().subscribe((payload) => {
-      this.instances = payload.instances;
-      if (!this.instanceControl.value && this.instances.length) {
-        this.instanceControl.setValue(this.instances[0].uuid);
-      }
-      this.onInstanceChange();
-    });
+    this.autosaveDebounce$
+      .pipe(debounceTime(1200), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.autosaveSection());
+
+    this.contextDebounce$
+      .pipe(debounceTime(400), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.persistContext());
+
+    this.nr7Service
+      .listInstances()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (payload) => {
+          this.instances = payload.instances;
+          if (!this.instanceControl.value && this.instances.length) {
+            this.instanceControl.setValue(this.instances[0].uuid);
+          }
+          this.onInstanceChange();
+        },
+        error: () => this.show('Unable to load report instances.')
+      });
   }
 
   onInstanceChange(): void {
@@ -417,6 +681,14 @@ export class ReportingPageComponent implements OnInit {
     this.reportService.workspace(instanceUuid).subscribe({
       next: (workspace) => {
         this.workspace = workspace;
+        this.contextFilters = {
+          report_label: String(workspace.context?.filters_json?.['report_label'] || workspace.instance.report_label || ''),
+          geography: String(workspace.context?.filters_json?.['geography'] || ''),
+          disaggregation: String(workspace.context?.filters_json?.['disaggregation'] || ''),
+          indicator: String(workspace.context?.filters_json?.['indicator'] || ''),
+          programme: String(workspace.context?.filters_json?.['programme'] || '')
+        };
+        this.contextHash = workspace.context?.context_hash || '';
         const firstSectionCode = workspace.sections[0]?.section_code;
         if (firstSectionCode) {
           this.selectSection(firstSectionCode);
@@ -424,6 +696,63 @@ export class ReportingPageComponent implements OnInit {
       },
       error: () => this.show('Failed to load workspace.')
     });
+  }
+
+  createNationalReport(): void {
+    this.reportService
+      .createNationalReport({
+        report_label: this.newReport.label,
+        reporting_period_start: this.newReport.periodStart || undefined,
+        reporting_period_end: this.newReport.periodEnd || undefined,
+        is_public: this.newReport.isPublic,
+        report_title: this.newReport.reportTitle || undefined
+      })
+      .subscribe({
+        next: (payload) => {
+          this.show(`${this.newReport.label} instance created.`);
+          this.nr7Service.listInstances().subscribe((rows) => {
+            this.instances = rows.instances;
+            this.instanceControl.setValue(payload.instance.uuid);
+            this.onInstanceChange();
+          });
+        },
+        error: (err) => this.show(err?.error?.detail || 'Unable to create national report.')
+      });
+  }
+
+  createNr8FromNr7(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    if (!instanceUuid) {
+      return;
+    }
+    const svc = this.reportService as unknown as { createNr8FromNr7?: (instanceUuid: string) => unknown };
+    if (!svc.createNr8FromNr7) {
+      this.show('NR8 carry-forward is unavailable in this environment.');
+      return;
+    }
+    this.reportService.createNr8FromNr7(instanceUuid).subscribe({
+      next: (payload) => {
+        this.show('NR8 draft created from NR7.');
+        this.nr7Service.listInstances().subscribe((rows) => {
+          this.instances = rows.instances;
+          this.instanceControl.setValue(payload.new_instance_uuid);
+          this.onInstanceChange();
+        });
+      },
+      error: (err) => this.show(err?.error?.detail || 'Unable to create NR8 from NR7.')
+    });
+  }
+
+  setContextFilter(key: string, value: string): void {
+    this.contextFilters = {
+      ...this.contextFilters,
+      [key]: String(value || '').trim()
+    };
+    this.contextDebounce$.next();
+  }
+
+  refreshContextViews(): void {
+    this.persistContext();
   }
 
   selectSection(sectionCode: string): void {
@@ -436,9 +765,12 @@ export class ReportingPageComponent implements OnInit {
         this.activeSection = section;
         this.draftResponse = { ...(section.response_json || {}) };
         this.jsonEditorText = JSON.stringify(this.draftResponse, null, 2);
+        this.autosaveStatus = 'idle';
         this.refreshHistory();
         this.refreshComments();
         this.refreshSuggestions();
+        this.loadNarrativeBlocks();
+        this.refreshContextViews();
       },
       error: () => this.show('Failed to load section.')
     });
@@ -464,6 +796,7 @@ export class ReportingPageComponent implements OnInit {
       .map((item) => item.trim())
       .filter((item) => item.length > 0);
     this.syncJsonEditorFromDraft();
+    this.queueAutosave();
   }
 
   tableAsJson(key: string): string {
@@ -476,6 +809,7 @@ export class ReportingPageComponent implements OnInit {
       const parsed = JSON.parse(raw);
       this.draftResponse[key] = Array.isArray(parsed) ? parsed : [];
       this.syncJsonEditorFromDraft();
+      this.queueAutosave();
     } catch {
       // keep editing until valid JSON
     }
@@ -487,40 +821,20 @@ export class ReportingPageComponent implements OnInit {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object') {
         this.draftResponse = parsed;
+        this.queueAutosave();
       }
     } catch {
       // ignore invalid json while typing
     }
   }
 
+  onFieldValueChange(): void {
+    this.syncJsonEditorFromDraft();
+    this.queueAutosave();
+  }
+
   saveSection(): void {
-    const instanceUuid = this.workspace?.instance.uuid;
-    const section = this.activeSection;
-    if (!instanceUuid || !section) {
-      return;
-    }
-    const payload: {
-      response_json: Record<string, unknown>;
-      base_version: number;
-      suggestion_mode?: boolean;
-      patch_json?: Record<string, unknown>;
-      rationale?: string;
-    } = {
-      response_json: this.draftResponse,
-      base_version: section.current_version
-    };
-    if (this.suggestionMode) {
-      payload.suggestion_mode = true;
-      payload.patch_json = this.diffPatch(section.response_json || {}, this.draftResponse);
-      payload.rationale = this.suggestionRationale;
-    }
-    this.reportService.saveSection(instanceUuid, section.section_code, payload).subscribe({
-      next: () => {
-        this.show(this.suggestionMode ? 'Suggestion submitted.' : 'Section saved.');
-        this.onInstanceChange();
-      },
-      error: (err) => this.show(err?.error?.detail || 'Unable to save section.')
-    });
+    this.performSave(false);
   }
 
   reloadActiveSection(): void {
@@ -559,12 +873,15 @@ export class ReportingPageComponent implements OnInit {
   addComment(): void {
     const instanceUuid = this.workspace?.instance.uuid;
     const sectionCode = this.activeSection?.section_code;
-    if (!instanceUuid || !sectionCode || !this.newCommentPath || !this.newCommentBody) {
+    const sectionUuid = this.activeSection?.uuid;
+    if (!instanceUuid || !sectionCode || !sectionUuid || !this.newCommentBody) {
       return;
     }
     this.reportService
       .addComment(instanceUuid, sectionCode, {
-        json_path: this.newCommentPath,
+        json_path: this.newCommentField || 'section',
+        field_name: this.newCommentField || undefined,
+        object_uuid: sectionUuid,
         body: this.newCommentBody
       })
       .subscribe({
@@ -575,6 +892,179 @@ export class ReportingPageComponent implements OnInit {
         },
         error: () => this.show('Unable to add comment.')
       });
+  }
+
+  createFieldSuggestion(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    const sectionCode = this.activeSection?.section_code;
+    const sectionUuid = this.activeSection?.uuid;
+    if (!instanceUuid || !sectionCode || !sectionUuid || !this.newSuggestionField) {
+      return;
+    }
+    let proposedValue: unknown = this.newSuggestionValue;
+    try {
+      proposedValue = JSON.parse(this.newSuggestionValue);
+    } catch {
+      proposedValue = this.newSuggestionValue;
+    }
+    const fieldName = this.newSuggestionField.trim();
+    const patch: Record<string, unknown> = { [fieldName]: proposedValue };
+    this.reportService
+      .createSuggestion(instanceUuid, sectionCode, {
+        base_version: this.activeSection?.current_version || 1,
+        object_uuid: sectionUuid,
+        field_name: fieldName,
+        patch_json: patch,
+        diff_patch: patch,
+        old_value_hash: this.simpleHash(JSON.stringify(this.activeSection?.response_json?.[fieldName] ?? null)),
+        proposed_value: proposedValue,
+        rationale: this.newSuggestionRationale || 'Field suggestion'
+      })
+      .subscribe({
+        next: () => {
+          this.newSuggestionValue = '';
+          this.newSuggestionRationale = '';
+          this.refreshSuggestions();
+          this.show('Suggestion submitted.');
+        },
+        error: (err) => this.show(err?.error?.detail || 'Unable to submit suggestion.')
+      });
+  }
+
+  markSectionComplete(): void {
+    if (!this.activeSection) {
+      return;
+    }
+    if (this.missingRequiredFields().length > 0) {
+      this.show('Required fields are still missing.');
+      return;
+    }
+    this.workflowAction('section_complete', this.activeSection.section_code);
+  }
+
+  loadOrtValidation(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    if (!instanceUuid) {
+      return;
+    }
+    const svc = this.reportService as unknown as { ortValidation?: (instanceUuid: string) => unknown };
+    if (!svc.ortValidation) {
+      return;
+    }
+    this.reportService.ortValidation(instanceUuid).subscribe({
+      next: (payload) => {
+        this.ortValidation = payload;
+      },
+      error: (err) => this.show(err?.error?.detail || 'ORT validation failed.')
+    });
+  }
+
+  loadDiffAgainstLatestNr7(): void {
+    const current = this.workspace;
+    if (!current) {
+      return;
+    }
+    const baseline = this.instances.find(
+      (row) => row.uuid !== current.instance.uuid && (row.report_label || row.cycle_code) === 'NR7'
+    );
+    if (!baseline) {
+      this.show('No baseline NR7 available for diff.');
+      return;
+    }
+    const svc = this.reportService as unknown as { diff?: (instanceUuid: string, fromInstanceUuid: string) => unknown };
+    if (!svc.diff) {
+      this.show('Diff endpoint unavailable.');
+      return;
+    }
+    this.reportService.diff(current.instance.uuid, baseline.uuid).subscribe({
+      next: (payload) => {
+        this.changeSummary = payload.change_summary || '';
+      },
+      error: (err) => this.show(err?.error?.detail || 'Unable to compute diff.')
+    });
+  }
+
+  selectNarrativeBlock(blockKey: string): void {
+    this.activeNarrativeBlockKey = blockKey;
+    const row = this.narrativeBlocks.find((item) => item.block_key === blockKey);
+    this.narrativeEditorText = row?.text_snapshot || '';
+  }
+
+  loadNarrativeBlocks(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    const sectionCode = this.activeSection?.section_code;
+    if (!instanceUuid || !sectionCode) {
+      this.narrativeBlocks = [];
+      this.activeNarrativeBlockKey = '';
+      this.narrativeEditorText = '';
+      return;
+    }
+    const svc = this.reportService as unknown as { narrativeBlocks?: (instanceUuid: string, sectionCode: string) => unknown };
+    if (!svc.narrativeBlocks) {
+      this.narrativeBlocks = [];
+      this.activeNarrativeBlockKey = '';
+      this.narrativeEditorText = '';
+      return;
+    }
+    this.reportService.narrativeBlocks(instanceUuid, sectionCode).subscribe({
+      next: (payload) => {
+        this.narrativeBlocks = (payload.blocks || []).map((row) => {
+          const item = row as Record<string, unknown>;
+          return {
+            uuid: String(item['uuid'] || ''),
+            block_key: String(item['block_key'] || 'main'),
+            title: String(item['title'] || 'Main narrative'),
+            current_version: Number(item['current_version'] || 1),
+            current_content_hash: String(item['current_content_hash'] || ''),
+            html_snapshot: String(item['html_snapshot'] || ''),
+            text_snapshot: String(item['text_snapshot'] || '')
+          };
+        });
+        if (this.narrativeBlocks.length > 0) {
+          const selected = this.narrativeBlocks[0];
+          this.activeNarrativeBlockKey = selected.block_key;
+          this.narrativeEditorText = selected.text_snapshot || '';
+        }
+      },
+      error: () => {
+        this.narrativeBlocks = [];
+      }
+    });
+  }
+
+  saveNarrativeBlock(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    const sectionCode = this.activeSection?.section_code;
+    if (!instanceUuid || !sectionCode || !this.activeNarrativeBlockKey) {
+      return;
+    }
+    const svc = this.reportService as unknown as { saveNarrativeBlock?: (instanceUuid: string, sectionCode: string, payload: unknown) => unknown };
+    if (!svc.saveNarrativeBlock) {
+      return;
+    }
+    this.reportService
+      .saveNarrativeBlock(instanceUuid, sectionCode, {
+        block_key: this.activeNarrativeBlockKey,
+        content_text: this.narrativeEditorText
+      })
+      .subscribe({
+        next: () => {
+          this.show('Narrative block saved.');
+          this.loadNarrativeBlocks();
+          this.refreshContextViews();
+        },
+        error: (err) => this.show(err?.error?.detail || 'Unable to save narrative block.')
+      });
+  }
+
+  openOnlyOffice(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    const sectionCode = this.activeSection?.section_code;
+    if (!instanceUuid || !sectionCode || !this.activeNarrativeBlockKey) {
+      return;
+    }
+    const url = this.reportService.narrativeDocumentUrl(instanceUuid, sectionCode, this.activeNarrativeBlockKey);
+    window.open(url, '_blank', 'noopener');
   }
 
   setThreadStatus(threadUuid: string, statusValue: string): void {
@@ -657,6 +1147,155 @@ export class ReportingPageComponent implements OnInit {
     });
   }
 
+  missingRequiredFields(): string[] {
+    const missing: string[] = [];
+    this.sectionFields().forEach((field) => {
+      if (!field.required) {
+        return;
+      }
+      const value = this.draftResponse[field.key];
+      if (value === null || value === undefined || value === '') {
+        missing.push(field.label || field.key);
+        return;
+      }
+      if (Array.isArray(value) && value.length === 0) {
+        missing.push(field.label || field.key);
+      }
+    });
+    return missing;
+  }
+
+  private queueAutosave(): void {
+    if (this.suggestionMode || !this.activeSection || this.activeSection.locked_for_editing) {
+      return;
+    }
+    this.autosaveStatus = 'queued';
+    this.autosaveDebounce$.next();
+  }
+
+  private autosaveSection(): void {
+    if (this.autosaveInFlight) {
+      this.pendingAutosave = true;
+      return;
+    }
+    if (this.missingRequiredFields().length > 0) {
+      this.autosaveStatus = 'idle';
+      return;
+    }
+    this.performSave(true);
+  }
+
+  private performSave(isAutosave: boolean): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    const section = this.activeSection;
+    if (!instanceUuid || !section) {
+      return;
+    }
+    const payload: {
+      response_json: Record<string, unknown>;
+      base_version: number;
+      suggestion_mode?: boolean;
+      patch_json?: Record<string, unknown>;
+      rationale?: string;
+    } = {
+      response_json: this.draftResponse,
+      base_version: section.current_version
+    };
+    if (this.suggestionMode) {
+      payload.suggestion_mode = true;
+      payload.patch_json = this.diffPatch(section.response_json || {}, this.draftResponse);
+      payload.rationale = this.suggestionRationale;
+    }
+    this.autosaveInFlight = true;
+    this.autosaveStatus = isAutosave ? 'saving' : this.autosaveStatus;
+    this.reportService.saveSection(instanceUuid, section.section_code, payload).subscribe({
+      next: () => {
+        this.autosaveInFlight = false;
+        this.autosaveStatus = isAutosave ? 'saved' : 'idle';
+        if (!isAutosave) {
+          this.show(this.suggestionMode ? 'Suggestion submitted.' : 'Section saved.');
+        }
+        this.onInstanceChange();
+        if (this.pendingAutosave) {
+          this.pendingAutosave = false;
+          this.autosaveDebounce$.next();
+        }
+      },
+      error: (err) => {
+        this.autosaveInFlight = false;
+        this.autosaveStatus = 'error';
+        this.show(err?.error?.detail || 'Unable to save section.');
+      }
+    });
+  }
+
+  private persistContext(): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    const sectionCode = this.activeSection?.section_code;
+    if (!instanceUuid || !sectionCode) {
+      return;
+    }
+    const svc = this.reportService as unknown as {
+      saveContext?: (instanceUuid: string, context: Record<string, string>) => unknown;
+    };
+    if (!svc.saveContext) {
+      this.loadContextViews(instanceUuid, sectionCode);
+      return;
+    }
+    this.reportService.saveContext(instanceUuid, this.contextFilters).subscribe({
+      next: (payload: ReportContextPayload) => {
+        this.contextHash = payload.context_hash;
+        this.loadContextViews(instanceUuid, sectionCode);
+      },
+      error: () => this.show('Unable to save context filters.')
+    });
+  }
+
+  private loadContextViews(instanceUuid: string, sectionCode: string): void {
+    const svc = this.reportService as unknown as {
+      sectionPreview?: (instanceUuid: string, sectionCode: string, context?: Record<string, string>) => unknown;
+      sectionCharts?: (instanceUuid: string, sectionCode: string, context?: Record<string, string>) => unknown;
+      renderNarrative?: (instanceUuid: string, sectionCode: string, context?: Record<string, string>) => unknown;
+    };
+    const preview$ = svc.sectionPreview
+      ? this.reportService.sectionPreview(instanceUuid, sectionCode, this.contextFilters).pipe(
+          catchError(() => of({ section_code: sectionCode, html: '', resolved_values_manifest: [], context_hash: '' }))
+        )
+      : of({ section_code: sectionCode, html: '', resolved_values_manifest: [], context_hash: '' });
+    const charts$ = svc.sectionCharts
+      ? this.reportService.sectionCharts(instanceUuid, sectionCode, this.contextFilters).pipe(
+          catchError(() => of({ charts: [], context: this.contextFilters, context_hash: '' }))
+        )
+      : of({ charts: [], context: this.contextFilters, context_hash: '' });
+    const narrative$ = svc.renderNarrative
+      ? this.reportService.renderNarrative(instanceUuid, sectionCode, this.contextFilters).pipe(
+          catchError(() =>
+            of({
+              section_code: sectionCode,
+              raw_html: '',
+              rendered_html: '',
+              resolved_values_manifest: [],
+              context: this.contextFilters,
+              context_hash: ''
+            })
+          )
+        )
+      : of({
+          section_code: sectionCode,
+          raw_html: '',
+          rendered_html: '',
+          resolved_values_manifest: [],
+          context: this.contextFilters,
+          context_hash: ''
+        });
+    forkJoin({ preview: preview$, charts: charts$, narrative: narrative$ }).subscribe(({ preview, charts, narrative }) => {
+      this.previewHtml = preview.html || '';
+      this.contextHash = preview.context_hash || this.contextHash;
+      this.charts = charts as ReportSectionChartsPayload;
+      this.narrativeRender = narrative as ReportNarrativeRenderPayload;
+    });
+  }
+
   private syncJsonEditorFromDraft(): void {
     this.jsonEditorText = JSON.stringify(this.draftResponse, null, 2);
   }
@@ -670,6 +1309,15 @@ export class ReportingPageComponent implements OnInit {
       }
     });
     return patch;
+  }
+
+  private simpleHash(raw: string): string {
+    let hash = 0;
+    for (let i = 0; i < raw.length; i += 1) {
+      hash = (hash << 5) - hash + raw.charCodeAt(i);
+      hash |= 0;
+    }
+    return `h${Math.abs(hash)}`;
   }
 
   private show(message: string): void {

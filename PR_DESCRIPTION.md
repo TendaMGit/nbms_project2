@@ -33,7 +33,7 @@ npm --prefix frontend run build
 npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless
 npm --prefix frontend run e2e
 
-docker compose exec -e NBMS_ADMIN_USERNAME=Tenda -e NBMS_ADMIN_EMAIL=tmunyai56@gmail.com -e NBMS_ADMIN_PASSWORD=GraniteT33 backend python manage.py ensure_system_admin
+docker compose exec -e NBMS_ADMIN_USERNAME=admin_user -e NBMS_ADMIN_EMAIL=admin@example.org -e NBMS_ADMIN_PASSWORD=CHANGE_ME backend python manage.py ensure_system_admin
 docker compose exec -e SEED_DEMO_USERS=1 -e ALLOW_INSECURE_DEMO_PASSWORDS=1 backend python manage.py seed_demo_users
 docker compose exec backend python manage.py seed_demo_reports
 ```
