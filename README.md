@@ -14,6 +14,29 @@ Blueprint boundary (authoritative operating stance):
 - Governance is minimal: ITSC approves methods, and Data Steward review is conditional for flagged sensitivity/licence/IPLC cases.
 - Delivery is framed as `Phase 1 - National MVP (Reporting + Interoperability + Scale Path)` with backlog tiers inside Phase 1.
 
+## Current UI and API reality
+
+- Primary interactive UI is Angular SPA under `frontend/`.
+- Backend is Django (`src/config`, `src/nbms_app`) and remains the source of truth for permissions, workflows, and exports.
+- Authentication for SPA/API is session-cookie + CSRF:
+  - `GET /api/auth/csrf`
+  - `GET /api/auth/me`
+  - `GET /api/auth/capabilities`
+- API surfaces:
+  - SPA/BFF endpoints: `/api/*` (`src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`)
+  - DRF read-only catalog endpoints: `/api/v1/*` (`src/nbms_app/api.py`)
+
+Local dev run (non-Docker):
+
+```bash
+# backend
+python manage.py runserver
+
+# frontend
+npm --prefix frontend install
+npm --prefix frontend run start
+```
+
 ## Feature summary
 
 - Auth and staff management UI (no Django admin needed for day-to-day)
