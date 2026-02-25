@@ -10,7 +10,7 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections
-from django.db.models import Count, Max, Q
+from django.db.models import BooleanField, Case, CharField, Count, DateField, Exists, ExpressionWrapper, F, IntegerField, Max, OuterRef, Q, Value, When
 from django.http import FileResponse, HttpResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -31,6 +31,7 @@ from nbms_app.models import (
     BirdieSpecies,
     Dataset,
     DownloadRecord,
+    DownloadRecordStatus,
     DownloadRecordType,
     EICATAssessment,
     EcosystemGoldSummary,
@@ -161,6 +162,7 @@ from nbms_app.services.reporting_workflow import (
 )
 from nbms_app.services.programme_ops import execute_programme_run, queue_programme_run, user_can_manage_programme
 from nbms_app.services.readiness import get_instance_readiness
+from nbms_app.services.metrics import render_prometheus, update_db_pool_metrics
 from nbms_app.services.registry_marts import latest_snapshot_date
 from nbms_app.services.registry_workflows import (
     get_registry_object,
@@ -214,6 +216,7 @@ _REPORT_EXPORT_ALLOWED_STATES = {
     ReportingStatus.RELEASED,
     ReportingStatus.PUBLIC_RELEASED,
 }
+_API_BOOTED_AT = timezone.now()
 
 
 def _default_saved_filters_payload():
@@ -443,6 +446,13 @@ def _parse_iso_date(value):
         raise ValidationError(f"Invalid date value '{value}'. Expected YYYY-MM-DD.") from exc
 
 
+def _split_csv_param(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    return [item.strip() for item in raw.split(",") if item.strip()]
+
+
 def _parse_bool(value, default=False):
     if value is None:
         return default
@@ -457,6 +467,115 @@ def _can_manage_registry_workflows(user):
     if is_system_admin(user):
         return True
     return bool(user_has_role(user, ROLE_ADMIN, ROLE_SECRETARIAT, ROLE_DATA_STEWARD, ROLE_INDICATOR_LEAD))
+
+
+def _annotate_indicator_explorer_queryset(queryset):
+    ready_profiles = IndicatorMethodProfile.objects.filter(
+        indicator=OuterRef("pk"),
+        is_active=True,
+        readiness_state="ready",
+    )
+    partial_profiles = IndicatorMethodProfile.objects.filter(
+        indicator=OuterRef("pk"),
+        is_active=True,
+        readiness_state="partial",
+    )
+    spatial_points = IndicatorDataPoint.objects.filter(
+        series__indicator=OuterRef("pk"),
+    ).filter(Q(spatial_layer__isnull=False) | Q(spatial_unit__isnull=False))
+    required_layers = IndicatorInputRequirement.objects.filter(
+        indicator=OuterRef("pk"),
+        required_map_layers__isnull=False,
+    )
+    queryset = queryset.annotate(
+        method_ready_exists=Exists(ready_profiles),
+        method_partial_exists=Exists(partial_profiles),
+        has_spatial_data=Exists(spatial_points),
+        has_required_layers=Exists(required_layers),
+    )
+    base_score = Case(
+        When(method_ready_exists=True, then=Value(85)),
+        When(method_partial_exists=True, then=Value(55)),
+        default=Value(25),
+        output_field=IntegerField(),
+    )
+    freshness_bonus = Case(
+        When(last_updated_on__isnull=False, then=Value(10)),
+        default=Value(0),
+        output_field=IntegerField(),
+    )
+    queryset = queryset.annotate(
+        readiness_score_ann=base_score + freshness_bonus,
+        has_spatial_ann=Case(
+            When(
+                Q(has_spatial_data=True)
+                | Q(has_required_layers=True)
+                | (Q(spatial_coverage__isnull=False) & ~Q(spatial_coverage=""))
+                | (Q(coverage_geography__isnull=False) & ~Q(coverage_geography="")),
+                then=Value(True),
+            ),
+            default=Value(False),
+            output_field=BooleanField(),
+        ),
+    )
+    today = timezone.now().date()
+    queryset = queryset.annotate(
+        readiness_band_ann=Case(
+            When(readiness_score_ann__gte=75, then=Value("green")),
+            When(readiness_score_ann__gte=45, then=Value("amber")),
+            default=Value("red"),
+            output_field=CharField(),
+        ),
+        next_expected_update_ann=Case(
+            When(
+                Q(last_updated_on__isnull=False)
+                & (Q(update_frequency="monthly") | Q(reporting_cadence="monthly")),
+                then=ExpressionWrapper(F("last_updated_on") + timedelta(days=30), output_field=DateField()),
+            ),
+            When(
+                Q(last_updated_on__isnull=False)
+                & (Q(update_frequency="quarterly") | Q(reporting_cadence="quarterly")),
+                then=ExpressionWrapper(F("last_updated_on") + timedelta(days=91), output_field=DateField()),
+            ),
+            When(
+                Q(last_updated_on__isnull=False)
+                & (Q(update_frequency="annual") | Q(reporting_cadence="annual")),
+                then=ExpressionWrapper(F("last_updated_on") + timedelta(days=365), output_field=DateField()),
+            ),
+            When(
+                Q(last_updated_on__isnull=False)
+                & (
+                    Q(update_frequency="biennial")
+                    | Q(update_frequency="every_2_years")
+                    | Q(reporting_cadence="biennial")
+                    | Q(reporting_cadence="every_2_years")
+                ),
+                then=ExpressionWrapper(F("last_updated_on") + timedelta(days=730), output_field=DateField()),
+            ),
+            When(
+                Q(last_updated_on__isnull=False)
+                & (
+                    Q(update_frequency="every_3_years")
+                    | Q(reporting_cadence="every_3_years")
+                ),
+                then=ExpressionWrapper(F("last_updated_on") + timedelta(days=1095), output_field=DateField()),
+            ),
+            default=Value(None),
+            output_field=DateField(),
+        ),
+    )
+    queryset = queryset.annotate(
+        due_soon_ann=Case(
+            When(
+                next_expected_update_ann__isnull=False,
+                next_expected_update_ann__lte=today + timedelta(days=60),
+                then=Value(1),
+            ),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+    )
+    return queryset
 
 
 def _registry_gold_model(kind):
@@ -1188,6 +1307,19 @@ def api_help_sections(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
+def api_system_metrics(request):
+    if not (is_system_admin(request.user) or getattr(request.user, "is_staff", False)):
+        return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
+    try:
+        from prometheus_client import CONTENT_TYPE_LATEST
+    except Exception:  # noqa: BLE001
+        CONTENT_TYPE_LATEST = "text/plain; version=0.0.4"
+    update_db_pool_metrics()
+    return HttpResponse(render_prometheus(), content_type=CONTENT_TYPE_LATEST)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
 def api_system_health(request):
     if not (is_system_admin(request.user) or getattr(request.user, "is_staff", False)):
         return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
@@ -1198,6 +1330,7 @@ def api_system_health(request):
         _cache_health(),
     ]
     is_healthy = all(item["status"] in {"ok", "disabled"} for item in checks)
+    now = timezone.now()
     recent_failures = (
         AuditEvent.objects.filter(
             action__in=[
@@ -1210,10 +1343,29 @@ def api_system_health(request):
         )
         .order_by("-created_at", "action", "id")[:25]
     )
+    download_backlog = DownloadRecord.objects.filter(status=DownloadRecordStatus.PENDING).count()
+    failed_downloads_last_24h = DownloadRecord.objects.filter(
+        status=DownloadRecordStatus.FAILED,
+        created_at__gte=now - timedelta(hours=24),
+    ).count()
+    failed_programme_runs_last_24h = MonitoringProgrammeRun.objects.filter(
+        status=ProgrammeRunStatus.FAILED,
+        created_at__gte=now - timedelta(hours=24),
+    ).count()
+    observability = {
+        "metrics_enabled": True,
+        "logs_json_enabled": bool(getattr(settings, "LOG_JSON", False)),
+        "tracing_enabled": bool(getattr(settings, "OTEL_ENABLED", False)),
+        "sentry_enabled": bool(getattr(settings, "SENTRY_DSN", "")),
+    }
     return Response(
         {
             "overall_status": "ok" if is_healthy else "degraded",
+            "uptime_seconds": int(max((now - _API_BOOTED_AT).total_seconds(), 0)),
             "services": checks,
+            "observability": observability,
+            "download_record_backlog": download_backlog,
+            "export_failures_last_24h": failed_downloads_last_24h + failed_programme_runs_last_24h,
             "recent_failures": [
                 {
                     "action": event.action,
@@ -3494,28 +3646,45 @@ def api_indicator_list(request):
     user = request.user
     queryset = _indicator_base_queryset(user)
 
-    search = (request.GET.get("search") or "").strip()
-    if search:
+    q = (request.GET.get("q") or request.GET.get("search") or "").strip()
+    if q:
         queryset = queryset.filter(
-            Q(code__icontains=search)
-            | Q(title__icontains=search)
-            | Q(computation_notes__icontains=search)
-            | Q(national_target__code__icontains=search)
-            | Q(national_target__title__icontains=search)
+            Q(code__icontains=q)
+            | Q(title__icontains=q)
+            | Q(computation_notes__icontains=q)
+            | Q(national_target__code__icontains=q)
+            | Q(national_target__title__icontains=q)
         )
 
-    framework = (request.GET.get("framework") or "").strip()
-    if framework:
+    frameworks = _split_csv_param(request.GET.get("framework"))
+    if frameworks:
+        framework_codes = [code.upper() for code in frameworks]
         queryset = queryset.filter(
-            framework_indicator_links__framework_indicator__framework__code__iexact=framework,
+            framework_indicator_links__framework_indicator__framework__code__in=framework_codes,
             framework_indicator_links__is_active=True,
         )
 
-    framework_target = (request.GET.get("framework_target") or "").strip()
+    framework_target = (request.GET.get("framework_target") or "").strip() or (request.GET.get("gbf_target") or "").strip()
     if framework_target:
         queryset = queryset.filter(
             framework_indicator_links__framework_indicator__framework_target__code__iexact=framework_target,
             framework_indicator_links__is_active=True,
+        )
+
+    gbf_goal = (request.GET.get("gbf_goal") or "").strip()
+    if gbf_goal:
+        queryset = queryset.filter(
+            framework_indicator_links__framework_indicator__framework__code__iexact="GBF",
+            framework_indicator_links__framework_indicator__framework_target__goal__code__iexact=gbf_goal,
+            framework_indicator_links__is_active=True,
+        )
+
+    national_target = (request.GET.get("national_target") or "").strip()
+    if national_target:
+        queryset = queryset.filter(
+            Q(national_target__code__iexact=national_target)
+            | Q(national_target__code__icontains=national_target)
+            | Q(national_target__title__icontains=national_target)
         )
 
     realm = (request.GET.get("realm") or "").strip()
@@ -3530,7 +3699,15 @@ def api_indicator_list(request):
     if status_filter:
         queryset = queryset.filter(status=status_filter)
 
-    sensitivity = (request.GET.get("sensitivity") or "").strip()
+    sensitivity = (request.GET.get("sensitivity") or "").strip().lower()
+    access_level = (request.GET.get("access_level") or "").strip().lower()
+    if access_level == "public":
+        sensitivity = SensitivityLevel.PUBLIC
+    elif access_level == "internal":
+        sensitivity = SensitivityLevel.INTERNAL
+    elif access_level == "restricted":
+        queryset = queryset.filter(sensitivity__in=[SensitivityLevel.RESTRICTED, SensitivityLevel.IPLC_SENSITIVE])
+        sensitivity = ""
     if sensitivity:
         queryset = queryset.filter(sensitivity=sensitivity)
 
@@ -3538,10 +3715,78 @@ def api_indicator_list(request):
     if method_readiness:
         queryset = queryset.filter(method_profiles__is_active=True, method_profiles__readiness_state=method_readiness)
 
+    queryset = _annotate_indicator_explorer_queryset(queryset)
+
+    readiness_band = (request.GET.get("readiness_band") or "").strip().lower()
+    if readiness_band in {"red", "amber", "green"}:
+        queryset = queryset.filter(readiness_band_ann=readiness_band)
+    readiness_min = request.GET.get("readiness_min")
+    readiness_max = request.GET.get("readiness_max")
+    try:
+        if readiness_min not in (None, ""):
+            queryset = queryset.filter(readiness_score_ann__gte=int(readiness_min))
+        if readiness_max not in (None, ""):
+            queryset = queryset.filter(readiness_score_ann__lte=int(readiness_max))
+    except ValueError:
+        return Response({"detail": "readiness_min/readiness_max must be integers."}, status=status.HTTP_400_BAD_REQUEST)
+
+    last_updated_from = request.GET.get("last_updated_from")
+    last_updated_to = request.GET.get("last_updated_to")
+    if last_updated_from:
+        try:
+            queryset = queryset.filter(last_updated_on__gte=_parse_iso_date(last_updated_from))
+        except ValidationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    if last_updated_to:
+        try:
+            queryset = queryset.filter(last_updated_on__lte=_parse_iso_date(last_updated_to))
+        except ValidationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    next_expected_from = request.GET.get("next_expected_update_from") or request.GET.get("next_expected_from")
+    next_expected_to = request.GET.get("next_expected_update_to") or request.GET.get("next_expected_to")
+    if next_expected_from:
+        try:
+            queryset = queryset.filter(next_expected_update_ann__gte=_parse_iso_date(next_expected_from))
+        except ValidationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    if next_expected_to:
+        try:
+            queryset = queryset.filter(next_expected_update_ann__lte=_parse_iso_date(next_expected_to))
+        except ValidationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    raw_has_spatial = request.GET.get("has_spatial")
+    if raw_has_spatial not in (None, ""):
+        queryset = queryset.filter(has_spatial_ann=_parse_bool(raw_has_spatial, default=False))
+
+    geography_type = (request.GET.get("geography_type") or "").strip().lower()
+    geography_code = (request.GET.get("geography_code") or "").strip()
     geography = (request.GET.get("geography") or "").strip()
+    geo_key_by_type = {
+        "province": "province_code",
+        "district": "district_code",
+        "municipality": "municipality_code",
+    }
+    if geography_type and geography_type != "national":
+        geo_key = geo_key_by_type.get(geography_type, geography_type)
+        queryset = queryset.filter(
+            Q(coverage_geography__icontains=geography_type)
+            | Q(spatial_coverage__icontains=geography_type)
+            | Q(data_series__data_points__disaggregation__icontains=geo_key)
+        )
+    if geography_code:
+        queryset = queryset.filter(
+            Q(coverage_geography__icontains=geography_code)
+            | Q(spatial_coverage__icontains=geography_code)
+            | Q(data_series__data_points__disaggregation__icontains=geography_code)
+        )
+
     if geography:
         queryset = queryset.filter(
-            Q(coverage_geography__icontains=geography) | Q(spatial_coverage__icontains=geography)
+            Q(coverage_geography__icontains=geography)
+            | Q(spatial_coverage__icontains=geography)
+            | Q(data_series__data_points__disaggregation__icontains=geography)
         )
 
     year_from = request.GET.get("year_from")
@@ -3560,9 +3805,13 @@ def api_indicator_list(request):
             pass
 
     sort = (request.GET.get("sort") or "title").strip().lower()
-    if sort == "recently_updated":
-        queryset = queryset.order_by("-updated_at", "title", "uuid")
-    elif sort == "relevance" and search:
+    if sort in {"recently_updated", "last_updated_desc"}:
+        queryset = queryset.order_by("-last_updated_on", "-updated_at", "title", "uuid")
+    elif sort == "readiness_desc":
+        queryset = queryset.order_by("-readiness_score_ann", "-last_updated_on", "title", "uuid")
+    elif sort == "due_soon":
+        queryset = queryset.order_by("-due_soon_ann", "next_expected_update_ann", "-last_updated_on", "title", "uuid")
+    elif sort == "relevance" and q:
         queryset = queryset.order_by("title", "code", "uuid")
     else:
         queryset = queryset.order_by("title", "code", "uuid")
@@ -3570,7 +3819,12 @@ def api_indicator_list(request):
     queryset = queryset.distinct()
     total = queryset.count()
     page = _parse_positive_int(request.GET.get("page"), 1, minimum=1, maximum=100000)
-    page_size = _parse_positive_int(request.GET.get("page_size"), 20, minimum=1, maximum=100)
+    page_size = _parse_positive_int(
+        request.GET.get("page_size") or request.GET.get("size"),
+        25,
+        minimum=1,
+        maximum=200,
+    )
     start = (page - 1) * page_size
     end = start + page_size
     rows = list(queryset[start:end])
@@ -3595,6 +3849,31 @@ def api_indicator_list(request):
             .order_by("readiness_state")
         ),
     }
+    readiness_counts = {"red": 0, "amber": 0, "green": 0}
+    for row in queryset.values("readiness_band_ann").annotate(total=Count("id")).order_by("readiness_band_ann"):
+        key = str(row.get("readiness_band_ann") or "").lower()
+        if key in readiness_counts:
+            readiness_counts[key] = row.get("total", 0)
+
+    one_year_ago = timezone.now().date() - timedelta(days=365)
+    missing_approved_method = queryset.filter(method_ready_exists=False).count()
+    no_recent_release = queryset.filter(Q(last_updated_on__isnull=True) | Q(last_updated_on__lt=one_year_ago)).count()
+    no_spatial_output = queryset.filter(has_spatial_ann=False).count()
+    due_soon_count = queryset.filter(due_soon_ann=1).count()
+    top_targets = list(
+        IndicatorFrameworkIndicatorLink.objects.filter(
+            indicator__in=queryset,
+            is_active=True,
+            framework_indicator__framework_target__isnull=False,
+            framework_indicator__framework__code__iexact="GBF",
+        )
+        .values(
+            "framework_indicator__framework_target__code",
+            "framework_indicator__framework_target__goal__code",
+        )
+        .annotate(total=Count("id"))
+        .order_by("-total", "framework_indicator__framework_target__code")[:10]
+    )
 
     return Response(
         {
@@ -3603,6 +3882,35 @@ def api_indicator_list(request):
             "page_size": page_size,
             "results": [_indicator_payload(item) for item in rows],
             "facets": facets,
+            "summary": {
+                "readiness_bands": readiness_counts,
+                "due_soon_count": due_soon_count,
+                "blockers": [
+                    {
+                        "code": "missing_approved_method",
+                        "label": "Missing approved method",
+                        "count": missing_approved_method,
+                    },
+                    {
+                        "code": "no_recent_release",
+                        "label": "No recent release",
+                        "count": no_recent_release,
+                    },
+                    {
+                        "code": "missing_spatial_output",
+                        "label": "No spatial output",
+                        "count": no_spatial_output,
+                    },
+                ],
+                "top_gbf_targets": [
+                    {
+                        "target_code": row["framework_indicator__framework_target__code"],
+                        "goal_code": row["framework_indicator__framework_target__goal__code"],
+                        "count": row["total"],
+                    }
+                    for row in top_targets
+                ],
+            },
         }
     )
 

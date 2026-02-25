@@ -174,6 +174,8 @@ LANGUAGE_CODE = "en-us"
 TIME_ZONE = env("DJANGO_TIME_ZONE", default="Africa/Johannesburg")
 USE_I18N = True
 USE_TZ = True
+# Transitional setting until URLField assume_scheme handling is fully migrated before Django 6.0.
+FORMS_URLFIELD_ASSUME_HTTPS = env.bool("FORMS_URLFIELD_ASSUME_HTTPS", default=True)
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -340,6 +342,10 @@ SENTRY_TRACES_SAMPLE_RATE = env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0)
 SENTRY_PROFILES_SAMPLE_RATE = env.float("SENTRY_PROFILES_SAMPLE_RATE", default=0.0)
 SENTRY_SEND_DEFAULT_PII = env.bool("SENTRY_SEND_DEFAULT_PII", default=False)
 SENTRY_RELEASE = env("SENTRY_RELEASE", default="")
+OTEL_ENABLED = env.bool("OTEL_ENABLED", default=False)
+OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="nbms-backend")
+OTEL_EXPORTER_OTLP_ENDPOINT = env("OTEL_EXPORTER_OTLP_ENDPOINT", default="")
+OTEL_EXPORTER_OTLP_HEADERS = env("OTEL_EXPORTER_OTLP_HEADERS", default="")
 
 if SENTRY_DSN:
     try:
@@ -357,6 +363,36 @@ if SENTRY_DSN:
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("Sentry initialization skipped: %s", exc)
+
+if OTEL_ENABLED:
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.django import DjangoInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        provider = TracerProvider(
+            resource=Resource.create(
+                {
+                    "service.name": OTEL_SERVICE_NAME,
+                    "service.namespace": "nbms",
+                    "deployment.environment": ENVIRONMENT,
+                }
+            )
+        )
+        exporter_kwargs = {}
+        if OTEL_EXPORTER_OTLP_ENDPOINT:
+            exporter_kwargs["endpoint"] = OTEL_EXPORTER_OTLP_ENDPOINT
+        if OTEL_EXPORTER_OTLP_HEADERS:
+            exporter_kwargs["headers"] = OTEL_EXPORTER_OTLP_HEADERS
+        span_exporter = OTLPSpanExporter(**exporter_kwargs)
+        provider.add_span_processor(BatchSpanProcessor(span_exporter))
+        trace.set_tracer_provider(provider)
+        DjangoInstrumentor().instrument()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("OpenTelemetry initialization skipped: %s", exc)
 
 def _bool_env(value):
     return str(value).lower() in ("1", "true", "yes")

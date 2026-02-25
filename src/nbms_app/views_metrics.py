@@ -3,9 +3,10 @@ import secrets
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden
 from django.views.decorators.http import require_GET
+from prometheus_client import CONTENT_TYPE_LATEST
 
 from nbms_app.services.authorization import is_system_admin
-from nbms_app.services.metrics import render_prometheus
+from nbms_app.services.metrics import render_prometheus, update_db_pool_metrics
 
 
 def _token_allowed(request):
@@ -27,8 +28,9 @@ def _token_allowed(request):
 
 @require_GET
 def metrics(request):
+    update_db_pool_metrics()
     if request.user.is_authenticated and is_system_admin(request.user):
-        return HttpResponse(render_prometheus(), content_type="text/plain")
+        return HttpResponse(render_prometheus(), content_type=CONTENT_TYPE_LATEST)
     if _token_allowed(request):
-        return HttpResponse(render_prometheus(), content_type="text/plain")
+        return HttpResponse(render_prometheus(), content_type=CONTENT_TYPE_LATEST)
     return HttpResponseForbidden("Forbidden")

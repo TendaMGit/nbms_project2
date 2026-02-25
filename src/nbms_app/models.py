@@ -1959,6 +1959,11 @@ class Indicator(TimeStampedModel):
             models.Index(fields=["sensitivity"]),
             models.Index(fields=["organisation"]),
             models.Index(fields=["created_by"]),
+            models.Index(fields=["last_updated_on"]),
+            models.Index(fields=["update_frequency"]),
+            models.Index(fields=["coverage_time_start_year"]),
+            models.Index(fields=["coverage_time_end_year"]),
+            models.Index(fields=["status", "sensitivity", "last_updated_on"]),
         ]
 
 
@@ -2320,6 +2325,10 @@ class IndicatorFrameworkIndicatorLink(TimeStampedModel):
                 name="uq_indicator_framework_indicator",
             ),
         ]
+        indexes = [
+            models.Index(fields=["indicator", "is_active"]),
+            models.Index(fields=["framework_indicator", "is_active"]),
+        ]
 
 
 class Evidence(TimeStampedModel):
@@ -2553,7 +2562,7 @@ class IndicatorDataSeries(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
+                condition=(
                     models.Q(framework_indicator__isnull=False, indicator__isnull=True)
                     | models.Q(framework_indicator__isnull=True, indicator__isnull=False)
                 ),
@@ -2638,7 +2647,7 @@ class IndicatorDataPoint(TimeStampedModel):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=models.Q(value_numeric__isnull=False) | models.Q(value_text__isnull=False),
+                condition=models.Q(value_numeric__isnull=False) | models.Q(value_text__isnull=False),
                 name="ck_indicator_data_point_value_present",
             )
         ]

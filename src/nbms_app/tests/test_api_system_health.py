@@ -19,6 +19,8 @@ def test_system_health_forbids_non_staff(client):
 
     response = client.get(reverse("api_system_health"))
     assert response.status_code == 403
+    metrics_response = client.get(reverse("api_system_metrics"))
+    assert metrics_response.status_code == 403
 
 
 def test_system_health_staff_receives_status_and_recent_failures(client):
@@ -45,3 +47,7 @@ def test_system_health_staff_receives_status_and_recent_failures(client):
     assert payload["overall_status"] in {"ok", "degraded"}
     assert [service["service"] for service in payload["services"]] == ["database", "storage", "cache"]
     assert "recent_failures" in payload
+
+    metrics_response = client.get(reverse("api_system_metrics"))
+    assert metrics_response.status_code == 200
+    assert "http_requests_total" in metrics_response.content.decode()

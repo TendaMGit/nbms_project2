@@ -37,6 +37,7 @@ from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.authorization import is_system_admin
 from nbms_app.services.catalog_access import can_edit_monitoring_programme
+from nbms_app.services.metrics import observe_background_job
 from nbms_app.services.spatial_sources import sync_spatial_sources
 from nbms_app.spatial_fields import GIS_ENABLED
 
@@ -355,6 +356,7 @@ def queue_programme_run(
             "dry_run": bool(dry_run),
         },
     )
+    observe_background_job(job_type="programme_run", status=ProgrammeRunStatus.QUEUED)
     if execute_now:
         execute_programme_run(run=run, actor=requested_by)
     return run
@@ -377,6 +379,7 @@ def execute_programme_run(*, run, actor=None):
         run,
         metadata={"programme_uuid": str(programme.uuid), "run_type": run.run_type},
     )
+    observe_background_job(job_type="programme_run", status=ProgrammeRunStatus.RUNNING)
 
     rules = programme.data_quality_rules_json or {}
     min_datasets = _minimum_rule_int(rules, "minimum_dataset_links", 1)
@@ -789,6 +792,7 @@ def execute_programme_run(*, run, actor=None):
             "dry_run": run.dry_run,
         },
     )
+    observe_background_job(job_type="programme_run", status=final_status)
     return run
 
 

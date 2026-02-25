@@ -41,6 +41,7 @@ urlpatterns = [
         name="api_download_record_file",
     ),
     path("help/sections", api_spa.api_help_sections, name="api_help_sections"),
+    path("system/metrics", api_spa.api_system_metrics, name="api_system_metrics"),
     path("system/health", api_spa.api_system_health, name="api_system_health"),
     path("dashboard/summary", api_spa.api_dashboard_summary, name="api_dashboard_summary"),
     path("programmes", api_spa.api_programme_list, name="api_programme_list"),

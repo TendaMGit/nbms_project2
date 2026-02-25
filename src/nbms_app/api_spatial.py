@@ -18,6 +18,7 @@ from nbms_app.models import AccessLevel, DownloadRecordType, SpatialLayer, Spati
 from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, is_system_admin, user_has_role
 from nbms_app.services.audit import record_audit_event
 from nbms_app.services.download_records import create_download_record_with_asset
+from nbms_app.services.metrics import observe_tile_request
 from nbms_app.services.spatial_access import (
     etag_for_bytes,
     filter_spatial_layers_for_user,
@@ -381,6 +382,7 @@ def api_ogc_collection_items(request, layer_code):
 @permission_classes([AllowAny])
 def api_tiles_tilejson(request, layer_code):
     layer = get_object_or_404(filter_spatial_layers_for_user(SpatialLayer.objects.all(), request.user), layer_code=layer_code)
+    observe_tile_request(layer_code=layer.layer_code)
     return Response(tilejson_for_layer(layer=layer, request=request))
 
 
@@ -388,6 +390,7 @@ def api_tiles_tilejson(request, layer_code):
 @permission_classes([AllowAny])
 def api_tiles_mvt(request, layer_code, z, x, y):
     layer = get_object_or_404(filter_spatial_layers_for_user(SpatialLayer.objects.all(), request.user), layer_code=layer_code)
+    observe_tile_request(layer_code=layer.layer_code)
     payload = mvt_for_layer(
         layer=layer,
         user=request.user,

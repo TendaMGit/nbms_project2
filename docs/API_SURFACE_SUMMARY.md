@@ -33,6 +33,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/downloads/records/{uuid}` (`AllowAny`, owner or public-record visibility)
 - `GET /api/downloads/records/{uuid}/file` (`AllowAny`, owner/public visibility + current ABAC re-check)
 - `GET /api/help/sections` (`AllowAny`)
+- `GET /api/system/metrics` (`IsAuthenticated`, staff/system-admin only; Prometheus exposition wrapper)
 - `GET /api/system/health` (`IsAuthenticated`, staff/system-admin only)
 
 ### Dashboard
@@ -75,7 +76,15 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 
 ### Indicators
 - `GET /api/discovery/search` (`AllowAny`, cross-entity search across indicators, targets, and datasets)
-- `GET /api/indicators` (`AllowAny`, ABAC-filtered)
+- `GET /api/indicators` (`AllowAny`, ABAC-filtered, server-side filtering/sorting + summary aggregations)
+  - Query params:
+    - discovery/filtering: `q`, `framework`, `gbf_goal`, `gbf_target`, `national_target`, `status`, `sensitivity`, `access_level`
+    - readiness/date: `readiness_band`, `readiness_min`, `readiness_max`, `last_updated_from`, `last_updated_to`, `next_expected_update_from`, `next_expected_update_to`
+    - geography/spatial: `geography_type`, `geography_code`, `has_spatial`
+    - compatibility params retained: `search`, `framework_target`, `geography`, `year_from`, `year_to`
+    - paging/sort: `page`, `page_size` (alias `size`), `sort` (`last_updated_desc|readiness_desc|due_soon|title`)
+  - Response includes `summary` payload for explorer narrative blocks:
+    - `readiness_bands`, `due_soon_count`, `blockers`, `top_gbf_targets`
 - `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered; includes spatial readiness, registry readiness, and used-by graph payloads)
 - `GET /api/indicators/{uuid}/datasets` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}/series` (`AllowAny`, ABAC-filtered)

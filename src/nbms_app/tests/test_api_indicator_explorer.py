@@ -71,6 +71,8 @@ def _seed_indicator_stack():
         coverage_time_start_year=2018,
         coverage_time_end_year=2022,
         coverage_geography="South Africa",
+        update_frequency="annual",
+        last_updated_on=date(2024, 1, 1),
     )
     indicator_hidden = Indicator.objects.create(
         code="IND-HIDDEN",
@@ -185,6 +187,36 @@ def test_indicator_list_framework_filter(client):
     payload = response.json()
     assert payload["count"] == 1
     assert payload["results"][0]["code"] == "IND-PUB"
+
+
+def test_indicator_list_supports_q_and_summary_payload(client):
+    _seed_indicator_stack()
+    response = client.get(reverse("api_indicator_list"), {"q": "forest", "readiness_band": "red"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] >= 1
+    assert "summary" in payload
+    assert payload["summary"]["readiness_bands"]["red"] >= 1
+    assert any(row["code"] == "IND-PUB" for row in payload["results"])
+
+
+def test_indicator_list_filters_by_geography_type_and_code(client):
+    stack = _seed_indicator_stack()
+    series = IndicatorDataSeries.objects.get(indicator=stack["public"])
+    IndicatorDataPoint.objects.create(
+        series=series,
+        year=2024,
+        value_numeric=Decimal("16.0"),
+        disaggregation={"municipality_code": "ZA-GP-TSH"},
+    )
+    response = client.get(
+        reverse("api_indicator_list"),
+        {"geography_type": "municipality", "geography_code": "ZA-GP-TSH"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["count"] >= 1
+    assert any(row["code"] == "IND-PUB" for row in payload["results"])
 
 
 def test_indicator_detail_returns_404_for_hidden_indicator(client):

@@ -34,6 +34,7 @@ from nbms_app.models import (
     TaxonConcept,
 )
 from nbms_app.services.catalog_access import filter_monitoring_programmes_for_user
+from nbms_app.services.metrics import observe_download_created, observe_export_request
 from nbms_app.services.authorization import (
     ROLE_ADMIN,
     ROLE_DATA_STEWARD,
@@ -747,6 +748,8 @@ def create_download_record_from_payload(*, user, payload: dict) -> DownloadRecor
     record.citation_id = f"NBMS-DL-{record.uuid}"
     record.citation_text = _citation_text(record)
     record.save(update_fields=["citation_id", "citation_text", "updated_at"])
+    observe_download_created(record_type=record.record_type)
+    observe_export_request(export_type=record.record_type)
     return _store_asset(
         record,
         file_name=build["file_name"],
@@ -784,6 +787,8 @@ def create_download_record_with_asset(
     record.citation_id = f"NBMS-DL-{record.uuid}"
     record.citation_text = _citation_text(record)
     record.save(update_fields=["citation_id", "citation_text", "updated_at"])
+    observe_download_created(record_type=record.record_type)
+    observe_export_request(export_type=record.record_type)
     return _store_asset(
         record,
         file_name=file_name,

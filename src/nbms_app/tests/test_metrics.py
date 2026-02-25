@@ -26,7 +26,8 @@ class MetricsAccessTests(TestCase):
         self.client.force_login(self.staff_user)
         resp = self.client.get(reverse("nbms_app:metrics"))
         self.assertEqual(resp.status_code, 200)
-        self.assertIn("requests_total", resp.content.decode())
+        content = resp.content.decode()
+        self.assertIn("http_requests_total", content)
 
     @override_settings(METRICS_TOKEN="metrics-secret")
     def test_bearer_token_allowed_for_anonymous(self):

@@ -17,7 +17,7 @@ class BulkTargetAlignmentForm(forms.Form):
     relation_type = forms.ChoiceField(choices=AlignmentRelationType.choices)
     confidence = forms.IntegerField(required=False, min_value=0, max_value=100)
     notes = forms.CharField(required=False, widget=forms.Textarea)
-    source = forms.URLField(required=False, label="Source citation")
+    source = forms.URLField(required=False, label="Source citation", assume_scheme="https")
 
     def __init__(self, *args, targets_queryset=None, framework_targets_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,7 +37,7 @@ class BulkIndicatorAlignmentForm(forms.Form):
     relation_type = forms.ChoiceField(choices=AlignmentRelationType.choices)
     confidence = forms.IntegerField(required=False, min_value=0, max_value=100)
     notes = forms.CharField(required=False, widget=forms.Textarea)
-    source = forms.URLField(required=False, label="Source citation")
+    source = forms.URLField(required=False, label="Source citation", assume_scheme="https")
 
     def __init__(self, *args, indicators_queryset=None, framework_indicators_queryset=None, **kwargs):
         super().__init__(*args, **kwargs)

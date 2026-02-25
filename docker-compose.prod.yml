@@ -55,6 +55,13 @@ services:
     volumes:
       - static_data:/app/staticfiles
       - media_data:/app/media
+    logging:
+      driver: json-file
+      options:
+        mode: non-blocking
+        max-buffer-size: 4m
+        max-size: "10m"
+        max-file: "3"
     expose:
       - "8000"
     healthcheck:
