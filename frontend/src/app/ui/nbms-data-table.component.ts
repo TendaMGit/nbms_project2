@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component, Input, TemplateRef } from '@angular
 import { NgFor, NgIf, NgTemplateOutlet } from '@angular/common';
 
 type ColumnDef<T> = {
-  key: keyof T & string;
+  key: string;
   label: string;
 };
 
@@ -30,7 +30,7 @@ type ColumnDef<T> = {
                 *ngTemplateOutlet="cellTemplate; context: { $implicit: item, key: col.key }"
               ></ng-container>
             </ng-container>
-            <ng-template #textCell>{{ item[col.key] }}</ng-template>
+            <ng-template #textCell>{{ readCell(item, col.key) }}</ng-template>
           </span>
         </div>
       </cdk-virtual-scroll-viewport>
@@ -96,7 +96,7 @@ type ColumnDef<T> = {
     '[style.--nbms-table-columns]': 'columns.length'
   }
 })
-export class NbmsDataTableComponent<T extends Record<string, unknown>> {
+export class NbmsDataTableComponent<T extends object> {
   @Input() title = 'Data table';
   @Input() rows: T[] = [];
   @Input() columns: Array<ColumnDef<T>> = [];
@@ -109,5 +109,9 @@ export class NbmsDataTableComponent<T extends Record<string, unknown>> {
 
   trackByIndex(index: number): number {
     return index;
+  }
+
+  readCell(item: T, key: string): unknown {
+    return (item as Record<string, unknown>)[key];
   }
 }

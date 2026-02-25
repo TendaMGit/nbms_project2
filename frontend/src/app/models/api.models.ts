@@ -140,6 +140,24 @@ export interface IndicatorListResponse {
   page_size: number;
   results: IndicatorListItem[];
   facets: Record<string, unknown>;
+  summary?: {
+    readiness_bands: {
+      red: number;
+      amber: number;
+      green: number;
+    };
+    due_soon_count: number;
+    blockers: Array<{
+      code: string;
+      label: string;
+      count: number;
+    }>;
+    top_gbf_targets: Array<{
+      target_code: string;
+      goal_code: string | null;
+      count: number;
+    }>;
+  };
 }
 
 export interface DiscoveryTarget {
@@ -656,7 +674,16 @@ export interface SystemHealthServiceStatus {
 
 export interface SystemHealthSummary {
   overall_status: 'ok' | 'degraded';
+  uptime_seconds?: number;
   services: SystemHealthServiceStatus[];
+  observability?: {
+    metrics_enabled: boolean;
+    logs_json_enabled: boolean;
+    tracing_enabled: boolean;
+    sentry_enabled: boolean;
+  };
+  download_record_backlog?: number;
+  export_failures_last_24h?: number;
   recent_failures: Array<{
     action: string;
     event_type: string;

@@ -100,7 +100,7 @@ import { IndicatorService } from '../services/indicator.service';
           <p><strong>Pipeline status:</strong> {{ pipeline.latest_pipeline_run_status || 'n/a' }}</p>
           <p><strong>Pipeline maturity:</strong> {{ pipeline.pipeline_maturity || 'n/a' }}</p>
           <p><strong>Readiness status:</strong> {{ pipeline.readiness_status || 'n/a' }}</p>
-          <p><strong>Readiness score:</strong> {{ pipeline.readiness_score ?? 'n/a' }}</p>
+          <p><strong>Readiness score:</strong> {{ pipeline.readiness_score }}</p>
           <ng-container *ngIf="pipeline.release_workflow as workflow">
             <h4>Release workflow</h4>
             <p><strong>Status:</strong> {{ workflow.status || 'n/a' }}</p>

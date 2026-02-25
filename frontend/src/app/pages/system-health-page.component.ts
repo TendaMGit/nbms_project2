@@ -4,6 +4,7 @@ import { BehaviorSubject, catchError, of } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonModule } from '@angular/material/button';
 
 import { HelpTooltipComponent } from '../components/help-tooltip.component';
 import { SystemHealthService } from '../services/system-health.service';
@@ -11,7 +12,17 @@ import { SystemHealthService } from '../services/system-health.service';
 @Component({
   selector: 'app-system-health-page',
   standalone: true,
-  imports: [AsyncPipe, DatePipe, NgFor, NgIf, MatCardModule, MatIconModule, MatChipsModule, HelpTooltipComponent],
+  imports: [
+    AsyncPipe,
+    DatePipe,
+    NgFor,
+    NgIf,
+    MatCardModule,
+    MatIconModule,
+    MatChipsModule,
+    MatButtonModule,
+    HelpTooltipComponent
+  ],
   template: `
     <section class="page-grid" *ngIf="summary$ | async as summary">
       <mat-card class="panel">
@@ -26,6 +37,18 @@ import { SystemHealthService } from '../services/system-health.service';
               {{ summary.overall_status }}
             </span>
           </div>
+          <div class="overall-row">
+            <span>API uptime</span>
+            <span>{{ formatUptime(summary.uptime_seconds) }}</span>
+          </div>
+          <div class="overall-row">
+            <span>Downloads backlog</span>
+            <span>{{ summary.download_record_backlog ?? 0 }}</span>
+          </div>
+          <div class="overall-row">
+            <span>Export failures (24h)</span>
+            <span>{{ summary.export_failures_last_24h ?? 0 }}</span>
+          </div>
           <div class="service-row" *ngFor="let item of summary.services">
             <strong>{{ item.service }}</strong>
             <mat-chip-set>
@@ -35,6 +58,43 @@ import { SystemHealthService } from '../services/system-health.service';
             </mat-chip-set>
             <p class="detail" *ngIf="item.detail">{{ item.detail }}</p>
           </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="panel">
+        <mat-card-header>
+          <mat-card-title>Observability Controls</mat-card-title>
+          <app-help-tooltip text="Operational signals for metrics, logs, tracing, and error monitoring." />
+        </mat-card-header>
+        <mat-card-content>
+          <div class="service-row">
+            <strong>Metrics</strong>
+            <mat-chip-set>
+              <mat-chip [class.ok]="summary.observability?.metrics_enabled">{{ summary.observability?.metrics_enabled ? 'enabled' : 'disabled' }}</mat-chip>
+            </mat-chip-set>
+          </div>
+          <div class="service-row">
+            <strong>Structured logs</strong>
+            <mat-chip-set>
+              <mat-chip [class.ok]="summary.observability?.logs_json_enabled">{{ summary.observability?.logs_json_enabled ? 'json' : 'plain' }}</mat-chip>
+            </mat-chip-set>
+          </div>
+          <div class="service-row">
+            <strong>Tracing</strong>
+            <mat-chip-set>
+              <mat-chip [class.ok]="summary.observability?.tracing_enabled">{{ summary.observability?.tracing_enabled ? 'enabled' : 'disabled' }}</mat-chip>
+            </mat-chip-set>
+          </div>
+          <div class="service-row">
+            <strong>Sentry</strong>
+            <mat-chip-set>
+              <mat-chip [class.ok]="summary.observability?.sentry_enabled">{{ summary.observability?.sentry_enabled ? 'enabled' : 'disabled' }}</mat-chip>
+            </mat-chip-set>
+          </div>
+          <p class="detail">
+            Include the response <code>X-Request-ID</code> from failing API calls when escalating incidents.
+          </p>
+          <button mat-stroked-button type="button" (click)="copyDebugBundle(summary)">Copy debug bundle</button>
         </mat-card-content>
       </mat-card>
 
@@ -139,9 +199,53 @@ export class SystemHealthPageComponent {
       this.error$.next(message);
       return of({
         overall_status: 'degraded',
+        uptime_seconds: 0,
         services: [],
+        observability: {
+          metrics_enabled: false,
+          logs_json_enabled: false,
+          tracing_enabled: false,
+          sentry_enabled: false
+        },
+        download_record_backlog: 0,
+        export_failures_last_24h: 0,
         recent_failures: []
       });
     })
   );
+
+  formatUptime(seconds: number | undefined): string {
+    if (!seconds || seconds <= 0) {
+      return 'n/a';
+    }
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+
+  copyDebugBundle(summary: {
+    overall_status: string;
+    services: Array<{ service: string; status: string }>;
+    uptime_seconds?: number;
+    download_record_backlog?: number;
+    export_failures_last_24h?: number;
+  }): void {
+    const payload = {
+      captured_at: new Date().toISOString(),
+      overall_status: summary.overall_status,
+      uptime_seconds: summary.uptime_seconds ?? null,
+      download_record_backlog: summary.download_record_backlog ?? null,
+      export_failures_last_24h: summary.export_failures_last_24h ?? null,
+      services: summary.services,
+      location: typeof window !== 'undefined' ? window.location.href : ''
+    };
+    const text = JSON.stringify(payload, null, 2);
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      void navigator.clipboard.writeText(text);
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.prompt('Copy debug bundle', text);
+    }
+  }
 }

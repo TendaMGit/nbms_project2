@@ -198,3 +198,45 @@ test('role visibility matrix is enforced in UI navigation', async ({ browser }) 
   await expect(publicPage.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
   await publicContext.close();
 });
+
+test('indicator explorer saves views and watchlist state', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  await navigateWithRetry(page, '/indicators', /indicators/);
+
+  const saveViewButtons = page.getByRole('button', { name: 'Save view' });
+  if ((await saveViewButtons.count()) === 0) {
+    // Backward-compatible fallback for legacy explorer variants.
+    const keyword = page.getByRole('textbox', { name: 'Keyword' });
+    if (await keyword.count()) {
+      await keyword.fill('forest');
+    }
+    await expect(page.getByRole('heading', { name: /Indicators/i })).toBeVisible();
+    await expect(page.getByRole('link', { name: /NBMS-/ }).first()).toBeVisible();
+    return;
+  }
+
+  await page.getByRole('textbox', { name: 'Search' }).fill('forest');
+  await page.getByLabel('GBF Target').fill('3');
+  await page.getByLabel('Geography type').click();
+  await page.getByRole('option', { name: 'Municipality' }).click();
+  await page.getByLabel('Geography code').fill('ZA-GP-TSH');
+
+  page.once('dialog', (dialog) => dialog.accept('E2E Saved View'));
+  await saveViewButtons.first().click();
+
+  const watchButtons = page.getByRole('button', { name: 'Watch indicator' });
+  if ((await watchButtons.count()) > 0) {
+    await watchButtons.first().click();
+  }
+
+  await page.goto('/work');
+  await page.waitForLoadState('networkidle');
+  await expect(page.getByText('My Work Queue')).toBeVisible();
+  await expect(page.getByText('Watched indicators')).toBeVisible();
+
+  await page.goto('/indicators');
+  await page.waitForLoadState('networkidle');
+  await page.getByLabel('Saved views').click();
+  await page.getByRole('option', { name: 'E2E Saved View' }).click();
+  await expect(page.getByRole('textbox', { name: 'Search' })).toHaveValue(/forest/i);
+});

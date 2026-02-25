@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { Observable, shareReplay } from 'rxjs';
 
 import {
   DiscoverySearchResponse,
@@ -13,10 +14,33 @@ import { ApiClientService } from './api-client.service';
 
 @Injectable({ providedIn: 'root' })
 export class IndicatorService {
+  private readonly cacheTtlMs = 60_000;
+  private readonly listCache = new Map<
+    string,
+    {
+      expiresAt: number;
+      observable: Observable<IndicatorListResponse>;
+    }
+  >();
+
   constructor(private readonly api: ApiClientService) {}
 
-  list(filters: Record<string, string | number | undefined>) {
-    return this.api.get<IndicatorListResponse>('indicators', filters);
+  list(filters: Record<string, string | number | boolean | undefined>) {
+    const key = this.cacheKey(filters);
+    const now = Date.now();
+    const cached = this.listCache.get(key);
+    if (cached && cached.expiresAt > now) {
+      return cached.observable;
+    }
+    const request$ = this.api.get<IndicatorListResponse>('indicators', filters).pipe(shareReplay(1));
+    this.listCache.set(key, { expiresAt: now + this.cacheTtlMs, observable: request$ });
+    if (this.listCache.size > 40) {
+      const firstKey = this.listCache.keys().next().value;
+      if (firstKey) {
+        this.listCache.delete(firstKey);
+      }
+    }
+    return request$;
   }
 
   discovery(search: string, limit = 8) {
@@ -69,5 +93,13 @@ export class IndicatorService {
       status: string;
       workflow: Record<string, unknown>;
     }>(`indicator-series/${seriesUuid}/workflow`, payload);
+  }
+
+  private cacheKey(filters: Record<string, string | number | boolean | undefined>): string {
+    return JSON.stringify(
+      Object.entries(filters)
+        .filter(([, value]) => value !== undefined && value !== null && value !== '')
+        .sort(([a], [b]) => a.localeCompare(b))
+    );
   }
 }
