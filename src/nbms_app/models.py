@@ -66,6 +66,87 @@ class User(AbstractUser):
         ]
 
 
+class PreferenceTheme(models.TextChoices):
+    FYNBOS = "fynbos", "Fynbos"
+    GBIF_CLEAN = "gbif_clean", "GBIF Clean"
+    HIGH_CONTRAST = "high_contrast", "High contrast"
+    DARK_PRO = "dark_pro", "Dark Pro"
+
+
+class PreferenceThemeMode(models.TextChoices):
+    LIGHT = "light", "Light"
+    DARK = "dark", "Dark"
+
+
+class PreferenceDensity(models.TextChoices):
+    COMFORTABLE = "comfortable", "Comfortable"
+    COMPACT = "compact", "Compact"
+
+
+class PreferenceGeographyType(models.TextChoices):
+    NATIONAL = "national", "National"
+    PROVINCE = "province", "Province"
+    DISTRICT = "district", "District"
+    MUNICIPALITY = "municipality", "Municipality"
+
+
+def default_preference_saved_filters():
+    return {
+        "indicators": [],
+        "registries": [],
+        "downloads": [],
+    }
+
+
+def default_preference_watchlist():
+    return {
+        "indicators": [],
+        "registries": [],
+        "reports": [],
+    }
+
+
+class UserPreference(TimeStampedModel):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="preference",
+    )
+    theme_id = models.CharField(
+        max_length=32,
+        choices=PreferenceTheme.choices,
+        default=PreferenceTheme.FYNBOS,
+    )
+    theme_mode = models.CharField(
+        max_length=16,
+        choices=PreferenceThemeMode.choices,
+        default=PreferenceThemeMode.LIGHT,
+    )
+    density = models.CharField(
+        max_length=20,
+        choices=PreferenceDensity.choices,
+        default=PreferenceDensity.COMFORTABLE,
+    )
+    default_geography = models.CharField(
+        max_length=20,
+        choices=PreferenceGeographyType.choices,
+        default=PreferenceGeographyType.NATIONAL,
+    )
+    default_geography_code = models.CharField(max_length=64, blank=True, default="")
+    saved_filters = models.JSONField(default=default_preference_saved_filters, blank=True)
+    watchlist = models.JSONField(default=default_preference_watchlist, blank=True)
+    dashboard_layout = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["theme_id"]),
+            models.Index(fields=["updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"Preferences for {self.user_id}"
+
+
 class LifecycleStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     PENDING_REVIEW = "pending_review", "Pending review"

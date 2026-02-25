@@ -21,6 +21,11 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/auth/me` (`IsAuthenticated`)
 - `GET /api/auth/capabilities` (`IsAuthenticated`)
 - `GET /api/auth/csrf` (`AllowAny`)
+- `GET|PUT /api/me/preferences` (`IsAuthenticated`, self preference profile)
+- `POST /api/me/preferences/watchlist/add` (`IsAuthenticated`, self scope)
+- `POST /api/me/preferences/watchlist/remove` (`IsAuthenticated`, self scope)
+- `POST /api/me/preferences/saved-filters` (`IsAuthenticated`, self scope)
+- `DELETE /api/me/preferences/saved-filters/{id}` (`IsAuthenticated`, self scope; optional `namespace` query)
 - `GET /api/help/sections` (`AllowAny`)
 - `GET /api/system/health` (`IsAuthenticated`, staff/system-admin only)
 

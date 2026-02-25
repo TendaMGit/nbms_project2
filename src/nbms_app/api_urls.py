@@ -8,6 +8,27 @@ urlpatterns = [
     path("auth/me", api_spa.api_auth_me, name="api_auth_me"),
     path("auth/capabilities", api_spa.api_auth_capabilities, name="api_auth_capabilities"),
     path("auth/csrf", api_spa.api_auth_csrf, name="api_auth_csrf"),
+    path("me/preferences", api_spa.api_me_preferences, name="api_me_preferences"),
+    path(
+        "me/preferences/watchlist/add",
+        api_spa.api_me_preferences_watchlist_add,
+        name="api_me_preferences_watchlist_add",
+    ),
+    path(
+        "me/preferences/watchlist/remove",
+        api_spa.api_me_preferences_watchlist_remove,
+        name="api_me_preferences_watchlist_remove",
+    ),
+    path(
+        "me/preferences/saved-filters",
+        api_spa.api_me_preferences_saved_filters,
+        name="api_me_preferences_saved_filters",
+    ),
+    path(
+        "me/preferences/saved-filters/<str:filter_id>",
+        api_spa.api_me_preferences_saved_filter_delete,
+        name="api_me_preferences_saved_filter_delete",
+    ),
     path("help/sections", api_spa.api_help_sections, name="api_help_sections"),
     path("system/health", api_spa.api_system_health, name="api_system_health"),
     path("dashboard/summary", api_spa.api_dashboard_summary, name="api_dashboard_summary"),

@@ -77,6 +77,7 @@ from nbms_app.models import (
     ReportingInstance,
     SourceDocument,
     User,
+    UserPreference,
     ValidationRuleSet,
 )
 from nbms_app.services.authorization import ROLE_ADMIN, is_system_admin, user_has_role
@@ -139,6 +140,7 @@ ADMIN_DOMAIN_PREFIX = {
     # Security and system
     "Organisation": "Security",
     "User": "Security",
+    "UserPreference": "Security",
     "DataAgreement": "Security",
     "SensitivityClass": "Security",
     "AuditEvent": "System",
@@ -233,6 +235,13 @@ class CustomUserAdmin(UserAdmin):
         ("Organisation", {"fields": ("organisation",)}),
     )
     list_display = UserAdmin.list_display + ("organisation",)
+
+
+@admin.register(UserPreference)
+class UserPreferenceAdmin(admin.ModelAdmin):
+    list_display = ("user", "theme_id", "theme_mode", "density", "default_geography", "updated_at")
+    search_fields = ("user__username", "user__email")
+    list_filter = ("theme_id", "theme_mode", "density", "default_geography")
 
 
 @admin.register(NationalTarget)

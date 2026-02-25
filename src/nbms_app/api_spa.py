@@ -3,6 +3,7 @@ import base64
 from datetime import date, timedelta
 import difflib
 import json
+from uuid import uuid4
 
 from django.conf import settings
 from django.core.cache import cache
@@ -86,7 +87,12 @@ from nbms_app.models import (
     IASGoldSummary,
     IASCountryChecklistRecord,
     IntegrationDataAsset,
+    PreferenceDensity,
+    PreferenceGeographyType,
+    PreferenceTheme,
+    PreferenceThemeMode,
     SensitivityLevel,
+    UserPreference,
 )
 from nbms_app.section_help import SECTION_FIELD_HELP, build_section_help_payload
 from nbms_app.services.audit import record_audit_event
@@ -185,6 +191,105 @@ def _user_role_names(user):
     if not user or not getattr(user, "is_authenticated", False):
         return []
     return sorted(set(user.groups.values_list("name", flat=True)))
+
+
+_PREFERENCE_FILTER_NAMESPACES = ("indicators", "registries", "downloads")
+_PREFERENCE_WATCHLIST_NAMESPACES = ("indicators", "registries", "reports")
+_PREFERENCE_THEMES = set(PreferenceTheme.values)
+_PREFERENCE_THEME_MODES = set(PreferenceThemeMode.values)
+_PREFERENCE_DENSITIES = set(PreferenceDensity.values)
+_PREFERENCE_GEOS = set(PreferenceGeographyType.values)
+
+
+def _default_saved_filters_payload():
+    return {namespace: [] for namespace in _PREFERENCE_FILTER_NAMESPACES}
+
+
+def _default_watchlist_payload():
+    return {namespace: [] for namespace in _PREFERENCE_WATCHLIST_NAMESPACES}
+
+
+def _normalize_saved_filters_payload(value):
+    payload = _default_saved_filters_payload()
+    if not isinstance(value, dict):
+        return payload
+    for namespace in _PREFERENCE_FILTER_NAMESPACES:
+        rows = value.get(namespace)
+        if isinstance(rows, list):
+            payload[namespace] = [row for row in rows if isinstance(row, dict)]
+    return payload
+
+
+def _normalize_watchlist_payload(value):
+    payload = _default_watchlist_payload()
+    if not isinstance(value, dict):
+        return payload
+    for namespace in _PREFERENCE_WATCHLIST_NAMESPACES:
+        rows = value.get(namespace)
+        if isinstance(rows, list):
+            payload[namespace] = sorted(
+                set(str(item).strip() for item in rows if str(item).strip())
+            )
+    return payload
+
+
+def _normalize_dashboard_layout(value):
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def _serialize_user_preference(preference):
+    return {
+        "theme_id": preference.theme_id,
+        "theme_mode": preference.theme_mode,
+        "density": preference.density,
+        "default_geography": {
+            "type": preference.default_geography,
+            "code": preference.default_geography_code or None,
+        },
+        "saved_filters": _normalize_saved_filters_payload(preference.saved_filters),
+        "watchlist": _normalize_watchlist_payload(preference.watchlist),
+        "dashboard_layout": _normalize_dashboard_layout(preference.dashboard_layout),
+        "updated_at": preference.updated_at.isoformat() if preference.updated_at else None,
+    }
+
+
+def _user_preference_for(user):
+    preference, created = UserPreference.objects.get_or_create(
+        user=user,
+        defaults={
+            "saved_filters": _default_saved_filters_payload(),
+            "watchlist": _default_watchlist_payload(),
+            "dashboard_layout": {},
+        },
+    )
+    if created:
+        return preference
+    dirty = False
+    normalized_saved_filters = _normalize_saved_filters_payload(preference.saved_filters)
+    if preference.saved_filters != normalized_saved_filters:
+        preference.saved_filters = normalized_saved_filters
+        dirty = True
+    normalized_watchlist = _normalize_watchlist_payload(preference.watchlist)
+    if preference.watchlist != normalized_watchlist:
+        preference.watchlist = normalized_watchlist
+        dirty = True
+    normalized_layout = _normalize_dashboard_layout(preference.dashboard_layout)
+    if preference.dashboard_layout != normalized_layout:
+        preference.dashboard_layout = normalized_layout
+        dirty = True
+    if dirty:
+        preference.save(update_fields=["saved_filters", "watchlist", "dashboard_layout", "updated_at"])
+    return preference
+
+
+def _required_namespace(raw_value, *, allowed, label):
+    namespace = str(raw_value or "").strip().lower()
+    if namespace not in allowed:
+        options = ", ".join(sorted(allowed))
+        raise ParseError(f"Invalid {label}. Expected one of: {options}.")
+    return namespace
 
 
 def _can_run_indicator_methods(user):
@@ -737,6 +842,228 @@ def api_auth_capabilities(request):
 def api_auth_csrf(request):
     token = get_token(request)
     return Response({"csrfToken": token})
+
+
+@api_view(["GET", "PUT"])
+@permission_classes([IsAuthenticated])
+def api_me_preferences(request):
+    preference = _user_preference_for(request.user)
+    if request.method == "GET":
+        return Response(_serialize_user_preference(preference))
+
+    payload = request.data
+    if not isinstance(payload, dict):
+        raise ParseError("Expected object payload.")
+
+    update_fields = []
+
+    if "theme_id" in payload:
+        theme_id = str(payload.get("theme_id") or "").strip()
+        if theme_id not in _PREFERENCE_THEMES:
+            options = ", ".join(sorted(_PREFERENCE_THEMES))
+            raise ParseError(f"Invalid theme_id. Expected one of: {options}.")
+        preference.theme_id = theme_id
+        update_fields.append("theme_id")
+
+    if "theme_mode" in payload:
+        theme_mode = str(payload.get("theme_mode") or "").strip().lower()
+        if theme_mode not in _PREFERENCE_THEME_MODES:
+            options = ", ".join(sorted(_PREFERENCE_THEME_MODES))
+            raise ParseError(f"Invalid theme_mode. Expected one of: {options}.")
+        preference.theme_mode = theme_mode
+        update_fields.append("theme_mode")
+
+    if "density" in payload:
+        density = str(payload.get("density") or "").strip().lower()
+        if density not in _PREFERENCE_DENSITIES:
+            options = ", ".join(sorted(_PREFERENCE_DENSITIES))
+            raise ParseError(f"Invalid density. Expected one of: {options}.")
+        preference.density = density
+        update_fields.append("density")
+
+    if "default_geography" in payload:
+        geography_payload = payload.get("default_geography") or {}
+        if not isinstance(geography_payload, dict):
+            raise ParseError("default_geography must be an object with 'type' and optional 'code'.")
+        geography_type = str(geography_payload.get("type") or "").strip().lower()
+        if geography_type not in _PREFERENCE_GEOS:
+            options = ", ".join(sorted(_PREFERENCE_GEOS))
+            raise ParseError(f"Invalid default_geography.type. Expected one of: {options}.")
+        preference.default_geography = geography_type
+        preference.default_geography_code = str(geography_payload.get("code") or "").strip()
+        update_fields.extend(["default_geography", "default_geography_code"])
+
+    if "saved_filters" in payload:
+        if not isinstance(payload.get("saved_filters"), dict):
+            raise ParseError("saved_filters must be an object.")
+        preference.saved_filters = _normalize_saved_filters_payload(payload.get("saved_filters"))
+        update_fields.append("saved_filters")
+
+    if "watchlist" in payload:
+        if not isinstance(payload.get("watchlist"), dict):
+            raise ParseError("watchlist must be an object.")
+        preference.watchlist = _normalize_watchlist_payload(payload.get("watchlist"))
+        update_fields.append("watchlist")
+
+    if "dashboard_layout" in payload:
+        if not isinstance(payload.get("dashboard_layout"), dict):
+            raise ParseError("dashboard_layout must be an object.")
+        preference.dashboard_layout = _normalize_dashboard_layout(payload.get("dashboard_layout"))
+        update_fields.append("dashboard_layout")
+
+    if update_fields:
+        preference.save(update_fields=[*sorted(set(update_fields)), "updated_at"])
+
+    return Response(_serialize_user_preference(preference))
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_me_preferences_watchlist_add(request):
+    preference = _user_preference_for(request.user)
+    payload = request.data
+    if not isinstance(payload, dict):
+        raise ParseError("Expected object payload.")
+    namespace = _required_namespace(
+        payload.get("namespace") or payload.get("kind") or payload.get("feature"),
+        allowed=_PREFERENCE_WATCHLIST_NAMESPACES,
+        label="watchlist namespace",
+    )
+    item_id = str(payload.get("uuid") or payload.get("id") or payload.get("item_id") or "").strip()
+    if not item_id:
+        raise ParseError("uuid (or id/item_id) is required.")
+
+    watchlist = _normalize_watchlist_payload(preference.watchlist)
+    if item_id not in watchlist[namespace]:
+        watchlist[namespace] = sorted([*watchlist[namespace], item_id])
+        preference.watchlist = watchlist
+        preference.save(update_fields=["watchlist", "updated_at"])
+
+    return Response(
+        {
+            "watchlist": watchlist,
+            "namespace": namespace,
+            "item_id": item_id,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_me_preferences_watchlist_remove(request):
+    preference = _user_preference_for(request.user)
+    payload = request.data
+    if not isinstance(payload, dict):
+        raise ParseError("Expected object payload.")
+    namespace = _required_namespace(
+        payload.get("namespace") or payload.get("kind") or payload.get("feature"),
+        allowed=_PREFERENCE_WATCHLIST_NAMESPACES,
+        label="watchlist namespace",
+    )
+    item_id = str(payload.get("uuid") or payload.get("id") or payload.get("item_id") or "").strip()
+    if not item_id:
+        raise ParseError("uuid (or id/item_id) is required.")
+
+    watchlist = _normalize_watchlist_payload(preference.watchlist)
+    if item_id in watchlist[namespace]:
+        watchlist[namespace] = [row for row in watchlist[namespace] if row != item_id]
+        preference.watchlist = watchlist
+        preference.save(update_fields=["watchlist", "updated_at"])
+
+    return Response(
+        {
+            "watchlist": watchlist,
+            "namespace": namespace,
+            "item_id": item_id,
+        }
+    )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_me_preferences_saved_filters(request):
+    preference = _user_preference_for(request.user)
+    payload = request.data
+    if not isinstance(payload, dict):
+        raise ParseError("Expected object payload.")
+
+    namespace = _required_namespace(
+        payload.get("namespace") or payload.get("kind") or payload.get("feature"),
+        allowed=_PREFERENCE_FILTER_NAMESPACES,
+        label="saved-filter namespace",
+    )
+    name = str(payload.get("name") or "").strip()
+    if not name:
+        raise ParseError("name is required.")
+
+    params = payload.get("params")
+    if params is None:
+        params = payload.get("query_snapshot")
+    if params is None:
+        params = {}
+    if not isinstance(params, dict):
+        raise ParseError("params (or query_snapshot) must be an object.")
+
+    pinned = bool(payload.get("pinned", False))
+    saved_filters = _normalize_saved_filters_payload(preference.saved_filters)
+
+    entry_id = str(payload.get("id") or "").strip() or str(uuid4())
+    entry = {
+        "id": entry_id,
+        "name": name,
+        "params": params,
+        "pinned": pinned,
+        "updated_at": timezone.now().isoformat(),
+    }
+
+    namespace_rows = [row for row in saved_filters[namespace] if row.get("id") != entry_id]
+    namespace_rows.insert(0, entry)
+    saved_filters[namespace] = namespace_rows
+
+    preference.saved_filters = saved_filters
+    preference.save(update_fields=["saved_filters", "updated_at"])
+    return Response(
+        {
+            "saved_filters": saved_filters,
+            "entry": entry,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["DELETE"])
+@permission_classes([IsAuthenticated])
+def api_me_preferences_saved_filter_delete(request, filter_id):
+    preference = _user_preference_for(request.user)
+    saved_filters = _normalize_saved_filters_payload(preference.saved_filters)
+    namespace = (request.GET.get("namespace") or "").strip().lower()
+
+    removed = False
+    if namespace:
+        _required_namespace(
+            namespace,
+            allowed=_PREFERENCE_FILTER_NAMESPACES,
+            label="saved-filter namespace",
+        )
+        rows = saved_filters[namespace]
+        saved_filters[namespace] = [row for row in rows if str(row.get("id")) != str(filter_id)]
+        removed = len(rows) != len(saved_filters[namespace])
+    else:
+        for key in _PREFERENCE_FILTER_NAMESPACES:
+            rows = saved_filters[key]
+            saved_filters[key] = [row for row in rows if str(row.get("id")) != str(filter_id)]
+            removed = removed or (len(rows) != len(saved_filters[key]))
+
+    if removed:
+        preference.saved_filters = saved_filters
+        preference.save(update_fields=["saved_filters", "updated_at"])
+
+    return Response(
+        {
+            "deleted": removed,
+            "saved_filters": saved_filters,
+        }
+    )
 
 
 @api_view(["GET"])
