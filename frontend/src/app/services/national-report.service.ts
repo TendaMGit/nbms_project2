@@ -212,11 +212,16 @@ export class NationalReportService {
     );
   }
 
-  recomputeSectionIvRollup(instanceUuid: string) {
+  refreshSectionIvRollup(instanceUuid: string) {
     return this.api.post<Record<string, unknown>>(
-      `reports/${instanceUuid}/sections/section-iv/recompute-rollup`,
+      `reports/${instanceUuid}/sections/section-iv/refresh-rollup`,
       {}
     );
+  }
+
+  recomputeSectionIvRollup(instanceUuid: string) {
+    // Backward-compatible alias retained for legacy callers.
+    return this.refreshSectionIvRollup(instanceUuid);
   }
 
   exportPdfUrl(instanceUuid: string): string {

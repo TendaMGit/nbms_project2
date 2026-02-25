@@ -92,8 +92,24 @@ import { IndicatorService } from '../services/indicator.service';
         <mat-card-content>
           <p><strong>Data last refreshed:</strong> {{ pipeline.data_last_refreshed_at || 'n/a' }}</p>
           <p><strong>Latest year:</strong> {{ pipeline.latest_year || 'n/a' }}</p>
+          <p><strong>Next expected update:</strong> {{ pipeline.next_expected_update_on || 'n/a' }}</p>
           <p><strong>Pipeline run:</strong> {{ pipeline.latest_pipeline_run_uuid || 'n/a' }}</p>
           <p><strong>Pipeline status:</strong> {{ pipeline.latest_pipeline_run_status || 'n/a' }}</p>
+          <p><strong>Pipeline maturity:</strong> {{ pipeline.pipeline_maturity || 'n/a' }}</p>
+          <p><strong>Readiness status:</strong> {{ pipeline.readiness_status || 'n/a' }}</p>
+          <p><strong>Readiness score:</strong> {{ pipeline.readiness_score ?? 'n/a' }}</p>
+          <ng-container *ngIf="pipeline.release_workflow as workflow">
+            <h4>Release workflow</h4>
+            <p><strong>Status:</strong> {{ workflow.status || 'n/a' }}</p>
+            <p><strong>ITSC method approved:</strong> {{ workflow.itsc_method_approved ? 'yes' : 'no' }}</p>
+            <p>
+              <strong>Requires Data Steward review:</strong>
+              {{ workflow.requires_data_steward_review ? 'yes' : 'no' }}
+            </p>
+            <p><strong>Contributor sense-check attested:</strong> {{ workflow.sense_check_attested ? 'yes' : 'no' }}</p>
+            <p><strong>Attested by:</strong> {{ workflow.sense_check_attested_by || 'n/a' }}</p>
+            <p><strong>Attested at:</strong> {{ workflow.sense_check_attested_at || 'n/a' }}</p>
+          </ng-container>
         </mat-card-content>
       </mat-card>
 

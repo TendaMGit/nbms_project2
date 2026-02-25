@@ -114,6 +114,11 @@ urlpatterns = [
         name="api_reporting_workspace_recompute_section_iv",
     ),
     path(
+        "reports/<uuid:instance_uuid>/sections/section-iv/refresh-rollup",
+        api_spa.api_reporting_workspace_refresh_section_iv,
+        name="api_reporting_workspace_refresh_section_iv",
+    ),
+    path(
         "reports/<uuid:instance_uuid>/sections/<str:section_code>/comments",
         api_spa.api_reporting_workspace_section_comments,
         name="api_reporting_workspace_section_comments",
@@ -188,6 +193,7 @@ urlpatterns = [
         api_spa.api_reporting_public_view,
         name="api_reporting_public_view",
     ),
+    path("discovery/search", api_spa.api_discovery_search, name="api_discovery_search"),
     path("indicators", api_spa.api_indicator_list, name="api_indicator_list"),
     path("indicators/<uuid:indicator_uuid>", api_spa.api_indicator_detail, name="api_indicator_detail"),
     path(
@@ -224,6 +230,11 @@ urlpatterns = [
         "indicators/<uuid:indicator_uuid>/transition",
         api_spa.api_indicator_transition,
         name="api_indicator_transition",
+    ),
+    path(
+        "indicator-series/<uuid:series_uuid>/workflow",
+        api_spa.api_indicator_release_transition,
+        name="api_indicator_release_transition",
     ),
     path("spatial/layers", api_spatial.api_spatial_layers, name="api_spatial_layers"),
     path("spatial/layers/upload", api_spatial.api_spatial_upload_layer, name="api_spatial_upload_layer"),

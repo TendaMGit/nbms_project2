@@ -19,7 +19,11 @@ export class DashboardService {
           data_quality_alerts: [],
           published_by_framework_target: [],
           approvals_over_time: [],
-          trend_signals: []
+          trend_signals: [],
+          indicator_readiness: {
+            totals: { ready: 0, warning: 0, blocked: 0 },
+            by_target: []
+          }
         })
       )
     );

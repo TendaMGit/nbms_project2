@@ -108,6 +108,7 @@ describe('ReportingPageComponent', () => {
             saveSection: () => of({}),
             workflowAction: () => of({}),
             generateSectionIiiSkeleton: () => of({}),
+            refreshSectionIvRollup: () => of({}),
             recomputeSectionIvRollup: () => of({}),
             generateDossier: () => of({}),
             addComment: () => of({ threads: [] }),

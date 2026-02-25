@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.storage import default_storage
 from django.db import connections
-from django.db.models import Count, Q
+from django.db.models import Count, Max, Q
 from django.http import FileResponse, HttpResponse
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
@@ -49,6 +49,7 @@ from nbms_app.models import (
     MonitoringProgrammeAlert,
     MonitoringProgrammeRun,
     MonitoringProgrammeRunStep,
+    NationalTarget,
     ProgrammeTemplate,
     ProgrammeAlertState,
     ProgrammeRunStatus,
@@ -106,6 +107,11 @@ from nbms_app.services.authorization import (
 from nbms_app.services.catalog_access import filter_monitoring_programmes_for_user
 from nbms_app.services.capabilities import user_capabilities
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
+from nbms_app.services.indicator_release_workflow import (
+    approve_indicator_release,
+    get_release_workflow_state,
+    submit_indicator_release,
+)
 from nbms_app.services.indicator_method_sdk import run_method_profile
 from nbms_app.services.nr7_builder import (
     build_nr7_preview_payload,
@@ -199,6 +205,36 @@ def _indicator_base_queryset(user):
     )
 
 
+_UPDATE_FREQUENCY_DAYS = {
+    "monthly": 30,
+    "quarterly": 91,
+    "annual": 365,
+    "biennial": 730,
+    "every_3_years": 1095,
+}
+
+
+def _next_expected_update_on(indicator):
+    if not indicator.last_updated_on:
+        return None
+    raw_frequency = (indicator.update_frequency or indicator.reporting_cadence or "").strip().lower()
+    delta_days = _UPDATE_FREQUENCY_DAYS.get(raw_frequency)
+    if not delta_days:
+        return None
+    return indicator.last_updated_on + timedelta(days=delta_days)
+
+
+def _pipeline_maturity(method_readiness_state, latest_pipeline_status=None):
+    status = (latest_pipeline_status or "").strip().lower()
+    if method_readiness_state == "ready" and status in {"succeeded", "published"}:
+        return "operational"
+    if method_readiness_state == "ready":
+        return "ready"
+    if method_readiness_state == "partial" or status in {"queued", "running", "blocked"}:
+        return "developing"
+    return "blocked"
+
+
 def _indicator_payload(indicator):
     framework_targets = (
         IndicatorFrameworkIndicatorLink.objects.filter(indicator=indicator, is_active=True)
@@ -228,6 +264,10 @@ def _indicator_payload(indicator):
             [profile.readiness_state for profile in method_profiles],
             key=lambda value: readiness_rank.get(value, -1),
         )
+    next_expected = _next_expected_update_on(indicator)
+    readiness_score = {"ready": 85, "partial": 55, "blocked": 25}.get(readiness_state, 0)
+    if indicator.last_updated_on:
+        readiness_score = min(100, readiness_score + 10)
     return {
         "uuid": str(indicator.uuid),
         "code": indicator.code,
@@ -248,9 +288,14 @@ def _indicator_payload(indicator):
             "name": indicator.organisation.name if indicator.organisation_id else None,
         },
         "last_updated_on": indicator.last_updated_on.isoformat() if indicator.last_updated_on else None,
+        "next_expected_update_on": next_expected.isoformat() if next_expected else None,
+        "update_frequency": indicator.update_frequency or indicator.reporting_cadence or "",
         "updated_at": indicator.updated_at.isoformat(),
         "tags": sorted(set(tags)),
         "method_readiness_state": readiness_state,
+        "pipeline_maturity": _pipeline_maturity(readiness_state),
+        "readiness_status": "ready" if readiness_state == "ready" else "warning" if readiness_state == "partial" else "blocked",
+        "readiness_score": readiness_score,
         "method_types": sorted(set(method_profiles.values_list("method_type", flat=True))),
         "coverage": {
             "geography": indicator.coverage_geography or indicator.spatial_coverage,
@@ -839,6 +884,48 @@ def api_dashboard_summary(request):
             }
         )
 
+    readiness_totals = {"ready": 0, "warning": 0, "blocked": 0}
+    readiness_by_target_data = {}
+    for indicator in published_qs.select_related("national_target").order_by("code"):
+        payload = _indicator_payload(indicator)
+        readiness_status = payload.get("readiness_status") or "blocked"
+        readiness_score = int(payload.get("readiness_score") or 0)
+        readiness_totals[readiness_status] = readiness_totals.get(readiness_status, 0) + 1
+        target = indicator.national_target
+        target_key = str(target.uuid) if target else "unmapped"
+        row = readiness_by_target_data.setdefault(
+            target_key,
+            {
+                "target_uuid": str(target.uuid) if target else None,
+                "target_code": target.code if target else "UNMAPPED",
+                "target_title": target.title if target else "Unmapped indicators",
+                "indicator_count": 0,
+                "readiness_score_total": 0,
+                "ready_count": 0,
+                "warning_count": 0,
+                "blocked_count": 0,
+            },
+        )
+        row["indicator_count"] += 1
+        row["readiness_score_total"] += readiness_score
+        row[f"{readiness_status}_count"] += 1
+    readiness_by_target = []
+    for row in readiness_by_target_data.values():
+        indicator_count = max(1, row["indicator_count"])
+        readiness_by_target.append(
+            {
+                "target_uuid": row["target_uuid"],
+                "target_code": row["target_code"],
+                "target_title": row["target_title"],
+                "indicator_count": row["indicator_count"],
+                "readiness_score_avg": round(row["readiness_score_total"] / indicator_count),
+                "ready_count": row["ready_count"],
+                "warning_count": row["warning_count"],
+                "blocked_count": row["blocked_count"],
+            }
+        )
+    readiness_by_target.sort(key=lambda item: (-item["readiness_score_avg"], item["target_code"] or ""))
+
     return Response(
         {
             "counts": counts,
@@ -848,6 +935,10 @@ def api_dashboard_summary(request):
             "published_by_framework_target": list(chart_by_target),
             "approvals_over_time": list(approvals_over_time),
             "trend_signals": trend_signals,
+            "indicator_readiness": {
+                "totals": readiness_totals,
+                "by_target": readiness_by_target[:20],
+            },
         }
     )
 
@@ -1923,6 +2014,11 @@ def api_reporting_workspace_generate_section_iii(request, instance_uuid):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def api_reporting_workspace_recompute_section_iv(request, instance_uuid):
+    # Backward-compatible alias retained for existing clients.
+    return _refresh_section_iv_rollup(request, instance_uuid)
+
+
+def _refresh_section_iv_rollup(request, instance_uuid):
     instance = get_object_or_404(ReportingInstance, uuid=instance_uuid)
     if not _can_edit_report_instance(request.user, instance):
         return Response({"detail": "Forbidden"}, status=status.HTTP_403_FORBIDDEN)
@@ -1961,7 +2057,7 @@ def api_reporting_workspace_recompute_section_iv(request, instance_uuid):
         section_response=response_row,
         content=payload,
         author=request.user,
-        note="recompute_section_iv_rollup",
+        note="refresh_section_iv_rollup",
     )
     return Response(
         {
@@ -1970,6 +2066,12 @@ def api_reporting_workspace_recompute_section_iv(request, instance_uuid):
             "revision_uuid": str(revision.uuid),
         }
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_reporting_workspace_refresh_section_iv(request, instance_uuid):
+    return _refresh_section_iv_rollup(request, instance_uuid)
 
 
 @api_view(["GET"])
@@ -2768,6 +2870,96 @@ def api_reporting_public_view(request, instance_uuid):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+def api_discovery_search(request):
+    search = (request.GET.get("search") or "").strip()
+    limit = _parse_positive_int(request.GET.get("limit"), default=8, minimum=1, maximum=25)
+    if len(search) < 2:
+        return Response(
+            {
+                "search": search,
+                "counts": {"indicators": 0, "targets": 0, "datasets": 0},
+                "indicators": [],
+                "targets": [],
+                "datasets": [],
+            }
+        )
+
+    indicator_qs = _indicator_base_queryset(request.user).filter(
+        Q(code__icontains=search)
+        | Q(title__icontains=search)
+        | Q(computation_notes__icontains=search)
+        | Q(national_target__code__icontains=search)
+        | Q(national_target__title__icontains=search)
+    )
+    target_qs = filter_queryset_for_user(
+        NationalTarget.objects.select_related("organisation"),
+        request.user,
+        perm="nbms_app.view_nationaltarget",
+    ).filter(
+        Q(code__icontains=search)
+        | Q(title__icontains=search)
+        | Q(description__icontains=search)
+    )
+    dataset_qs = filter_queryset_for_user(
+        Dataset.objects.select_related("organisation", "created_by").annotate(
+            latest_release_date=Max("releases__release_date")
+        ),
+        request.user,
+        perm="nbms_app.view_dataset",
+    ).filter(
+        Q(dataset_code__icontains=search)
+        | Q(title__icontains=search)
+        | Q(description__icontains=search)
+    )
+
+    indicator_rows = list(indicator_qs.order_by("title", "code", "uuid")[:limit])
+    target_rows = list(target_qs.order_by("code", "title", "uuid")[:limit])
+    dataset_rows = list(dataset_qs.order_by("title", "dataset_code", "uuid")[:limit])
+
+    return Response(
+        {
+            "search": search,
+            "counts": {
+                "indicators": indicator_qs.count(),
+                "targets": target_qs.count(),
+                "datasets": dataset_qs.count(),
+            },
+            "indicators": [_indicator_payload(row) for row in indicator_rows],
+            "targets": [
+                {
+                    "uuid": str(row.uuid),
+                    "code": row.code,
+                    "title": row.title,
+                    "status": row.status,
+                    "sensitivity": row.sensitivity,
+                    "organisation": row.organisation.name if row.organisation_id else None,
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+                for row in target_rows
+            ],
+            "datasets": [
+                {
+                    "uuid": str(row.uuid),
+                    "code": row.dataset_code,
+                    "title": row.title,
+                    "status": row.status,
+                    "sensitivity": row.sensitivity,
+                    "organisation": row.organisation.name if row.organisation_id else None,
+                    "release_date": (
+                        row.latest_release_date.isoformat()
+                        if getattr(row, "latest_release_date", None)
+                        else None
+                    ),
+                    "updated_at": row.updated_at.isoformat() if row.updated_at else None,
+                }
+                for row in dataset_rows
+            ],
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
 def api_indicator_list(request):
     user = request.user
     queryset = _indicator_base_queryset(user)
@@ -2994,6 +3186,15 @@ def api_indicator_detail(request, indicator_uuid):
             else None
         ),
     }
+    latest_series = latest_point.series if latest_point else series.first()
+    release_workflow = get_release_workflow_state(latest_series) if latest_series else {
+        "status": None,
+        "requires_data_steward_review": False,
+        "itsc_method_approved": False,
+        "sense_check_attested": False,
+        "sense_check_attested_by": None,
+        "sense_check_attested_at": None,
+    }
     registry_requirement = getattr(indicator, "registry_coverage_requirement", None)
     registry_counts = {
         "ecosystems": filter_queryset_for_user(EcosystemType.objects.all(), request.user).count(),
@@ -3076,10 +3277,19 @@ def api_indicator_detail(request, indicator_uuid):
             for row in ReportProductTemplate.objects.filter(is_active=True).order_by("code", "id")
         ],
     }
+    indicator_payload = _indicator_payload(indicator)
+    pipeline["next_expected_update_on"] = indicator_payload.get("next_expected_update_on")
+    pipeline["pipeline_maturity"] = _pipeline_maturity(
+        indicator_payload.get("method_readiness_state"),
+        pipeline.get("latest_pipeline_run_status"),
+    )
+    pipeline["readiness_status"] = indicator_payload.get("readiness_status")
+    pipeline["readiness_score"] = indicator_payload.get("readiness_score")
+    pipeline["release_workflow"] = release_workflow
 
     return Response(
         {
-            "indicator": _indicator_payload(indicator),
+            "indicator": indicator_payload,
             "narrative": {
                 "summary": indicator.computation_notes,
                 "limitations": indicator.limitations,
@@ -3531,6 +3741,45 @@ def api_indicator_transition(request, indicator_uuid):
         return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
     indicator.refresh_from_db()
     return Response({"status": indicator.status, "indicator_uuid": str(indicator.uuid)})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_indicator_release_transition(request, series_uuid):
+    queryset = filter_queryset_for_user(
+        IndicatorDataSeries.objects.select_related("indicator", "organisation", "created_by"),
+        request.user,
+        perm="nbms_app.view_indicatordataseries",
+    )
+    series = get_object_or_404(queryset, uuid=series_uuid)
+    action = (request.data.get("action") or "").strip().lower()
+    note = (request.data.get("note") or "").strip()
+    try:
+        if action == "submit":
+            sense_check_attested = _parse_bool(request.data.get("sense_check_attested"), default=False)
+            submit_indicator_release(
+                series,
+                request.user,
+                note=note,
+                sense_check_attested=sense_check_attested,
+            )
+        elif action == "approve":
+            approve_indicator_release(series, request.user, note=note)
+        else:
+            return Response({"detail": "Unsupported action."}, status=status.HTTP_400_BAD_REQUEST)
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    series.refresh_from_db()
+    return Response(
+        {
+            "series_uuid": str(series.uuid),
+            "status": series.status,
+            "workflow": get_release_workflow_state(series),
+        }
+    )
 
 
 @api_view(["GET"])

@@ -2,7 +2,7 @@ import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { map, startWith, switchMap } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, of, startWith, switchMap } from 'rxjs';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -123,6 +123,35 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
       </aside>
 
       <section class="results" *ngIf="results$ | async as results">
+        <mat-card class="discovery-panel" *ngIf="discovery$ | async as discovery">
+          <mat-card-title>Cross-Entity Discovery</mat-card-title>
+          <mat-card-content>
+            <p *ngIf="discovery.search.length < 2">Enter at least 2 characters to search indicators, targets, and datasets.</p>
+            <div *ngIf="discovery.search.length >= 2">
+              <p class="muted">
+                Indicators: {{ discovery.counts.indicators }} | Targets: {{ discovery.counts.targets }} | Datasets:
+                {{ discovery.counts.datasets }}
+              </p>
+              <div class="discovery-grid">
+                <div>
+                  <h4>Targets</h4>
+                  <div class="discovery-row" *ngFor="let row of discovery.targets">
+                    <strong>{{ row.code }}</strong> - {{ row.title }}
+                  </div>
+                  <div *ngIf="!discovery.targets.length" class="muted">No matching targets.</div>
+                </div>
+                <div>
+                  <h4>Datasets</h4>
+                  <div class="discovery-row" *ngFor="let row of discovery.datasets">
+                    <strong>{{ row.code || 'N/A' }}</strong> - {{ row.title }}
+                  </div>
+                  <div *ngIf="!discovery.datasets.length" class="muted">No matching datasets.</div>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
         <header class="results-header">
           <h2>Indicators ({{ results.count }})</h2>
         </header>
@@ -133,6 +162,10 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
           <mat-card-subtitle>{{ item.coverage.geography || 'Coverage not specified' }}</mat-card-subtitle>
           <mat-card-content>
             <p>{{ item.description || 'No summary provided yet.' }}</p>
+            <p class="meta-row">
+              Last update: {{ item.last_updated_on || 'n/a' }} | Next expected: {{ item.next_expected_update_on || 'n/a' }}
+              | Maturity: {{ item.pipeline_maturity }} | Readiness score: {{ item.readiness_score }}
+            </p>
             <mat-chip-set>
               <mat-chip>{{ item.status }}</mat-chip>
               <mat-chip>{{ item.sensitivity }}</mat-chip>
@@ -173,6 +206,31 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
         gap: 1rem;
       }
 
+      .discovery-panel {
+        border: 1px solid rgba(12, 124, 107, 0.18);
+      }
+
+      .discovery-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+      }
+
+      .discovery-row {
+        margin-bottom: 0.3rem;
+      }
+
+      .meta-row {
+        margin-bottom: 0.5rem;
+        color: #355047;
+        font-size: 0.9rem;
+      }
+
+      .muted {
+        color: #557468;
+        margin-bottom: 0.6rem;
+      }
+
       .results-header {
         display: flex;
         justify-content: space-between;
@@ -198,6 +256,9 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
 
       @media (max-width: 980px) {
         .explorer-layout {
+          grid-template-columns: 1fr;
+        }
+        .discovery-grid {
           grid-template-columns: 1fr;
         }
       }
@@ -233,5 +294,24 @@ export class IndicatorExplorerPageComponent {
       sort: filters.sort ?? undefined
     })),
     switchMap((filters) => this.indicatorService.list(filters))
+  );
+
+  readonly discovery$ = this.filters.controls.search.valueChanges.pipe(
+    startWith(this.filters.controls.search.value ?? ''),
+    map((value) => (value ?? '').trim()),
+    debounceTime(180),
+    distinctUntilChanged(),
+    switchMap((search) => {
+      if (search.length < 2) {
+        return of({
+          search,
+          counts: { indicators: 0, targets: 0, datasets: 0 },
+          indicators: [],
+          targets: [],
+          datasets: []
+        });
+      }
+      return this.indicatorService.discovery(search, 6);
+    })
   );
 }

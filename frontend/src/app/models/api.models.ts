@@ -26,6 +26,19 @@ export interface DashboardSummary {
   }>;
   approvals_over_time: Array<{ day: string; action: string; total: number }>;
   trend_signals: Array<{ indicator_uuid: string; indicator_code: string; trend: string }>;
+  indicator_readiness: {
+    totals: { ready: number; warning: number; blocked: number };
+    by_target: Array<{
+      target_uuid: string | null;
+      target_code: string;
+      target_title: string;
+      indicator_count: number;
+      readiness_score_avg: number;
+      ready_count: number;
+      warning_count: number;
+      blocked_count: number;
+    }>;
+  };
 }
 
 export interface IndicatorListItem {
@@ -41,9 +54,14 @@ export interface IndicatorListItem {
   national_target: { uuid: string | null; code: string | null; title: string | null };
   organisation: { id: number | null; name: string | null };
   last_updated_on: string | null;
+  next_expected_update_on: string | null;
+  update_frequency: string;
   updated_at: string;
   tags: string[];
   method_readiness_state: string;
+  pipeline_maturity: string;
+  readiness_status: string;
+  readiness_score: number;
   method_types: string[];
   coverage: { geography: string; time_start_year: number | null; time_end_year: number | null };
 }
@@ -54,6 +72,35 @@ export interface IndicatorListResponse {
   page_size: number;
   results: IndicatorListItem[];
   facets: Record<string, unknown>;
+}
+
+export interface DiscoveryTarget {
+  uuid: string;
+  code: string;
+  title: string;
+  status: string;
+  sensitivity: string;
+  organisation: string | null;
+  updated_at: string | null;
+}
+
+export interface DiscoveryDataset {
+  uuid: string;
+  code: string | null;
+  title: string;
+  status: string;
+  sensitivity: string;
+  organisation: string | null;
+  release_date: string | null;
+  updated_at: string | null;
+}
+
+export interface DiscoverySearchResponse {
+  search: string;
+  counts: { indicators: number; targets: number; datasets: number };
+  indicators: IndicatorListItem[];
+  targets: DiscoveryTarget[];
+  datasets: DiscoveryDataset[];
 }
 
 export interface IndicatorDetailResponse {
@@ -123,6 +170,18 @@ export interface IndicatorDetailResponse {
     latest_year: number | null;
     latest_pipeline_run_uuid: string | null;
     latest_pipeline_run_status: string | null;
+    next_expected_update_on: string | null;
+    pipeline_maturity: string;
+    readiness_status: string;
+    readiness_score: number;
+    release_workflow: {
+      status: string | null;
+      requires_data_steward_review: boolean;
+      itsc_method_approved: boolean;
+      sense_check_attested: boolean;
+      sense_check_attested_by: string | null;
+      sense_check_attested_at: string | null;
+    };
   };
   used_by_graph?: {
     indicator: { uuid: string; code: string; title: string };

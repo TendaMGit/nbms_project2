@@ -17,7 +17,8 @@ NR7/NR8 parity rule:
 - `GET /api/reports/{uuid}/workspace`
 - `GET|POST /api/reports/{uuid}/sections/{section_code}`
 - `POST /api/reports/{uuid}/sections/section-iii/generate-skeleton`
-- `POST /api/reports/{uuid}/sections/section-iv/recompute-rollup`
+- `POST /api/reports/{uuid}/sections/section-iv/refresh-rollup`
+- `POST /api/reports/{uuid}/sections/section-iv/recompute-rollup` (legacy alias)
 - `GET /api/reports/{uuid}/sections/{section_code}/history`
 - `GET|POST /api/reports/{uuid}/sections/{section_code}/comments`
 - `POST /api/reports/{uuid}/sections/{section_code}/comments/{thread_uuid}/status`

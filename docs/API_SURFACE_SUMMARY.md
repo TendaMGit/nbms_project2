@@ -47,7 +47,8 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET|POST /api/reports/{uuid}/sections/{section_code}` (`IsAuthenticated`, ABAC + role-gated edit)
 - `GET /api/reports/{uuid}/sections/{section_code}/history` (`IsAuthenticated`, ABAC instance scope)
 - `POST /api/reports/{uuid}/sections/section-iii/generate-skeleton` (`IsAuthenticated`, ABAC + author role)
-- `POST /api/reports/{uuid}/sections/section-iv/recompute-rollup` (`IsAuthenticated`, ABAC + author role)
+- `POST /api/reports/{uuid}/sections/section-iv/refresh-rollup` (`IsAuthenticated`, ABAC + author role)
+- `POST /api/reports/{uuid}/sections/section-iv/recompute-rollup` (`IsAuthenticated`, legacy alias retained for compatibility)
 - `GET|POST /api/reports/{uuid}/sections/{section_code}/comments` (`IsAuthenticated`, ABAC instance scope)
 - `POST /api/reports/{uuid}/sections/{section_code}/comments/{thread_uuid}/status` (`IsAuthenticated`, ABAC + thread scope)
 - `GET|POST /api/reports/{uuid}/sections/{section_code}/suggestions` (`IsAuthenticated`, ABAC instance scope)
@@ -62,6 +63,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/reports/{uuid}/public` (`AllowAny`, public reports only)
 
 ### Indicators
+- `GET /api/discovery/search` (`AllowAny`, cross-entity search across indicators, targets, and datasets)
 - `GET /api/indicators` (`AllowAny`, ABAC-filtered)
 - `GET /api/indicators/{uuid}` (`AllowAny`, ABAC-filtered; includes spatial readiness, registry readiness, and used-by graph payloads)
 - `GET /api/indicators/{uuid}/datasets` (`AllowAny`, ABAC-filtered)
@@ -71,6 +73,7 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `GET /api/indicators/{uuid}/methods` (`AllowAny`, ABAC-filtered)
 - `POST /api/indicators/{uuid}/methods/{profile_uuid}/run` (`IsAuthenticated`, role-gated)
 - `POST /api/indicators/{uuid}/transition` (`IsAuthenticated`, workflow/role-gated)
+- `POST /api/indicator-series/{series_uuid}/workflow` (`IsAuthenticated`, release submit/approve workflow with ITSC-method + steward checks)
 
 ### Spatial
 - `GET /api/spatial/layers` (`AllowAny`, ABAC-filtered)

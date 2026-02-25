@@ -2386,6 +2386,15 @@ class IndicatorDataSeries(TimeStampedModel):
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
     export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
+    sense_check_attested = models.BooleanField(default=False)
+    sense_check_attested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="attested_indicator_data_series",
+        blank=True,
+        null=True,
+    )
+    sense_check_attested_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         indicator = self.framework_indicator or self.indicator

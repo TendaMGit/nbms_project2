@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group
 from django.urls import reverse
 
 from nbms_app.models import (
+    Dataset,
     Evidence,
     Framework,
     FrameworkIndicator,
@@ -14,6 +15,7 @@ from nbms_app.models import (
     Indicator,
     IndicatorDataPoint,
     IndicatorDataSeries,
+    IndicatorDatasetLink,
     IndicatorEvidenceLink,
     IndicatorFrameworkIndicatorLink,
     IndicatorInputRequirement,
@@ -46,7 +48,7 @@ def _seed_indicator_stack():
 
     target_a = NationalTarget.objects.create(
         code="T-A",
-        title="Target A",
+        title="Forest Target A",
         organisation=org_a,
         status=LifecycleStatus.PUBLISHED,
         sensitivity=SensitivityLevel.PUBLIC,
@@ -60,7 +62,7 @@ def _seed_indicator_stack():
     )
     indicator_public = Indicator.objects.create(
         code="IND-PUB",
-        title="Public indicator",
+        title="Forest indicator",
         national_target=target_a,
         organisation=org_a,
         indicator_type=NationalIndicatorType.OTHER,
@@ -134,11 +136,32 @@ def _seed_indicator_stack():
         disaggregation={"province": "ALL"},
     )
 
+    dataset_public = Dataset.objects.create(
+        dataset_code="DS-FOREST",
+        title="Forest Monitoring Dataset",
+        description="Forest baseline release",
+        organisation=org_a,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.PUBLIC,
+    )
+    IndicatorDatasetLink.objects.create(indicator=indicator_public, dataset=dataset_public, note="primary")
+    dataset_hidden = Dataset.objects.create(
+        dataset_code="DS-HIDDEN",
+        title="Hidden Restricted Dataset",
+        description="Restricted source payload",
+        organisation=org_b,
+        status=LifecycleStatus.PUBLISHED,
+        sensitivity=SensitivityLevel.RESTRICTED,
+    )
+    IndicatorDatasetLink.objects.create(indicator=indicator_hidden, dataset=dataset_hidden, note="restricted")
+
     return {
         "org_a": org_a,
         "org_b": org_b,
         "public": indicator_public,
         "hidden": indicator_hidden,
+        "dataset_public": dataset_public,
+        "dataset_hidden": dataset_hidden,
     }
 
 
@@ -168,6 +191,33 @@ def test_indicator_detail_returns_404_for_hidden_indicator(client):
     stack = _seed_indicator_stack()
     response = client.get(reverse("api_indicator_detail", args=[stack["hidden"].uuid]))
     assert response.status_code == 404
+
+
+def test_discovery_search_returns_indicator_target_and_dataset(client):
+    stack = _seed_indicator_stack()
+    response = client.get(reverse("api_discovery_search"), {"search": "forest"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["counts"]["indicators"] >= 1
+    assert payload["counts"]["targets"] >= 1
+    assert payload["counts"]["datasets"] >= 1
+    indicator_codes = {row["code"] for row in payload["indicators"]}
+    target_codes = {row["code"] for row in payload["targets"]}
+    dataset_codes = {row["code"] for row in payload["datasets"]}
+    assert stack["public"].code in indicator_codes
+    assert "T-A" in target_codes
+    assert stack["dataset_public"].dataset_code in dataset_codes
+
+
+def test_discovery_search_hides_restricted_records_for_anonymous(client):
+    _seed_indicator_stack()
+    response = client.get(reverse("api_discovery_search"), {"search": "hidden"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["counts"] == {"indicators": 0, "targets": 0, "datasets": 0}
+    assert payload["indicators"] == []
+    assert payload["targets"] == []
+    assert payload["datasets"] == []
 
 
 def test_indicator_series_summary_returns_grouped_values(client):

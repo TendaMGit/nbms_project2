@@ -121,6 +121,24 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
           </div>
         </mat-card-content>
       </mat-card>
+
+      <mat-card class="panel">
+        <mat-card-header>
+          <mat-card-title>Indicator Readiness Dashboard</mat-card-title>
+          <app-help-tooltip text="Readiness totals and average score by target from published indicator releases." />
+        </mat-card-header>
+        <mat-card-content>
+          <mat-chip-set *ngIf="summary.indicator_readiness as readiness">
+            <mat-chip>Ready: {{ readiness.totals.ready }}</mat-chip>
+            <mat-chip>Warning: {{ readiness.totals.warning }}</mat-chip>
+            <mat-chip>Blocked: {{ readiness.totals.blocked }}</mat-chip>
+          </mat-chip-set>
+          <div class="signal-row" *ngFor="let row of summary.indicator_readiness.by_target">
+            <span>{{ row.target_code }} - {{ row.target_title }}</span>
+            <span class="signal-chip">Avg {{ row.readiness_score_avg }}</span>
+          </div>
+        </mat-card-content>
+      </mat-card>
     </section>
   `,
   styles: [

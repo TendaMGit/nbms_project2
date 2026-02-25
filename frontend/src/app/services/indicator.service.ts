@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 
 import {
+  DiscoverySearchResponse,
   IndicatorDatasetsResponse,
   IndicatorDetailResponse,
   IndicatorListResponse,
@@ -16,6 +17,10 @@ export class IndicatorService {
 
   list(filters: Record<string, string | number | undefined>) {
     return this.api.get<IndicatorListResponse>('indicators', filters);
+  }
+
+  discovery(search: string, limit = 8) {
+    return this.api.get<DiscoverySearchResponse>('discovery/search', { search, limit });
   }
 
   detail(uuid: string) {
@@ -53,5 +58,16 @@ export class IndicatorService {
       profile_uuid: string;
       indicator_uuid: string;
     }>(`indicators/${uuid}/methods/${profileUuid}/run`, payload);
+  }
+
+  transitionReleaseWorkflow(
+    seriesUuid: string,
+    payload: { action: 'submit' | 'approve'; note?: string; sense_check_attested?: boolean }
+  ) {
+    return this.api.post<{
+      series_uuid: string;
+      status: string;
+      workflow: Record<string, unknown>;
+    }>(`indicator-series/${seriesUuid}/workflow`, payload);
   }
 }

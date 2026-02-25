@@ -209,7 +209,7 @@ type SectionField = {
           <mat-divider></mat-divider>
           <div class="helper-actions">
             <button mat-button (click)="generateSectionIiiSkeleton()">Generate Section III skeleton</button>
-            <button mat-button (click)="recomputeSectionIv()">Recompute Section IV rollup</button>
+            <button mat-button (click)="refreshSectionIv()">Refresh Section IV rollup</button>
             <button mat-button (click)="loadDiffAgainstLatestNr7()" [disabled]="!workspace || workspace.instance.report_label !== 'NR8'">
               Diff against latest NR7
             </button>
@@ -1119,17 +1119,17 @@ export class ReportingPageComponent implements OnInit {
     });
   }
 
-  recomputeSectionIv(): void {
+  refreshSectionIv(): void {
     const instanceUuid = this.workspace?.instance.uuid;
     if (!instanceUuid) {
       return;
     }
-    this.reportService.recomputeSectionIvRollup(instanceUuid).subscribe({
+    this.reportService.refreshSectionIvRollup(instanceUuid).subscribe({
       next: () => {
-        this.show('Section IV rollup recomputed.');
+        this.show('Section IV rollup refreshed from current section inputs.');
         this.onInstanceChange();
       },
-      error: () => this.show('Unable to recompute section IV rollup.')
+      error: () => this.show('Unable to refresh section IV rollup.')
     });
   }
 
