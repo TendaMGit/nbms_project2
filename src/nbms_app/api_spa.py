@@ -23,12 +23,15 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from nbms_app.models import (
+    AccessLevel,
     AlienTaxonProfile,
     AuditEvent,
     BirdieModelOutput,
     BirdieSite,
     BirdieSpecies,
     Dataset,
+    DownloadRecord,
+    DownloadRecordType,
     EICATAssessment,
     EcosystemGoldSummary,
     EcosystemRiskAssessment,
@@ -184,6 +187,13 @@ from nbms_app.services.report_products import (
     render_report_product_pdf_bytes,
     seed_default_report_products,
 )
+from nbms_app.services.download_records import (
+    can_download_record_file,
+    can_view_download_record,
+    create_download_record_from_payload,
+    create_download_record_with_asset,
+    serialize_download_record,
+)
 from nbms_app.services.workflows import approve, publish, reject, submit_for_review
 
 
@@ -199,6 +209,11 @@ _PREFERENCE_THEMES = set(PreferenceTheme.values)
 _PREFERENCE_THEME_MODES = set(PreferenceThemeMode.values)
 _PREFERENCE_DENSITIES = set(PreferenceDensity.values)
 _PREFERENCE_GEOS = set(PreferenceGeographyType.values)
+_REPORT_EXPORT_ALLOWED_STATES = {
+    ReportingStatus.SUBMITTED,
+    ReportingStatus.RELEASED,
+    ReportingStatus.PUBLIC_RELEASED,
+}
 
 
 def _default_saved_filters_payload():
@@ -1064,6 +1079,99 @@ def api_me_preferences_saved_filter_delete(request, filter_id):
             "saved_filters": saved_filters,
         }
     )
+
+
+@api_view(["GET", "POST"])
+@permission_classes([AllowAny])
+def api_download_records(request):
+    if request.method == "GET":
+        if not getattr(request.user, "is_authenticated", False):
+            return Response({"detail": "Authentication required."}, status=status.HTTP_401_UNAUTHORIZED)
+        queryset = DownloadRecord.objects.filter(created_by=request.user).order_by("-created_at", "-id")
+        record_type = (request.GET.get("record_type") or "").strip().lower()
+        if record_type:
+            queryset = queryset.filter(record_type=record_type)
+        date_from = (request.GET.get("date_from") or "").strip()
+        if date_from:
+            try:
+                queryset = queryset.filter(created_at__date__gte=date.fromisoformat(date_from))
+            except ValueError:
+                pass
+        date_to = (request.GET.get("date_to") or "").strip()
+        if date_to:
+            try:
+                queryset = queryset.filter(created_at__date__lte=date.fromisoformat(date_to))
+            except ValueError:
+                pass
+        page_size = _parse_positive_int(request.GET.get("page_size"), default=25, minimum=1, maximum=100)
+        page = _parse_positive_int(request.GET.get("page"), default=1, minimum=1, maximum=10000)
+        total = queryset.count()
+        start = (page - 1) * page_size
+        rows = queryset[start : start + page_size]
+        return Response(
+            {
+                "count": total,
+                "page": page,
+                "page_size": page_size,
+                "results": [serialize_download_record(row, user=request.user) for row in rows],
+            }
+        )
+
+    payload = request.data if isinstance(request.data, dict) else {}
+    try:
+        record = create_download_record_from_payload(user=request.user, payload=payload)
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        message = exc.message_dict if hasattr(exc, "message_dict") else exc.messages if hasattr(exc, "messages") else str(exc)
+        return Response({"detail": message}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        {
+            "uuid": str(record.uuid),
+            "landing_url": f"/downloads/{record.uuid}",
+            "record": serialize_download_record(record, user=request.user),
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_download_record_detail(request, record_uuid):
+    record = get_object_or_404(DownloadRecord, uuid=record_uuid)
+    if not can_view_download_record(request.user, record):
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    return Response({"record": serialize_download_record(record, user=request.user)})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_download_record_file(request, record_uuid):
+    record = get_object_or_404(DownloadRecord, uuid=record_uuid)
+    if not can_view_download_record(request.user, record):
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    if not can_download_record_file(request.user, record):
+        return Response(
+            {
+                "detail": "Download access is no longer permitted for this record.",
+                "code": "download_access_revoked",
+            },
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    if record.status != "ready" or not record.file_asset_path:
+        return Response({"detail": "Download asset is not ready."}, status=status.HTTP_409_CONFLICT)
+    if not default_storage.exists(record.file_asset_path):
+        return Response({"detail": "Download asset is unavailable."}, status=status.HTTP_404_NOT_FOUND)
+    file_handle = default_storage.open(record.file_asset_path, mode="rb")
+    response = FileResponse(
+        file_handle,
+        content_type=record.file_content_type or "application/octet-stream",
+    )
+    filename = record.file_asset_name or f"download-{record.uuid}.bin"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    if record.file_hash:
+        response["ETag"] = record.file_hash
+    return response
 
 
 @api_view(["GET"])
@@ -2779,11 +2887,7 @@ def api_reporting_workspace_workflow_action(request, instance_uuid):
 
 
 def _report_export_allowed(user, instance):
-    if instance.is_public and instance.status in {
-        ReportingStatus.SUBMITTED,
-        ReportingStatus.RELEASED,
-        ReportingStatus.PUBLIC_RELEASED,
-    }:
+    if instance.is_public and instance.status in _REPORT_EXPORT_ALLOWED_STATES:
         return True
     return _can_view_report_instance(user, instance)
 
@@ -2821,8 +2925,41 @@ def api_reporting_workspace_export_pdf(request, instance_uuid):
             "resolved_values_count": len(manifest),
         },
     )
+    download_file_name = f"{instance.report_label.lower()}-report-{instance.uuid}.pdf"
+    create_download_record_with_asset(
+        user=request.user,
+        record_type=DownloadRecordType.REPORT_EXPORT,
+        object_type="reporting_instance",
+        object_uuid=instance.uuid,
+        query_snapshot={
+            "format": "pdf",
+            "context_filters": context_filters,
+        },
+        contributing_sources=[
+            {
+                "kind": "reporting_instance",
+                "uuid": str(instance.uuid),
+                "cycle_code": instance.cycle.code if instance.cycle_id else "",
+                "report_label": instance.report_label,
+                "version_label": instance.version_label,
+            }
+        ],
+        access_level_at_time=(
+            AccessLevel.PUBLIC
+            if instance.is_public and instance.status in _REPORT_EXPORT_ALLOWED_STATES
+            else AccessLevel.INTERNAL
+        ),
+        file_name=download_file_name,
+        content_type="application/pdf",
+        content_bytes=pdf_bytes,
+        regen_params={
+            "instance_uuid": str(instance.uuid),
+            "format": "pdf",
+            "context_filters": context_filters,
+        },
+    )
     response = HttpResponse(pdf_bytes, content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="{instance.report_label.lower()}-report-{instance.uuid}.pdf"'
+    response["Content-Disposition"] = f'attachment; filename="{download_file_name}"'
     response["ETag"] = artifact.content_hash
     return response
 
@@ -2860,11 +2997,44 @@ def api_reporting_workspace_export_docx(request, instance_uuid):
             "resolved_values_count": len(manifest),
         },
     )
+    download_file_name = f"{instance.report_label.lower()}-report-{instance.uuid}.docx"
+    create_download_record_with_asset(
+        user=request.user,
+        record_type=DownloadRecordType.REPORT_EXPORT,
+        object_type="reporting_instance",
+        object_uuid=instance.uuid,
+        query_snapshot={
+            "format": "docx",
+            "context_filters": context_filters,
+        },
+        contributing_sources=[
+            {
+                "kind": "reporting_instance",
+                "uuid": str(instance.uuid),
+                "cycle_code": instance.cycle.code if instance.cycle_id else "",
+                "report_label": instance.report_label,
+                "version_label": instance.version_label,
+            }
+        ],
+        access_level_at_time=(
+            AccessLevel.PUBLIC
+            if instance.is_public and instance.status in _REPORT_EXPORT_ALLOWED_STATES
+            else AccessLevel.INTERNAL
+        ),
+        file_name=download_file_name,
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        content_bytes=docx_bytes,
+        regen_params={
+            "instance_uuid": str(instance.uuid),
+            "format": "docx",
+            "context_filters": context_filters,
+        },
+    )
     response = HttpResponse(
         docx_bytes,
         content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
-    response["Content-Disposition"] = f'attachment; filename="{instance.report_label.lower()}-report-{instance.uuid}.docx"'
+    response["Content-Disposition"] = f'attachment; filename="{download_file_name}"'
     response["ETag"] = artifact.content_hash
     return response
 
@@ -2902,8 +3072,41 @@ def api_reporting_workspace_export_json(request, instance_uuid):
             "resolved_values_count": len(manifest),
         },
     )
+    download_file_name = f"{instance.report_label.lower()}-report-{instance.uuid}.json"
+    create_download_record_with_asset(
+        user=request.user,
+        record_type=DownloadRecordType.REPORT_EXPORT,
+        object_type="reporting_instance",
+        object_uuid=instance.uuid,
+        query_snapshot={
+            "format": "json",
+            "context_filters": context_filters,
+        },
+        contributing_sources=[
+            {
+                "kind": "reporting_instance",
+                "uuid": str(instance.uuid),
+                "cycle_code": instance.cycle.code if instance.cycle_id else "",
+                "report_label": instance.report_label,
+                "version_label": instance.version_label,
+            }
+        ],
+        access_level_at_time=(
+            AccessLevel.PUBLIC
+            if instance.is_public and instance.status in _REPORT_EXPORT_ALLOWED_STATES
+            else AccessLevel.INTERNAL
+        ),
+        file_name=download_file_name,
+        content_type="application/json",
+        content_bytes=json_bytes,
+        regen_params={
+            "instance_uuid": str(instance.uuid),
+            "format": "json",
+            "context_filters": context_filters,
+        },
+    )
     response = HttpResponse(json_bytes, content_type="application/json")
-    response["Content-Disposition"] = f'attachment; filename="{instance.report_label.lower()}-report-{instance.uuid}.json"'
+    response["Content-Disposition"] = f'attachment; filename="{download_file_name}"'
     response["ETag"] = artifact.content_hash
     return response
 

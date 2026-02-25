@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
+import { Router } from '@angular/router';
 
 import { ReportingPageComponent } from './reporting-page.component';
+import { DownloadRecordService } from '../services/download-record.service';
 import { NationalReportService } from '../services/national-report.service';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 
@@ -118,6 +120,23 @@ describe('ReportingPageComponent', () => {
             exportDocxUrl: () => '/api/reports/x/export.docx',
             exportJsonUrl: () => '/api/reports/x/export',
             latestDossierDownloadUrl: () => '/api/reports/x/dossier/latest?download=1'
+          }
+        },
+        {
+          provide: DownloadRecordService,
+          useValue: {
+            create: () =>
+              of({
+                uuid: 'download-1',
+                landing_url: '/downloads/download-1',
+                record: {}
+              })
+          }
+        },
+        {
+          provide: Router,
+          useValue: {
+            navigate: () => Promise.resolve(true)
           }
         }
       ]

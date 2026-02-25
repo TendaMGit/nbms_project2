@@ -1,7 +1,9 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
+import { Router } from '@angular/router';
 
 import { ReportProductsPageComponent } from './report-products-page.component';
+import { DownloadRecordService } from '../services/download-record.service';
 import { ReportProductService } from '../services/report-product.service';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 
@@ -59,6 +61,21 @@ describe('ReportProductsPageComponent', () => {
                 ]
               })
           }
+        },
+        {
+          provide: DownloadRecordService,
+          useValue: {
+            create: () =>
+              of({
+                uuid: 'dl-1',
+                landing_url: '/downloads/dl-1',
+                record: {}
+              })
+          }
+        },
+        {
+          provide: Router,
+          useValue: { navigate: () => Promise.resolve(true) }
         }
       ]
     }).compileComponents();

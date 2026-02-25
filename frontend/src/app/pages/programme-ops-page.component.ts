@@ -10,9 +10,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 
 import { HelpTooltipComponent } from '../components/help-tooltip.component';
 import { ProgrammeDetailResponse, ProgrammeRun, ProgrammeSummary } from '../models/api.models';
+import { DownloadRecordService } from '../services/download-record.service';
 import { ProgrammeOpsService } from '../services/programme-ops.service';
 
 @Component({
@@ -348,8 +350,10 @@ import { ProgrammeOpsService } from '../services/programme-ops.service';
 })
 export class ProgrammeOpsPageComponent {
   private readonly service = inject(ProgrammeOpsService);
+  private readonly downloadRecords = inject(DownloadRecordService);
   private readonly snackbar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
 
   programmes: ProgrammeSummary[] = [];
   detail: ProgrammeDetailResponse | null = null;
@@ -436,21 +440,23 @@ export class ProgrammeOpsPageComponent {
   }
 
   downloadRunReport(run: ProgrammeRun) {
-    this.service
-      .runReport(run.uuid)
+    this.downloadRecords
+      .create({
+        record_type: 'custom_bundle',
+        object_type: 'programme_run',
+        object_uuid: run.uuid,
+        query_snapshot: {
+          kind: 'programme_run_report',
+          run_uuid: run.uuid
+        }
+      })
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (payload) => {
-          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const anchor = document.createElement('a');
-          anchor.href = url;
-          anchor.download = `programme-run-${run.uuid}.json`;
-          anchor.click();
-          URL.revokeObjectURL(url);
+          this.router.navigate(['/downloads', payload.uuid]);
         },
         error: (error) => {
-          const message = error?.error?.detail || 'Could not download programme run report.';
+          const message = error?.error?.detail || 'Could not create programme run download record.';
           this.snackbar.open(message, 'Dismiss', { duration: 5000 });
         }
       });

@@ -40,6 +40,48 @@ export interface UserPreferenceResponse {
   updated_at: string | null;
 }
 
+export type DownloadRecordType = 'indicator_series' | 'spatial_layer' | 'report_export' | 'registry_export' | 'custom_bundle';
+
+export interface DownloadRecordFileMeta {
+  name: string;
+  content_type: string;
+  size_bytes: number | null;
+  download_url: string | null;
+  authorized: boolean;
+}
+
+export interface DownloadRecordItem {
+  uuid: string;
+  record_type: DownloadRecordType;
+  object_type: string;
+  object_uuid: string | null;
+  created_at: string;
+  status: 'pending' | 'ready' | 'failed';
+  access_level_at_time: string;
+  query_snapshot: Record<string, unknown>;
+  contributing_sources: Array<Record<string, unknown>>;
+  citation_text: string;
+  citation_id: string | null;
+  file: DownloadRecordFileMeta;
+}
+
+export interface DownloadRecordListResponse {
+  count: number;
+  page: number;
+  page_size: number;
+  results: DownloadRecordItem[];
+}
+
+export interface DownloadRecordCreateResponse {
+  uuid: string;
+  landing_url: string;
+  record: DownloadRecordItem;
+}
+
+export interface DownloadRecordDetailResponse {
+  record: DownloadRecordItem;
+}
+
 export interface DashboardSummary {
   counts: Record<string, number>;
   approvals_queue: number;

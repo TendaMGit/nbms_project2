@@ -9,13 +9,15 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { combineLatest, debounceTime, map, of, startWith, Subject, switchMap, takeUntil } from 'rxjs';
+import { combineLatest, debounceTime, map, startWith, Subject, takeUntil } from 'rxjs';
+import { Router } from '@angular/router';
 import * as maplibregl from 'maplibre-gl';
 
 import { SpatialLayer } from '../models/api.models';
 import { HelpService } from '../services/help.service';
 import { SpatialService } from '../services/spatial.service';
 import { ApiClientService } from '../services/api-client.service';
+import { DownloadRecordService } from '../services/download-record.service';
 
 type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
 
@@ -345,9 +347,11 @@ type LayerState = { enabled: boolean; opacity: number; wmsEnabled: boolean };
 })
 export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
   private readonly spatialService = inject(SpatialService);
+  private readonly downloadRecords = inject(DownloadRecordService);
   private readonly helpService = inject(HelpService);
   private readonly api = inject(ApiClientService);
   private readonly snackBar = inject(MatSnackBar);
+  private readonly router = inject(Router);
 
   @ViewChild('mapContainer', { static: true }) mapContainer!: ElementRef<HTMLDivElement>;
 
@@ -516,26 +520,21 @@ export class MapViewerPageComponent implements AfterViewInit, OnDestroy {
 
   exportLayer(layer: SpatialLayer): void {
     const params = this.queryParams();
-    this.spatialService
-      .exportGeoJson(layer.layer_code, { ...params, limit: 20000 })
-      .pipe(
-        switchMap((payload) => {
-          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/geo+json' });
-          const url = URL.createObjectURL(blob);
-          const anchor = document.createElement('a');
-          anchor.href = url;
-          anchor.download = `${layer.layer_code}.geojson`;
-          anchor.click();
-          URL.revokeObjectURL(url);
-          return of(payload);
-        }),
-        takeUntil(this.destroy$)
-      )
+    this.downloadRecords
+      .create({
+        record_type: 'spatial_layer',
+        object_type: 'spatial_layer',
+        object_uuid: layer.uuid,
+        query_snapshot: {
+          layer_code: layer.layer_code,
+          ...params,
+          limit: 20000
+        }
+      })
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (payload) => {
-          this.snackBar.open(`Exported ${payload.numberReturned ?? payload.features.length} features`, 'Close', {
-            duration: 3000
-          });
+          this.router.navigate(['/downloads', payload.uuid]);
         },
         error: (error) => {
           this.snackBar.open(error?.error?.detail || 'GeoJSON export failed.', 'Close', { duration: 4500 });

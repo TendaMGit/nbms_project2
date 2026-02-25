@@ -26,6 +26,12 @@ Source: `src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`.
 - `POST /api/me/preferences/watchlist/remove` (`IsAuthenticated`, self scope)
 - `POST /api/me/preferences/saved-filters` (`IsAuthenticated`, self scope)
 - `DELETE /api/me/preferences/saved-filters/{id}` (`IsAuthenticated`, self scope; optional `namespace` query)
+- `GET /api/downloads/records` (`IsAuthenticated`, returns caller-owned history)
+- `POST /api/downloads/records` (`AllowAny`, creates a persistent download record; ABAC/public checks in handler)
+  - `record_type` supports: `indicator_series`, `spatial_layer`, `report_export`, `registry_export`, `custom_bundle`
+  - `custom_bundle` uses `query_snapshot.kind` for templated exports (`template_pack_pdf`, `template_pack_export_json`, `report_product_pdf`, `report_product_html`, `programme_run_report`)
+- `GET /api/downloads/records/{uuid}` (`AllowAny`, owner or public-record visibility)
+- `GET /api/downloads/records/{uuid}/file` (`AllowAny`, owner/public visibility + current ABAC re-check)
 - `GET /api/help/sections` (`AllowAny`)
 - `GET /api/system/health` (`IsAuthenticated`, staff/system-admin only)
 
@@ -143,6 +149,10 @@ All are read-only viewsets with ABAC filtering and audit read-tracking.
 ## Notes
 - OpenAPI schema class is configured (`drf_spectacular`) but schema-serving routes are not yet exposed in `src/config/urls.py`.
 - `/api/*` provides the Angular primary UI data surface.
+- Download records and citation landing:
+  - Report export endpoints and spatial GeoJSON export endpoint now auto-create `DownloadRecord` rows.
+  - Frontend export actions use `POST /api/downloads/records` and route users to `/downloads/{uuid}` landing pages.
+  - File access is re-authorized at retrieval time (`/api/downloads/records/{uuid}/file`) so records remain visible while file access can be revoked.
 - Request correlation:
   - All responses include `X-Request-ID` from `src/nbms_app/middleware_request_id.py`.
   - Frontend nginx forwards `X-Request-ID` to backend (`docker/frontend/nginx.conf`).

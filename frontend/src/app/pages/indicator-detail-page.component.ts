@@ -1,17 +1,19 @@
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { combineLatest, map, shareReplay, startWith, switchMap, tap } from 'rxjs';
 import { BaseChartDirective } from 'ng2-charts';
 import { ChartData } from 'chart.js';
 import { MatCardModule } from '@angular/material/card';
 import { MatListModule } from '@angular/material/list';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 
 import { IndicatorMapPanelComponent } from '../components/indicator-map-panel.component';
+import { DownloadRecordService } from '../services/download-record.service';
 import { IndicatorService } from '../services/indicator.service';
 
 @Component({
@@ -25,6 +27,7 @@ import { IndicatorService } from '../services/indicator.service';
     MatCardModule,
     MatListModule,
     MatChipsModule,
+    MatButtonModule,
     MatFormFieldModule,
     MatSelectModule,
     BaseChartDirective,
@@ -110,6 +113,16 @@ import { IndicatorService } from '../services/indicator.service';
             <p><strong>Attested by:</strong> {{ workflow.sense_check_attested_by || 'n/a' }}</p>
             <p><strong>Attested at:</strong> {{ workflow.sense_check_attested_at || 'n/a' }}</p>
           </ng-container>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-card class="pipeline-card">
+        <mat-card-title>Downloads and Citation</mat-card-title>
+        <mat-card-content>
+          <p>NBMS publishes approved periodic releases. Downloads are versioned records with citation metadata.</p>
+          <button mat-flat-button color="primary" type="button" (click)="createSeriesDownload()">
+            Download series CSV
+          </button>
         </mat-card-content>
       </mat-card>
 
@@ -264,6 +277,8 @@ import { IndicatorService } from '../services/indicator.service';
 export class IndicatorDetailPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly indicatorService = inject(IndicatorService);
+  private readonly downloadRecords = inject(DownloadRecordService);
+  private readonly router = inject(Router);
 
   readonly selectedYearControl = new FormControl<number | null>(null);
 
@@ -349,4 +364,23 @@ export class IndicatorDetailPageComponent {
   readonly mapData$ = combineLatest([this.indicatorUuid$, this.selectedYear$]).pipe(
     switchMap(([uuid, year]) => this.indicatorService.map(uuid, { year: year ?? undefined }))
   );
+
+  createSeriesDownload(): void {
+    const indicatorUuid = this.route.snapshot.paramMap.get('uuid');
+    if (!indicatorUuid) {
+      return;
+    }
+    this.downloadRecords
+      .create({
+        record_type: 'indicator_series',
+        object_type: 'indicator',
+        object_uuid: indicatorUuid,
+        query_snapshot: {
+          aggregation: 'year'
+        }
+      })
+      .subscribe((payload) => {
+        this.router.navigate(['/downloads', payload.uuid]);
+      });
+  }
 }

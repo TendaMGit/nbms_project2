@@ -61,4 +61,9 @@ Root routes are defined in `src/app/app.routes.ts` with feature sections scaffol
 - account preferences (`/account/preferences`)
 - work queue (`/work`) backed by watchlist + pinned saved filters
 
+Download record routes:
+- `/downloads` for user download history
+- `/downloads/:uuid` for citation/provenance landing pages
+- export actions are mediated via `src/app/services/download-record.service.ts` (`POST /api/downloads/records`)
+
 When replacing placeholder pages, preserve route compatibility unless migration redirects are explicitly added.

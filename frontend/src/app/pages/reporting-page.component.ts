@@ -17,6 +17,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatStepperModule } from '@angular/material/stepper';
+import { Router } from '@angular/router';
 
 import {
   ReportContextPayload,
@@ -31,6 +32,7 @@ import {
 } from '../models/api.models';
 import { HelpTooltipComponent } from '../components/help-tooltip.component';
 import { PlotlyChartComponent } from '../components/plotly-chart.component';
+import { DownloadRecordService } from '../services/download-record.service';
 import { NationalReportService } from '../services/national-report.service';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 
@@ -88,9 +90,9 @@ type SectionField = {
             <input matInput [(ngModel)]="suggestionRationale" />
           </mat-form-field>
           <div class="export-actions" *ngIf="workspace">
-            <a mat-stroked-button [href]="reportService.exportPdfUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export PDF</a>
-            <a mat-stroked-button [href]="reportService.exportDocxUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export DOCX</a>
-            <a mat-stroked-button [href]="reportService.exportJsonUrl(workspace.instance.uuid)" target="_blank" rel="noopener">Export ORT JSON</a>
+            <button mat-stroked-button type="button" (click)="createReportExport('pdf')">Export PDF</button>
+            <button mat-stroked-button type="button" (click)="createReportExport('docx')">Export DOCX</button>
+            <button mat-stroked-button type="button" (click)="createReportExport('json')">Export ORT JSON</button>
             <button mat-flat-button color="primary" (click)="generateDossier()">Generate dossier</button>
             <a
               mat-stroked-button
@@ -572,9 +574,11 @@ type SectionField = {
 })
 export class ReportingPageComponent implements OnInit {
   readonly reportService = inject(NationalReportService);
+  private readonly downloadRecords = inject(DownloadRecordService);
   private readonly nr7Service = inject(Nr7BuilderService);
   private readonly snackBar = inject(MatSnackBar);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly router = inject(Router);
 
   readonly instanceControl = new FormControl<string | null>(null);
   instances: ReportingInstanceSummary[] = [];
@@ -1145,6 +1149,29 @@ export class ReportingPageComponent implements OnInit {
       },
       error: (err) => this.show(err?.error?.detail || 'Unable to generate dossier.')
     });
+  }
+
+  createReportExport(format: 'pdf' | 'docx' | 'json'): void {
+    const instanceUuid = this.workspace?.instance.uuid;
+    if (!instanceUuid) {
+      return;
+    }
+    this.downloadRecords
+      .create({
+        record_type: 'report_export',
+        object_type: 'reporting_instance',
+        object_uuid: instanceUuid,
+        query_snapshot: {
+          format,
+          context_filters: this.contextFilters
+        }
+      })
+      .subscribe({
+        next: (payload) => {
+          this.router.navigate(['/downloads', payload.uuid]);
+        },
+        error: (err) => this.show(err?.error?.detail || 'Unable to create download record.')
+      });
   }
 
   missingRequiredFields(): string[] {

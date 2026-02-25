@@ -6,8 +6,10 @@ import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSelectModule } from '@angular/material/select';
+import { Router } from '@angular/router';
 
 import { ReportingInstanceSummary, ReportProductPreviewResponse, ReportProductSummary } from '../models/api.models';
+import { DownloadRecordService } from '../services/download-record.service';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 import { ReportProductService } from '../services/report-product.service';
 import { UserPreferencesService } from '../services/user-preferences.service';
@@ -48,22 +50,12 @@ import { UserPreferencesService } from '../services/user-preferences.service';
         <mat-card-title>{{ preview.template.title }} ({{ preview.template.code }})</mat-card-title>
         <mat-card-subtitle>Run {{ preview.run_uuid }}</mat-card-subtitle>
         <div class="actions">
-          <a
-            mat-stroked-button
-            [href]="reportProductService.exportHtmlUrl(selectedProductCode, selectedInstanceUuid || undefined)"
-            target="_blank"
-            rel="noopener"
-          >
+          <button mat-stroked-button type="button" (click)="createProductExport('report_product_html')">
             Export HTML
-          </a>
-          <a
-            mat-stroked-button
-            [href]="reportProductService.exportPdfUrl(selectedProductCode, selectedInstanceUuid || undefined)"
-            target="_blank"
-            rel="noopener"
-          >
+          </button>
+          <button mat-stroked-button type="button" (click)="createProductExport('report_product_pdf')">
             Export PDF
-          </a>
+          </button>
         </div>
         <mat-card-content>
           <h3>Outline</h3>
@@ -106,8 +98,10 @@ import { UserPreferencesService } from '../services/user-preferences.service';
 })
 export class ReportProductsPageComponent implements OnInit {
   readonly reportProductService = inject(ReportProductService);
+  private readonly downloadRecords = inject(DownloadRecordService);
   private readonly nr7BuilderService = inject(Nr7BuilderService);
   private readonly preferences = inject(UserPreferencesService);
+  private readonly router = inject(Router);
 
   products: ReportProductSummary[] = [];
   instances: ReportingInstanceSummary[] = [];
@@ -167,5 +161,24 @@ export class ReportProductsPageComponent implements OnInit {
         true
       )
       .subscribe();
+  }
+
+  createProductExport(kind: 'report_product_html' | 'report_product_pdf'): void {
+    if (!this.selectedProductCode) {
+      return;
+    }
+    this.downloadRecords
+      .create({
+        record_type: 'custom_bundle',
+        object_type: 'report_product',
+        query_snapshot: {
+          kind,
+          product_code: this.selectedProductCode,
+          instance_uuid: this.selectedInstanceUuid || undefined
+        }
+      })
+      .subscribe((payload) => {
+        this.router.navigate(['/downloads', payload.uuid]);
+      });
   }
 }

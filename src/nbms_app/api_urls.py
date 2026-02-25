@@ -29,6 +29,17 @@ urlpatterns = [
         api_spa.api_me_preferences_saved_filter_delete,
         name="api_me_preferences_saved_filter_delete",
     ),
+    path("downloads/records", api_spa.api_download_records, name="api_download_records"),
+    path(
+        "downloads/records/<uuid:record_uuid>",
+        api_spa.api_download_record_detail,
+        name="api_download_record_detail",
+    ),
+    path(
+        "downloads/records/<uuid:record_uuid>/file",
+        api_spa.api_download_record_file,
+        name="api_download_record_file",
+    ),
     path("help/sections", api_spa.api_help_sections, name="api_help_sections"),
     path("system/health", api_spa.api_system_health, name="api_system_health"),
     path("dashboard/summary", api_spa.api_dashboard_summary, name="api_dashboard_summary"),

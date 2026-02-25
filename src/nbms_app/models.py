@@ -147,6 +147,75 @@ class UserPreference(TimeStampedModel):
         return f"Preferences for {self.user_id}"
 
 
+class DownloadRecordType(models.TextChoices):
+    INDICATOR_SERIES = "indicator_series", "Indicator series"
+    SPATIAL_LAYER = "spatial_layer", "Spatial layer"
+    REPORT_EXPORT = "report_export", "Report export"
+    REGISTRY_EXPORT = "registry_export", "Registry export"
+    CUSTOM_BUNDLE = "custom_bundle", "Custom bundle"
+
+
+class DownloadRecordStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    READY = "ready", "Ready"
+    FAILED = "failed", "Failed"
+
+
+class DownloadRecord(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="download_records",
+        blank=True,
+        null=True,
+    )
+    record_type = models.CharField(
+        max_length=40,
+        choices=DownloadRecordType.choices,
+    )
+    object_type = models.CharField(max_length=80, blank=True, default="")
+    object_uuid = models.UUIDField(blank=True, null=True)
+    query_snapshot = models.JSONField(default=dict, blank=True)
+    contributing_sources = models.JSONField(default=list, blank=True)
+    access_level_at_time = models.CharField(
+        max_length=20,
+        choices=(
+            ("public", "Public"),
+            ("internal", "Internal"),
+            ("restricted", "Restricted"),
+        ),
+        default="internal",
+    )
+    citation_text = models.TextField(blank=True)
+    citation_id = models.CharField(max_length=80, blank=True)
+    file_asset_path = models.CharField(max_length=512, blank=True)
+    file_asset_name = models.CharField(max_length=255, blank=True)
+    file_content_type = models.CharField(max_length=120, blank=True)
+    file_size_bytes = models.BigIntegerField(blank=True, null=True)
+    file_hash = models.CharField(max_length=64, blank=True)
+    regen_params = models.JSONField(default=dict, blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=DownloadRecordStatus.choices,
+        default=DownloadRecordStatus.PENDING,
+    )
+    error_message = models.TextField(blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["created_by", "created_at"]),
+            models.Index(fields=["record_type", "created_at"]),
+            models.Index(fields=["object_type", "object_uuid"]),
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["access_level_at_time"]),
+        ]
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.record_type}:{self.uuid}"
+
+
 class LifecycleStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
     PENDING_REVIEW = "pending_review", "Pending review"

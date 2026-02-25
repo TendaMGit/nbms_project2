@@ -10,6 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 
 import {
   ReportingInstanceSummary,
@@ -19,6 +20,7 @@ import {
 } from '../models/api.models';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 import { TemplatePackService } from '../services/template-pack.service';
+import { DownloadRecordService } from '../services/download-record.service';
 
 type FieldType = 'text' | 'textarea' | 'date' | 'multivalue' | 'questionnaire';
 
@@ -87,15 +89,12 @@ interface QuestionRow {
             <button mat-stroked-button (click)="runValidation()" [disabled]="!selectedInstanceUuid || !selectedPackCode">
               Run QA
             </button>
-            <a
-              mat-stroked-button
-              *ngIf="selectedPackCode && selectedInstanceUuid"
-              [href]="templatePackService.exportPdfUrl(selectedPackCode, selectedInstanceUuid)"
-              target="_blank"
-              rel="noopener"
-            >
+            <button mat-stroked-button *ngIf="selectedPackCode && selectedInstanceUuid" (click)="createPackExport('template_pack_pdf')">
               Export PDF
-            </a>
+            </button>
+            <button mat-stroked-button *ngIf="selectedPackCode && selectedInstanceUuid" (click)="createPackExport('template_pack_export_json')">
+              Export JSON
+            </button>
           </div>
         </div>
       </mat-card>
@@ -344,8 +343,10 @@ interface QuestionRow {
 })
 export class TemplatePacksPageComponent implements OnInit {
   readonly templatePackService = inject(TemplatePackService);
+  private readonly downloadRecords = inject(DownloadRecordService);
   private readonly nr7Service = inject(Nr7BuilderService);
   private readonly snackbar = inject(MatSnackBar);
+  private readonly router = inject(Router);
 
   packs: TemplatePack[] = [];
   instances: ReportingInstanceSummary[] = [];
@@ -491,7 +492,33 @@ export class TemplatePacksPageComponent implements OnInit {
     }
     this.templatePackService.validate(this.selectedPackCode, this.selectedInstanceUuid).subscribe((payload) => {
       this.validation = payload;
-    });
+      });
+  }
+
+  createPackExport(kind: 'template_pack_pdf' | 'template_pack_export_json'): void {
+    if (!this.selectedPackCode || !this.selectedInstanceUuid) {
+      return;
+    }
+    this.downloadRecords
+      .create({
+        record_type: 'custom_bundle',
+        object_type: 'template_pack',
+        query_snapshot: {
+          kind,
+          pack_code: this.selectedPackCode,
+          instance_uuid: this.selectedInstanceUuid
+        }
+      })
+      .subscribe({
+        next: (payload) => {
+          this.router.navigate(['/downloads', payload.uuid]);
+        },
+        error: (error) => {
+          this.snackbar.open(error?.error?.detail || 'Unable to create template pack export record.', 'Close', {
+            duration: 4500
+          });
+        }
+      });
   }
 
   private ensureSectionResponse(sectionCode: string): Record<string, unknown> {

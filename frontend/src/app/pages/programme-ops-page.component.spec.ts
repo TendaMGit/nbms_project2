@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 
 import { ProgrammeOpsPageComponent } from './programme-ops-page.component';
+import { DownloadRecordService } from '../services/download-record.service';
 import { ProgrammeOpsService } from '../services/programme-ops.service';
 
 describe('ProgrammeOpsPageComponent', () => {
@@ -106,7 +108,22 @@ describe('ProgrammeOpsPageComponent', () => {
               })
           }
         },
-        { provide: MatSnackBar, useValue: { open: () => undefined } }
+        { provide: MatSnackBar, useValue: { open: () => undefined } },
+        {
+          provide: DownloadRecordService,
+          useValue: {
+            create: () =>
+              of({
+                uuid: 'dl-1',
+                landing_url: '/downloads/dl-1',
+                record: {}
+              })
+          }
+        },
+        {
+          provide: Router,
+          useValue: { navigate: () => Promise.resolve(true) }
+        }
       ]
     }).compileComponents();
   });

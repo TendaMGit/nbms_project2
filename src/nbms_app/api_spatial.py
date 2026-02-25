@@ -14,9 +14,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from nbms_app.models import SpatialLayer, SpatialLayerSourceType
+from nbms_app.models import AccessLevel, DownloadRecordType, SpatialLayer, SpatialLayerSourceType
 from nbms_app.services.authorization import ROLE_ADMIN, ROLE_DATA_STEWARD, ROLE_SECRETARIAT, is_system_admin, user_has_role
 from nbms_app.services.audit import record_audit_event
+from nbms_app.services.download_records import create_download_record_with_asset
 from nbms_app.services.spatial_access import (
     etag_for_bytes,
     filter_spatial_layers_for_user,
@@ -155,6 +156,45 @@ def api_spatial_layer_export_geojson(request, layer_code):
     )
     if not layer:
         return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    payload_bytes = JsonResponse(payload, safe=True).content
+    create_download_record_with_asset(
+        user=request.user,
+        record_type=DownloadRecordType.SPATIAL_LAYER,
+        object_type="spatial_layer",
+        object_uuid=layer.uuid,
+        query_snapshot={
+            "layer_code": layer.layer_code,
+            "bbox": request.GET.get("bbox"),
+            "datetime": request.GET.get("datetime"),
+            "filter": request.GET.get("filter"),
+            "limit": limit,
+        },
+        contributing_sources=[
+            {
+                "kind": "spatial_layer",
+                "uuid": str(layer.uuid),
+                "layer_code": layer.layer_code,
+                "title": layer.title or layer.name,
+            }
+        ],
+        access_level_at_time=(
+            AccessLevel.PUBLIC
+            if layer.sensitivity == "public" and layer.is_public
+            else AccessLevel.RESTRICTED
+            if layer.sensitivity in {"restricted", "iplc_sensitive"}
+            else AccessLevel.INTERNAL
+        ),
+        file_name=f"{layer.layer_code}.geojson",
+        content_type="application/geo+json",
+        content_bytes=payload_bytes,
+        regen_params={
+            "layer_code": layer.layer_code,
+            "bbox": request.GET.get("bbox"),
+            "datetime": request.GET.get("datetime"),
+            "filter": request.GET.get("filter"),
+            "limit": limit,
+        },
+    )
     record_audit_event(
         _audit_actor(request),
         "spatial_export_geojson",

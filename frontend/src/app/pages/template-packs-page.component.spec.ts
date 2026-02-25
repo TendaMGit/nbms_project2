@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { Router } from '@angular/router';
 
 import { TemplatePacksPageComponent } from './template-packs-page.component';
+import { DownloadRecordService } from '../services/download-record.service';
 import { TemplatePackService } from '../services/template-pack.service';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 
@@ -87,7 +89,22 @@ describe('TemplatePacksPageComponent', () => {
               })
           }
         },
-        { provide: MatSnackBar, useValue: { open: () => undefined } }
+        { provide: MatSnackBar, useValue: { open: () => undefined } },
+        {
+          provide: DownloadRecordService,
+          useValue: {
+            create: () =>
+              of({
+                uuid: 'dl-1',
+                landing_url: '/downloads/dl-1',
+                record: {}
+              })
+          }
+        },
+        {
+          provide: Router,
+          useValue: { navigate: () => Promise.resolve(true) }
+        }
       ]
     }).compileComponents();
   });

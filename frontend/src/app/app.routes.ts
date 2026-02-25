@@ -165,9 +165,15 @@ export const routes: Routes = [
   {
     path: 'downloads',
     loadComponent: () =>
-      import('./pages/report-products-page.component').then((m) => m.ReportProductsPageComponent),
-    canActivate: [requireCapability('can_view_report_products')],
+      import('./pages/downloads-page.component').then((m) => m.DownloadsPageComponent),
+    canActivate: [requireCapability('can_view_dashboard')],
     data: { title: 'Downloads Center', sectionKey: 'section_v' }
+  },
+  {
+    path: 'downloads/:uuid',
+    loadComponent: () =>
+      import('./pages/download-record-page.component').then((m) => m.DownloadRecordPageComponent),
+    data: { title: 'Download Record', sectionKey: 'section_v' }
   },
   {
     path: 'report-products',

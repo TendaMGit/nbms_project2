@@ -15,6 +15,7 @@ from nbms_app.models import (
     AuditEvent,
     BinaryIndicatorQuestion,
     BinaryIndicatorResponse,
+    DownloadRecord,
     Dataset,
     DatasetRelease,
     DatasetCatalog,
@@ -141,6 +142,7 @@ ADMIN_DOMAIN_PREFIX = {
     "Organisation": "Security",
     "User": "Security",
     "UserPreference": "Security",
+    "DownloadRecord": "Security",
     "DataAgreement": "Security",
     "SensitivityClass": "Security",
     "AuditEvent": "System",
@@ -242,6 +244,22 @@ class UserPreferenceAdmin(admin.ModelAdmin):
     list_display = ("user", "theme_id", "theme_mode", "density", "default_geography", "updated_at")
     search_fields = ("user__username", "user__email")
     list_filter = ("theme_id", "theme_mode", "density", "default_geography")
+
+
+@admin.register(DownloadRecord)
+class DownloadRecordAdmin(admin.ModelAdmin):
+    list_display = (
+        "uuid",
+        "record_type",
+        "created_by",
+        "object_type",
+        "access_level_at_time",
+        "status",
+        "created_at",
+    )
+    search_fields = ("uuid", "citation_id", "file_asset_name", "created_by__username")
+    list_filter = ("record_type", "access_level_at_time", "status")
+    readonly_fields = ("created_at", "updated_at")
 
 
 @admin.register(NationalTarget)
