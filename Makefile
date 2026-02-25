@@ -1,12 +1,16 @@
 PYTHON ?= python
 
-.PHONY: check test deploy-check
+.PHONY: check test deploy-check docs-check
 
 check:
+	$(PYTHON) scripts/check_blueprint_language.py
 	PYTHONPATH=src $(PYTHON) manage.py check
 
 test:
 	PYTHONPATH=src pytest -q
+
+docs-check:
+	$(PYTHON) scripts/check_blueprint_language.py
 
 deploy-check:
 	PYTHONPATH=src \
