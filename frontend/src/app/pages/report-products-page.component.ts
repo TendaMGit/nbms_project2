@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { ReportingInstanceSummary, ReportProductPreviewResponse, ReportProductSummary } from '../models/api.models';
 import { Nr7BuilderService } from '../services/nr7-builder.service';
 import { ReportProductService } from '../services/report-product.service';
+import { UserPreferencesService } from '../services/user-preferences.service';
 
 @Component({
   selector: 'app-report-products-page',
@@ -19,7 +20,7 @@ import { ReportProductService } from '../services/report-product.service';
     <div class="page">
       <mat-card>
         <mat-card-title>One Biodiversity Report Products</mat-card-title>
-        <mat-card-subtitle>Generate NBA, GMO, and invasive report outputs from live NBMS data.</mat-card-subtitle>
+        <mat-card-subtitle>Generate NBA, GMO, and invasive report outputs from approved periodic releases.</mat-card-subtitle>
         <div class="controls">
           <mat-form-field appearance="outline">
             <mat-label>Report product</mat-label>
@@ -39,6 +40,7 @@ import { ReportProductService } from '../services/report-product.service';
             </mat-select>
           </mat-form-field>
           <button mat-flat-button color="primary" (click)="generatePreview()">Generate preview</button>
+          <button mat-stroked-button type="button" (click)="saveCurrentView()">Save view</button>
         </div>
       </mat-card>
 
@@ -105,6 +107,7 @@ import { ReportProductService } from '../services/report-product.service';
 export class ReportProductsPageComponent implements OnInit {
   readonly reportProductService = inject(ReportProductService);
   private readonly nr7BuilderService = inject(Nr7BuilderService);
+  private readonly preferences = inject(UserPreferencesService);
 
   products: ReportProductSummary[] = [];
   instances: ReportingInstanceSummary[] = [];
@@ -146,5 +149,23 @@ export class ReportProductsPageComponent implements OnInit {
 
   payloadIndicatorCount(): number {
     return ((this.preview?.payload?.['indicator_table'] as unknown[]) || []).length;
+  }
+
+  saveCurrentView(): void {
+    const name = typeof window !== 'undefined' ? window.prompt('Name this downloads view', 'Downloads view') : 'Downloads view';
+    if (!name || !name.trim()) {
+      return;
+    }
+    this.preferences
+      .saveFilter(
+        'downloads',
+        name.trim(),
+        {
+          product_code: this.selectedProductCode || undefined,
+          instance_uuid: this.selectedInstanceUuid || undefined
+        },
+        true
+      )
+      .subscribe();
   }
 }

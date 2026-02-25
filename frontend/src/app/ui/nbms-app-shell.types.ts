@@ -11,3 +11,11 @@ export type NbmsNavGroup = {
   label: string;
   items: NbmsNavItem[];
 };
+
+export type NbmsPinnedView = {
+  id: string;
+  name: string;
+  namespace: 'indicators' | 'registries' | 'downloads';
+  route: string;
+  queryParams: Record<string, string>;
+};

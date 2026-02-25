@@ -1,8 +1,8 @@
 import { AsyncPipe, NgFor, NgIf } from '@angular/common';
-import { Component, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { debounceTime, distinctUntilChanged, map, of, startWith, switchMap } from 'rxjs';
+import { debounceTime, distinctUntilChanged, map, of, startWith, switchMap, tap } from 'rxjs';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -14,6 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 import { IndicatorService } from '../services/indicator.service';
 import { HelpTooltipComponent } from '../components/help-tooltip.component';
+import { UserPreferencesService } from '../services/user-preferences.service';
 
 @Component({
   selector: 'app-indicator-explorer-page',
@@ -154,10 +155,27 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
 
         <header class="results-header">
           <h2>Indicators ({{ results.count }})</h2>
+          <div class="results-actions">
+            <button mat-stroked-button type="button" (click)="saveCurrentView()">
+              <mat-icon>bookmark_add</mat-icon>
+              Save view
+            </button>
+            <button mat-button type="button" (click)="clearFilters()">Clear filters</button>
+          </div>
         </header>
         <mat-card class="indicator-card" *ngFor="let item of results.results">
           <mat-card-title>
-            <a [routerLink]="['/indicators', item.uuid]">{{ item.code }} - {{ item.title }}</a>
+            <div class="title-row">
+              <a [routerLink]="['/indicators', item.uuid]">{{ item.code }} - {{ item.title }}</a>
+              <button
+                mat-icon-button
+                type="button"
+                (click)="toggleWatch(item.uuid)"
+                [attr.aria-label]="isWatched(item.uuid) ? 'Remove from watchlist' : 'Add to watchlist'"
+              >
+                <mat-icon>{{ isWatched(item.uuid) ? 'star' : 'star_border' }}</mat-icon>
+              </button>
+            </div>
           </mat-card-title>
           <mat-card-subtitle>{{ item.coverage.geography || 'Coverage not specified' }}</mat-card-subtitle>
           <mat-card-content>
@@ -235,10 +253,24 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
         display: flex;
         justify-content: space-between;
         align-items: center;
+        gap: 0.5rem;
+      }
+
+      .results-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
       }
 
       .indicator-card a {
-        color: var(--nbms-primary);
+        color: var(--nbms-link);
         text-decoration: none;
       }
 
@@ -263,36 +295,42 @@ import { HelpTooltipComponent } from '../components/help-tooltip.component';
         }
       }
     `
-  ]
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class IndicatorExplorerPageComponent {
   private readonly indicatorService = inject(IndicatorService);
+  private readonly preferences = inject(UserPreferencesService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   readonly filters = new FormGroup({
-    search: new FormControl<string>(''),
-    framework: new FormControl<string>(''),
-    status: new FormControl<string>('published'),
-    sensitivity: new FormControl<string>(''),
-    method_readiness: new FormControl<string>(''),
-    geography: new FormControl<string>(''),
+    search: new FormControl<string>(this.route.snapshot.queryParamMap.get('search') ?? ''),
+    framework: new FormControl<string>(this.route.snapshot.queryParamMap.get('framework') ?? ''),
+    status: new FormControl<string>(this.route.snapshot.queryParamMap.get('status') ?? 'published'),
+    sensitivity: new FormControl<string>(this.route.snapshot.queryParamMap.get('sensitivity') ?? ''),
+    method_readiness: new FormControl<string>(this.route.snapshot.queryParamMap.get('method_readiness') ?? ''),
+    geography: new FormControl<string>(this.route.snapshot.queryParamMap.get('geography') ?? ''),
     year_from: new FormControl<number | null>(null),
     year_to: new FormControl<number | null>(null),
-    sort: new FormControl<string>('title')
+    sort: new FormControl<string>(this.route.snapshot.queryParamMap.get('sort') ?? 'title')
   });
+
+  constructor() {
+    const yearFrom = this.route.snapshot.queryParamMap.get('year_from');
+    const yearTo = this.route.snapshot.queryParamMap.get('year_to');
+    if (yearFrom) {
+      this.filters.controls.year_from.setValue(Number.parseInt(yearFrom, 10));
+    }
+    if (yearTo) {
+      this.filters.controls.year_to.setValue(Number.parseInt(yearTo, 10));
+    }
+  }
 
   readonly results$ = this.filters.valueChanges.pipe(
     startWith(this.filters.getRawValue()),
-    map((filters) => ({
-      search: filters.search ?? undefined,
-      framework: filters.framework ?? undefined,
-      status: filters.status ?? undefined,
-      sensitivity: filters.sensitivity ?? undefined,
-      method_readiness: filters.method_readiness ?? undefined,
-      geography: filters.geography ?? undefined,
-      year_from: filters.year_from ?? undefined,
-      year_to: filters.year_to ?? undefined,
-      sort: filters.sort ?? undefined
-    })),
+    map((filters) => this.serializeFilters(filters)),
+    tap((filters) => this.syncUrl(filters)),
     switchMap((filters) => this.indicatorService.list(filters))
   );
 
@@ -314,4 +352,68 @@ export class IndicatorExplorerPageComponent {
       return this.indicatorService.discovery(search, 6);
     })
   );
+
+  toggleWatch(indicatorUuid: string): void {
+    if (this.preferences.isWatched('indicators', indicatorUuid)) {
+      this.preferences.removeWatchlist('indicators', indicatorUuid).subscribe();
+      return;
+    }
+    this.preferences.addWatchlist('indicators', indicatorUuid).subscribe();
+  }
+
+  isWatched(indicatorUuid: string): boolean {
+    return this.preferences.isWatched('indicators', indicatorUuid);
+  }
+
+  clearFilters(): void {
+    this.filters.reset(
+      {
+        search: '',
+        framework: '',
+        status: 'published',
+        sensitivity: '',
+        method_readiness: '',
+        geography: '',
+        year_from: null,
+        year_to: null,
+        sort: 'title'
+      },
+      { emitEvent: true }
+    );
+  }
+
+  saveCurrentView(): void {
+    const name = (typeof window !== 'undefined' ? window.prompt('Name this indicator view', 'Indicator view') : 'Indicator view')?.trim();
+    if (!name) {
+      return;
+    }
+    this.preferences.saveFilter('indicators', name, this.serializeFilters(this.filters.getRawValue()), true).subscribe();
+  }
+
+  private serializeFilters(filters: typeof this.filters.value): Record<string, string | number | undefined> {
+    return {
+      search: filters.search ?? undefined,
+      framework: filters.framework ?? undefined,
+      status: filters.status ?? undefined,
+      sensitivity: filters.sensitivity ?? undefined,
+      method_readiness: filters.method_readiness ?? undefined,
+      geography: filters.geography ?? undefined,
+      year_from: filters.year_from ?? undefined,
+      year_to: filters.year_to ?? undefined,
+      sort: filters.sort ?? undefined
+    };
+  }
+
+  private syncUrl(filters: Record<string, string | number | undefined>): void {
+    const queryParams: Record<string, string | number | null> = {};
+    for (const [key, value] of Object.entries(filters)) {
+      queryParams[key] = value === undefined || value === '' ? null : value;
+    }
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      replaceUrl: true,
+      queryParams,
+      queryParamsHandling: ''
+    });
+  }
 }

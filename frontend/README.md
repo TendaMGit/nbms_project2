@@ -35,8 +35,15 @@ npm --prefix frontend run e2e
 - Design tokens: `src/styles/_tokens.scss`
 - Theme application: `src/styles/_theme.scss`
 - Global imports: `src/styles.scss`
+- Preference service: `src/app/services/user-preferences.service.ts`
 
 The current baseline includes tokenized color, typography, spacing, focus, elevation, and component surface variables with light/dark support. New theme packs should be added through tokens and mapped through theme root classes instead of per-component hardcoded colors.
+
+Theme/runtime attributes are applied on the document root:
+
+- `data-theme`: `light|dark`
+- `data-theme-pack`: `fynbos|gbif_clean|high_contrast|dark_pro`
+- `data-density`: `comfortable|compact`
 
 ## Routing
 
@@ -51,5 +58,7 @@ Root routes are defined in `src/app/app.routes.ts` with feature sections scaffol
 - programmes/integrations
 - downloads
 - admin/system health
+- account preferences (`/account/preferences`)
+- work queue (`/work`) backed by watchlist + pinned saved filters
 
 When replacing placeholder pages, preserve route compatibility unless migration redirects are explicitly added.

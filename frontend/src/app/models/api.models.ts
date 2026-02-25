@@ -14,6 +14,32 @@ export interface AuthCapabilitiesResponse {
   capabilities: Record<string, boolean>;
 }
 
+export type ThemePackId = 'fynbos' | 'gbif_clean' | 'high_contrast' | 'dark_pro';
+export type ThemeMode = 'light' | 'dark';
+export type DensityMode = 'comfortable' | 'compact';
+export type GeographyType = 'national' | 'province' | 'district' | 'municipality';
+export type SavedFilterNamespace = 'indicators' | 'registries' | 'downloads';
+export type WatchlistNamespace = 'indicators' | 'registries' | 'reports';
+
+export interface SavedFilterEntry {
+  id: string;
+  name: string;
+  params: Record<string, unknown>;
+  pinned: boolean;
+  updated_at: string | null;
+}
+
+export interface UserPreferenceResponse {
+  theme_id: ThemePackId;
+  theme_mode: ThemeMode;
+  density: DensityMode;
+  default_geography: { type: GeographyType; code: string | null };
+  saved_filters: Record<SavedFilterNamespace, SavedFilterEntry[]>;
+  watchlist: Record<WatchlistNamespace, string[]>;
+  dashboard_layout: Record<string, unknown>;
+  updated_at: string | null;
+}
+
 export interface DashboardSummary {
   counts: Record<string, number>;
   approvals_queue: number;

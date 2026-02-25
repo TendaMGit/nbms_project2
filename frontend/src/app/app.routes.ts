@@ -14,14 +14,16 @@ export const routes: Routes = [
   {
     path: 'work',
     loadComponent: () =>
-      import('./pages/coming-soon-page.component').then((m) => m.ComingSoonPageComponent),
-    data: {
-      title: 'My Work',
-      sectionKey: 'section_i',
-      description:
-        'My Work queue is being redesigned with watchlists, saved filters, and role-specific workflow tasks.',
-      fallbackRoute: '/dashboard'
-    }
+      import('./pages/work-page.component').then((m) => m.WorkPageComponent),
+    canActivate: [requireCapability('can_view_dashboard')],
+    data: { title: 'My Work', sectionKey: 'section_i' }
+  },
+  {
+    path: 'account/preferences',
+    loadComponent: () =>
+      import('./pages/account-preferences-page.component').then((m) => m.AccountPreferencesPageComponent),
+    canActivate: [requireCapability('can_view_dashboard')],
+    data: { title: 'Preferences', sectionKey: 'section_i' }
   },
   {
     path: 'indicators',

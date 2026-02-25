@@ -7,6 +7,10 @@
   [orgName]="vm.me?.organisation?.name || ''"
   [helpEntries]="vm.help"
   [commandItems]="vm.commandItems"
+  [themeId]="vm.preferences.theme_id"
+  [themeMode]="vm.preferences.theme_mode"
+  [density]="vm.preferences.density"
+  [pinnedViews]="vm.pinnedViews"
   [notificationsCount]="0"
   (search)="onGlobalSearch($event)"
 >

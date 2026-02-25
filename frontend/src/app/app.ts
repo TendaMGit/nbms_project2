@@ -9,6 +9,7 @@ import { AuthMeResponse } from './models/api.models';
 import { NbmsAppShellComponent } from './ui/nbms-app-shell.component';
 import { NbmsCommand } from './ui/nbms-command-palette.component';
 import { NbmsNavGroup, NbmsNavItem } from './ui/nbms-app-shell.types';
+import { UserPreferencesService } from './services/user-preferences.service';
 
 type NavGroup = NbmsNavGroup;
 type NavItem = NbmsNavItem;
@@ -28,6 +29,7 @@ export class App {
   private readonly authService = inject(AuthService);
   private readonly helpService = inject(HelpService);
   private readonly router = inject(Router);
+  private readonly userPreferences = inject(UserPreferencesService);
 
   readonly navGroups: NavGroup[] = [
     {
@@ -35,7 +37,8 @@ export class App {
       items: [
         { route: '/dashboard', label: 'Dashboard', icon: 'dashboard', capability: 'can_view_dashboard' },
         { route: '/work', label: 'My Work', icon: 'task', public: true },
-        { route: '/indicators', label: 'Indicators', icon: 'insights', public: true }
+        { route: '/indicators', label: 'Indicators', icon: 'insights', public: true },
+        { route: '/account/preferences', label: 'Preferences', icon: 'tune', capability: 'can_view_dashboard' }
       ]
     },
     {
@@ -124,15 +127,28 @@ export class App {
     })
   );
 
-  readonly shellVm$ = combineLatest([this.me$, this.sectionHelp$, this.title$, this.visibleNavGroups$, this.commandItems$]).pipe(
-    map(([me, help, title, navGroups, commandItems]) => ({
+  readonly shellVm$ = combineLatest([
+    this.me$,
+    this.sectionHelp$,
+    this.title$,
+    this.visibleNavGroups$,
+    this.commandItems$,
+    this.userPreferences.preferences$
+  ]).pipe(
+    map(([me, help, title, navGroups, commandItems, preferences]) => ({
       me,
       help,
       title,
       navGroups,
-      commandItems
+      commandItems,
+      preferences,
+      pinnedViews: this.userPreferences.pinnedViews()
     }))
   );
+
+  constructor() {
+    this.userPreferences.bootstrap();
+  }
 
   readonly environmentBadge =
     typeof window !== 'undefined' && window.location.hostname.includes('localhost') ? 'DEV' : 'PROD';

@@ -8,9 +8,12 @@ import { MatInputModule } from '@angular/material/input';
 import { MatListModule } from '@angular/material/list';
 import { MatSelectModule } from '@angular/material/select';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
 
 import { HelpTooltipComponent } from '../components/help-tooltip.component';
 import { RegistryService } from '../services/registry.service';
+import { UserPreferencesService } from '../services/user-preferences.service';
 
 @Component({
   selector: 'app-taxon-registry-page',
@@ -26,6 +29,8 @@ import { RegistryService } from '../services/registry.service';
     MatListModule,
     MatSelectModule,
     MatChipsModule,
+    MatButtonModule,
+    MatIconModule,
     HelpTooltipComponent
   ],
   template: `
@@ -35,6 +40,9 @@ import { RegistryService } from '../services/registry.service';
           Taxon Registry
           <app-help-tooltip text="Darwin Core-first taxon concepts with source records and voucher readiness." />
         </mat-card-title>
+        <div class="toolbar-actions">
+          <button mat-stroked-button type="button" (click)="saveCurrentView()">Save view</button>
+        </div>
         <mat-card-content>
           <div class="filters">
             <mat-form-field appearance="outline">
@@ -126,6 +134,9 @@ import { RegistryService } from '../services/registry.service';
         display: grid;
         gap: 0.45rem;
       }
+      .toolbar-actions {
+        margin-top: 0.5rem;
+      }
       .count {
         margin: 0;
         color: #264d3b;
@@ -160,6 +171,7 @@ import { RegistryService } from '../services/registry.service';
 })
 export class TaxonRegistryPageComponent {
   private readonly registryService = inject(RegistryService);
+  private readonly preferences = inject(UserPreferencesService);
 
   readonly searchFilter = new FormControl<string>('', { nonNullable: true });
   readonly rankFilter = new FormControl<string>('', { nonNullable: true });
@@ -194,4 +206,24 @@ export class TaxonRegistryPageComponent {
     startWith(this.selectedUuid.value),
     switchMap((uuid) => (uuid ? this.registryService.taxonDetail(uuid) : of(null)))
   );
+
+  saveCurrentView(): void {
+    const name = typeof window !== 'undefined' ? window.prompt('Name this registry view', 'Taxon registry view') : 'Taxon registry view';
+    if (!name || !name.trim()) {
+      return;
+    }
+    this.preferences
+      .saveFilter(
+        'registries',
+        name.trim(),
+        {
+          search: this.searchFilter.value || undefined,
+          rank: this.rankFilter.value || undefined,
+          source: this.sourceFilter.value || undefined,
+          has_voucher: this.voucherFilter.value || undefined
+        },
+        true
+      )
+      .subscribe();
+  }
 }

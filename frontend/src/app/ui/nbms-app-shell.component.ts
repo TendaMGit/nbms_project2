@@ -21,7 +21,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { NbmsHelpDrawerComponent } from './nbms-help-drawer.component';
 import { NbmsSearchBarComponent } from './nbms-search-bar.component';
 import { NbmsCommand, NbmsCommandPaletteComponent } from './nbms-command-palette.component';
-import { NbmsNavGroup, NbmsNavItem } from './nbms-app-shell.types';
+import { NbmsNavGroup, NbmsNavItem, NbmsPinnedView } from './nbms-app-shell.types';
+import { UserPreferencesService } from '../services/user-preferences.service';
 
 @Component({
   selector: 'nbms-app-shell',
@@ -102,6 +103,24 @@ import { NbmsNavGroup, NbmsNavItem } from './nbms-app-shell.types';
             </mat-nav-list>
           </section>
         </ng-container>
+
+        <section class="nav-group" *ngIf="pinnedViews.length">
+          <h3>Pinned Views</h3>
+          <mat-nav-list>
+            <a
+              mat-list-item
+              *ngFor="let view of pinnedViews; trackBy: trackByPinnedView"
+              [routerLink]="view.route"
+              [queryParams]="view.queryParams"
+              routerLinkActive="active-link"
+              (click)="onNavClick()"
+            >
+              <mat-icon matListItemIcon>push_pin</mat-icon>
+              <span matListItemTitle>{{ view.name }}</span>
+              <span matListItemMeta class="item-badge">{{ view.namespace }}</span>
+            </a>
+          </mat-nav-list>
+        </section>
       </mat-sidenav>
 
       <mat-sidenav-content>
@@ -130,7 +149,7 @@ import { NbmsNavGroup, NbmsNavItem } from './nbms-app-shell.types';
               <mat-icon>keyboard_command_key</mat-icon>
             </button>
             <button mat-icon-button aria-label="Toggle theme" (click)="toggleTheme()">
-              <mat-icon>{{ theme === 'light' ? 'dark_mode' : 'light_mode' }}</mat-icon>
+              <mat-icon>{{ themeMode === 'light' ? 'dark_mode' : 'light_mode' }}</mat-icon>
             </button>
             <button mat-icon-button aria-label="Notifications" [matBadge]="notificationsCount" matBadgeColor="warn" [matBadgeHidden]="!notificationsCount">
               <mat-icon>notifications</mat-icon>
@@ -145,8 +164,13 @@ import { NbmsNavGroup, NbmsNavItem } from './nbms-app-shell.types';
               <div class="user-summary">
                 <strong>{{ username || 'Anonymous' }}</strong>
                 <small>{{ orgName || 'No organisation' }}</small>
+                <small>{{ themeId }} / {{ themeMode }} / {{ density }}</small>
               </div>
               <mat-divider></mat-divider>
+              <a mat-menu-item [routerLink]="'/account/preferences'">
+                <mat-icon>tune</mat-icon>
+                Preferences
+              </a>
               <a mat-menu-item *ngIf="username; else loginItem" [href]="logoutUrl">
                 <mat-icon>logout</mat-icon>
                 Logout
@@ -351,13 +375,18 @@ import { NbmsNavGroup, NbmsNavItem } from './nbms-app-shell.types';
 })
 export class NbmsAppShellComponent {
   private readonly router = inject(Router);
+  private readonly userPreferences = inject(UserPreferencesService);
 
   @Input() navGroups: NbmsNavGroup[] = [];
+  @Input() pinnedViews: NbmsPinnedView[] = [];
   @Input() title = 'NBMS Workspace';
   @Input() environment = 'DEV';
   @Input() notificationsCount = 0;
   @Input() username = '';
   @Input() orgName = '';
+  @Input() themeId: 'fynbos' | 'gbif_clean' | 'high_contrast' | 'dark_pro' = 'fynbos';
+  @Input() themeMode: 'light' | 'dark' = 'light';
+  @Input() density: 'comfortable' | 'compact' = 'comfortable';
   @Input() loginUrl = '/account/login/';
   @Input() logoutUrl = '/accounts/logout/';
   @Input() helpEntries: Record<string, string> | null = null;
@@ -368,13 +397,10 @@ export class NbmsAppShellComponent {
   helpOpen = false;
   commandPaletteOpen = false;
   isMobile = false;
-  theme: 'light' | 'dark' = 'light';
 
   constructor() {
     this.isMobile = this.detectMobile();
     this.navOpen = !this.isMobile;
-    this.theme = this.readTheme();
-    this.applyTheme(this.theme);
   }
 
   @HostListener('window:resize')
@@ -423,9 +449,8 @@ export class NbmsAppShellComponent {
   }
 
   toggleTheme(): void {
-    this.theme = this.theme === 'light' ? 'dark' : 'light';
-    this.applyTheme(this.theme);
-    localStorage.setItem('nbms.theme', this.theme);
+    const nextMode = this.themeMode === 'light' ? 'dark' : 'light';
+    this.userPreferences.setThemeMode(nextMode).subscribe();
   }
 
   trackByGroup(_: number, group: NbmsNavGroup): string {
@@ -436,22 +461,14 @@ export class NbmsAppShellComponent {
     return item.route;
   }
 
+  trackByPinnedView(_: number, item: NbmsPinnedView): string {
+    return item.id;
+  }
+
   private detectMobile(): boolean {
     if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
       return false;
     }
     return window.matchMedia('(max-width: 960px)').matches;
-  }
-
-  private readTheme(): 'light' | 'dark' {
-    const stored = localStorage.getItem('nbms.theme');
-    if (stored === 'dark' || stored === 'light') {
-      return stored;
-    }
-    return 'light';
-  }
-
-  private applyTheme(value: 'light' | 'dark'): void {
-    document.documentElement.setAttribute('data-theme', value);
   }
 }
