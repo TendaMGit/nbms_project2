@@ -8,6 +8,10 @@ NBMS aligns to DaRT-style interoperability through:
 - reusable export handlers (`template_pack_registry.py`) rather than hard-coded report logic,
 - report products (`ReportProductTemplate` / `ReportProductRun`) that compile shared indicators/maps/narratives into different publication outputs.
 
+Boundary:
+- NBMS does not perform open-ended, on-demand national indicator recomputation.
+- Contributors and partners own external pipelines; NBMS ingests approved releases and orchestrates validation/report outputs.
+
 Current convention coverage:
 - CBD/ORT NR7: first-class structured implementation with contract-validated export.
 - Ramsar: COP14-oriented runtime pack with QA + PDF/JSON export.
@@ -31,7 +35,7 @@ Supported method classes:
 - `SEEA_ACCOUNTING`
 - `BINARY_QUESTIONNAIRE`
 
-Implemented execution methods in this increment:
+Implemented runtime methods in this increment (release-oriented aggregation/validation):
 - binary questionnaire aggregation,
 - CSV aggregation,
 - spatial overlay aggregation,

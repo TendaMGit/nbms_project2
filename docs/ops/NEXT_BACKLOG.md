@@ -1,5 +1,9 @@
 # NEXT BACKLOG - NBMS Project 2
 
+Roadmap framing:
+- Planning is maintained inside `Phase 1 - National MVP`.
+- Labels below (`0.5`, `1`, `P2`, `3`, `4`) are backlog tiers, not separate delivery phases.
+
 ## Phase 0.5: Developer ergonomics + CI posture (Windows-first)
 Acceptance criteria:
 - Document a Windows-first "doctor" concept (no code change yet) covering env checks, DB reachability, and migration status.
@@ -32,10 +36,10 @@ Risks/Dependencies:
 - Requires alignment with consent/IPLC policy and sensitivity defaults.
 - Backfill/migration constraints must remain forward-safe.
 
-## Phase 2: Alignment UI expansion + readiness/validation
+## Phase 1 P2 backlog: Alignment UI expansion + readiness/validation
 Status:
-- Phase 2.1 (coverage UI panels) delivered.
-- Phase 2.2 (bulk alignment) in progress.
+- Phase 1 P2.1 (coverage UI panels) delivered.
+- Phase 1 P2.2 (bulk alignment) in progress.
 
 Acceptance criteria:
 - Alignment UI supports bulk add/remove, confidence, and source metadata.

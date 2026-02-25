@@ -15,8 +15,8 @@
 | target_year | No | `2030` | N/A | Optional metadata |
 | target_value | No | `60` | N/A | Optional metadata |
 | unit | No | `percent` | Unit vocab | Optional metadata |
-| lead_agency_code | No | `DFFE` | Organisation code | Prefer FK in Phase 2 |
-| data_source_ref | No | `NBSAP-2024` | SourceDocument | Prefer FK in Phase 2 |
+| lead_agency_code | No | `DFFE` | Organisation code | Prefer FK in Phase 1 P2 backlog |
+| data_source_ref | No | `NBSAP-2024` | SourceDocument | Prefer FK in Phase 1 P2 backlog |
 
 Idempotent upsert behavior (future implementation):
 - If `target_uuid` provided, update that record.

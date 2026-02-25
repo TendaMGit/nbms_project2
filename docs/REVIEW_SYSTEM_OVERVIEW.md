@@ -2,6 +2,12 @@
 
 ## As-Built System Map (2026-02-07)
 
+Blueprint alignment statement:
+- NBMS operates as a registry + ingestion + validation + publication + reporting platform.
+- Indicator computation pipelines are contributor-owned and remain outside NBMS runtime.
+- Governance scope is ITSC methods approval plus conditional Data Steward review for flagged releases.
+- Roadmap language is maintained as `Phase 1 - National MVP` with backlog tiers inside that phase.
+
 ### Runtime layers
 - Backend: Django 5.x + DRF (`src/config`, `src/nbms_app`)
 - Frontend: Angular standalone app (`frontend/`)
@@ -95,7 +101,7 @@
 - Command:
   - `python manage.py seed_birdie_integration`
 - Programme integration:
-  - `NBMS-BIRDIE-INTEGRATION` run pipeline with ingest/compute hooks in `programme_ops.py`
+  - `NBMS-BIRDIE-INTEGRATION` run pipeline with ingest/validation/publish hooks in `programme_ops.py`
 - API/UI:
   - `/api/integrations/birdie/dashboard`
   - Angular BIRDIE dashboard route `/programmes/birdie`

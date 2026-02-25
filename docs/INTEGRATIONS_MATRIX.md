@@ -2,6 +2,10 @@
 
 This matrix tracks concrete integrations represented in code. `_2bi` means planned next-step capability, not yet operational.
 
+Alignment note:
+- Integrations are scoped to ingestion, validation, publication, and reporting interoperability.
+- NBMS does not replace contributor-owned indicator computation pipelines.
+
 | Integration Point | implemented | _2bi (to be implemented) |
 |---|---|---|
 | CBD ORT NR7 structured export | `GET /exports/instances/<uuid>/ort-nr7-v2.json` via `src/nbms_app/exports/ort_nr7_v2.py` + contract validation in `src/nbms_app/services/export_contracts.py` | Direct ORT submission adapter and submission-status sync |

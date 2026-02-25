@@ -12,7 +12,7 @@ NBMS now supports runtime template packs so additional MEA reporting structures 
   - per-instance response payloads tied to sections
 
 ## Current Packs
-- `cbd_ort_nr7_v2` (primary)
+- `cbd_ort_nr7_v2` (primary, used for NR7 and NR8 reporting instances)
 - `ramsar_v1` (COP14-oriented runtime pack)
 - `cites_v1` (scaffold)
 - `cms_v1` (scaffold)
@@ -42,6 +42,11 @@ Seed command:
   - questionnaire rows with response + optional links to indicators/programmes/evidence.
 - `section_4_annex_targets`
   - optional target alignment summary and linked code lists.
+
+## Mapping and reuse model
+- A single approved indicator release can be reused across multiple reporting templates.
+- CBD NR7/NR8 and additional MEA packs resolve from shared indicator/target datasets in NBMS.
+- Pack-specific sections remain schema-specific, but source indicator metadata and approved values are shared.
 
 ## Export Handler Plug-in
 Registry:

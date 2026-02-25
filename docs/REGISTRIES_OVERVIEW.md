@@ -6,7 +6,9 @@ NBMS registries are programme-driven reference backbones for One Biodiversity op
 - `Taxon` registry for Darwin Core-first taxon concepts, names, source records, and vouchers.
 - `IAS` registry for alien-species baselines and EICAT/SEICAT impact evidence.
 
-These registries are not indicator-specific tables. Programmes produce trusted outputs that indicators consume.
+These registries are not indicator-specific tables and they are not an indicator computation engine.
+Contributors and partner programmes run indicator pipelines externally, while NBMS ingests, validates,
+versions, and publishes approved releases for reporting and interoperability.
 
 ## Data Model Summary
 
@@ -68,7 +70,7 @@ Run provenance is stored via monitoring programme run/step/QA/artefact models.
 - `python manage.py seed_programme_templates`
 - `python manage.py seed_registry_demo`
 
-## Role Decision (Phase 10)
+## Role Decision (Milestone Note)
 - Registry view access: any authenticated role (`can_view_registries`).
 - Template management access: `SystemAdmin`, `Admin`, `Secretariat`, `Data Steward` (`can_manage_programme_templates`).
 - Sensitive locality access: restricted to `SystemAdmin`, `Admin`, `Security Officer`.

@@ -3,6 +3,11 @@
 ## Executive Summary
 NBMS has a strong governance baseline (RBAC/ABAC filters, object-level permissions via guardian, consent records, audit signals, export approvals). The newest risk surface is the expanded `/api/*` layer for Angular: controls are mostly correct, but endpoint-by-endpoint policy standardization and deeper CI security checks remain ongoing work.
 
+Alignment notes:
+- NBMS is not an on-demand indicator computation engine; it governs approved release ingestion, validation, and publication.
+- ITSC approval scope is methods only; Data Steward review is conditional for flagged release sensitivity/IPLC cases.
+- Historical "phase" labels below are milestone snapshots inside `Phase 1 - National MVP`.
+
 ## 2026-02-07 Spatial Registry Hardening Increment
 
 Implemented:

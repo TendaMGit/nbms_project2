@@ -7,6 +7,13 @@ Clean, portable baseline for the NBMS platform (PostGIS + MinIO + GeoServer).
 NBMS Project 2 is a manager-ready prototype for biodiversity reporting workflows,
 including governance, consent checks, and instance-scoped approvals.
 
+Blueprint boundary (authoritative operating stance):
+- NBMS is a governed registry, ingestion, validation, publication, and reporting platform.
+- Indicator computation pipelines remain contributor-owned and run outside NBMS.
+- NBMS stores approved releases and exposes search, exports, readiness, and reporting outputs.
+- Governance is minimal: ITSC approves methods, and Data Steward review is conditional for flagged sensitivity/licence/IPLC cases.
+- Delivery is framed as `Phase 1 - National MVP (Reporting + Interoperability + Scale Path)` with backlog tiers inside Phase 1.
+
 ## Feature summary
 
 - Auth and staff management UI (no Django admin needed for day-to-day)

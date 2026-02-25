@@ -1,5 +1,10 @@
 # STATE OF REPO - NBMS Project 2
 
+Roadmap framing note:
+- Active delivery model is `Phase 1 - National MVP (Reporting + Interoperability + Scale Path)`.
+- Historical entries below may retain legacy "Phase X" labels as archived milestone names.
+- Current planning treats those items as backlog tiers within Phase 1.
+
 ## PHASE 12 NATIONAL REPORT COLLAB + SIGN-OFF + DOSSIER VERIFIED (2026-02-09)
 - Branch: `feat/national-report-collab-signoff-v1`
 - Scope: unified NR7/NR8 workspace, multi-author revisions/comments/suggestions, sign-off chain, PDF/DOCX/JSON exports, dossier integrity pack, and internal/public gating.
@@ -370,7 +375,7 @@ Implemented in phase:
 - CI security additions: Bandit + Trivy.
 - Backup/restore helper scripts and runbook.
 
-## One Biodiversity Hardening V1 - Phase 2 NR7 Builder Uplift (2026-02-06)
+## One Biodiversity Hardening V1 - Phase 1 P2 NR7 Builder Uplift (2026-02-06)
 - Branch: `feat/one-biodiversity-hardening-v1`
 - Base commit for phase: `7f533d8`
 

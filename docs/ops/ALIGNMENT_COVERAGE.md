@@ -69,7 +69,7 @@ Alignment coverage is surfaced read-only in:
 - Reporting instance readiness page (`/reporting/instances/<uuid>/`)
 - Full coverage page (`/reporting/instances/<uuid>/alignment-coverage/`)
 
-Phase 2.2 bulk alignment pages (instance-scoped):
+Phase 1 P2.2 bulk alignment pages (instance-scoped):
 - Orphan NationalTargets: `/reporting/instances/<uuid>/alignment/orphans/national-targets/`
 - Orphan Indicators: `/reporting/instances/<uuid>/alignment/orphans/indicators/`
 - Mapping management: `/reporting/instances/<uuid>/alignment/mappings/`

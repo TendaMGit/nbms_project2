@@ -24,4 +24,4 @@
 | SpatialUnitType/SpatialUnit | `nbms_project/nbms_app/models.py` | spatial geometry, type | **Future phase** | GIS handling out of scope for Phase 1 |
 | MapLayer | `nbms_project/nbms_app/models.py` | geojson file, visibility | **Future phase** | IPLC sensitivity risk for spatial data |
 
-**Phase 1 spec only.** Any extraction or migration is a Phase 2 task.
+**Phase 1 spec only.** Any extraction or migration is tracked in Phase 1 P2 backlog.
