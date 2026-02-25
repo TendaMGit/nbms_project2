@@ -1,59 +1,55 @@
-# Frontend
+# NBMS Frontend
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.1.3.
+Angular frontend for NBMS national biodiversity registry/reporting workflows.
 
-## Development server
-
-To start a local development server, run:
+## Run
 
 ```bash
-ng serve
+npm --prefix frontend install
+npm --prefix frontend run start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+App runs at `http://localhost:4200` and proxies API calls to backend routes configured for local development.
 
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Validate
 
 ```bash
-ng generate component component-name
+npm --prefix frontend run build
+npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless
+npm --prefix frontend run e2e
 ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+## UI Architecture
 
-```bash
-ng generate --help
-```
+- App shell: `src/app/ui/nbms-app-shell.component.ts`
+  - Top bar: environment badge, global search, notifications/help entry points, profile menu.
+  - Sidebar: role-aware navigation for dashboard, workspaces, reporting, registries, spatial, programmes, downloads, admin/system pages.
+  - Global command palette: keyboard-first navigation (`Ctrl/Cmd + K`).
+- UI primitives live under `src/app/ui/` and are reused by feature pages:
+  - `nbms-page-header`, `nbms-kpi-card`, `nbms-data-table`, `nbms-filter-rail`,
+    `nbms-status-pill`, `nbms-readiness-badge`, `nbms-empty-state`,
+    `nbms-map-panel`, `nbms-evidence-panel`, `nbms-audit-timeline`.
 
-## Building
+## Theme System
 
-To build the project run:
+- Design tokens: `src/styles/_tokens.scss`
+- Theme application: `src/styles/_theme.scss`
+- Global imports: `src/styles.scss`
 
-```bash
-ng build
-```
+The current baseline includes tokenized color, typography, spacing, focus, elevation, and component surface variables with light/dark support. New theme packs should be added through tokens and mapped through theme root classes instead of per-component hardcoded colors.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Routing
 
-## Running unit tests
+Root routes are defined in `src/app/app.routes.ts` with feature sections scaffolded for:
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+- dashboard
+- work
+- indicators
+- reporting/template packs
+- registries
+- spatial
+- programmes/integrations
+- downloads
+- admin/system health
 
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+When replacing placeholder pages, preserve route compatibility unless migration redirects are explicitly added.
