@@ -7,6 +7,8 @@ ENV PIP_NO_CACHE_DIR=1 \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         build-essential \
+        pkg-config \
+        libcairo2-dev \
         libpq-dev \
         gdal-bin \
         libgdal-dev \
@@ -32,6 +34,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
+        libcairo2 \
         libpq-dev \
         gdal-bin \
         libgdal-dev \
