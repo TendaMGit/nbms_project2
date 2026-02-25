@@ -1,0 +1,54 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$nbms-light-theme: mat.define-theme(
+  (
+    color: (
+      theme-type: light,
+      primary: mat.$green-palette,
+      tertiary: mat.$cyan-palette
+    ),
+    typography: (
+      plain-family: 'Source Sans 3, Segoe UI, sans-serif',
+      brand-family: 'Merriweather Sans, Trebuchet MS, sans-serif',
+      regular-weight: 400,
+      medium-weight: 600,
+      bold-weight: 700
+    ),
+    density: (
+      scale: -1
+    )
+  )
+);
+
+$nbms-dark-theme: mat.define-theme(
+  (
+    color: (
+      theme-type: dark,
+      primary: mat.$green-palette,
+      tertiary: mat.$cyan-palette
+    ),
+    typography: (
+      plain-family: 'Source Sans 3, Segoe UI, sans-serif',
+      brand-family: 'Merriweather Sans, Trebuchet MS, sans-serif',
+      regular-weight: 400,
+      medium-weight: 600,
+      bold-weight: 700
+    ),
+    density: (
+      scale: -1
+    )
+  )
+);
+
+@mixin register-theme() {
+  :root {
+    @include mat.all-component-themes($nbms-light-theme);
+  }
+
+  :root[data-theme='dark'] {
+    @include mat.all-component-colors($nbms-dark-theme);
+    @include mat.all-component-typographies($nbms-dark-theme);
+  }
+}

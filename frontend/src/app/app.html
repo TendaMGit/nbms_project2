@@ -1,48 +1,14 @@
-<mat-sidenav-container class="shell">
-  <mat-sidenav mode="side" opened class="shell-nav">
-    <div class="brand">
-      <h1>NBMS</h1>
-      <p>National Biodiversity Monitoring System</p>
-    </div>
-    <mat-divider></mat-divider>
-    <mat-nav-list>
-      <a
-        mat-list-item
-        *ngFor="let item of (visibleNavItems$ | async) ?? []"
-        [routerLink]="item.route"
-        routerLinkActive="active-link"
-      >
-        <mat-icon matListItemIcon>{{ item.icon }}</mat-icon>
-        <span matListItemTitle>{{ item.label }}</span>
-      </a>
-    </mat-nav-list>
-  </mat-sidenav>
-
-  <mat-sidenav-content>
-    <mat-toolbar class="topbar">
-      <div class="toolbar-left">
-        <h2>{{ title$ | async }}</h2>
-      </div>
-      <div class="toolbar-right" *ngIf="me$ | async as me; else loginOnly">
-        <span>{{ me.username }}</span>
-        <span class="org">{{ me.organisation.name }}</span>
-        <a mat-stroked-button href="/accounts/logout/">Logout</a>
-      </div>
-      <ng-template #loginOnly>
-        <a mat-stroked-button href="/account/login/">Login/MFA</a>
-      </ng-template>
-    </mat-toolbar>
-
-    <section class="content">
-      <div class="help-strip" *ngIf="sectionHelp$ | async as help">
-        <mat-icon>tips_and_updates</mat-icon>
-        <div class="help-list">
-          <div *ngFor="let entry of help | keyvalue">
-            <strong>{{ entry.key }}:</strong> {{ entry.value }}
-          </div>
-        </div>
-      </div>
-      <router-outlet></router-outlet>
-    </section>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+<nbms-app-shell
+  *ngIf="shellVm$ | async as vm"
+  [navGroups]="vm.navGroups"
+  [title]="vm.title"
+  [environment]="environmentBadge"
+  [username]="vm.me?.username || ''"
+  [orgName]="vm.me?.organisation?.name || ''"
+  [helpEntries]="vm.help"
+  [commandItems]="vm.commandItems"
+  [notificationsCount]="0"
+  (search)="onGlobalSearch($event)"
+>
+  <router-outlet></router-outlet>
+</nbms-app-shell>

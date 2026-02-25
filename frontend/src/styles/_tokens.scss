@@ -1,0 +1,105 @@
+:root {
+  /* Core palette */
+  --nbms-color-primary-900: #0f3d2f;
+  --nbms-color-primary-700: #15634a;
+  --nbms-color-primary-500: #1e8b64;
+  --nbms-color-primary-300: #5ac59a;
+  --nbms-color-primary-100: #d8f4e8;
+
+  --nbms-color-secondary-900: #123a55;
+  --nbms-color-secondary-700: #1f5f88;
+  --nbms-color-secondary-500: #318cc2;
+  --nbms-color-secondary-300: #78bde5;
+  --nbms-color-secondary-100: #d8eefb;
+
+  --nbms-color-accent-700: #9b6a00;
+  --nbms-color-accent-500: #c58a00;
+  --nbms-color-accent-300: #e4b53f;
+  --nbms-color-accent-100: #f9efce;
+
+  --nbms-color-success: #197a43;
+  --nbms-color-warn: #a56a00;
+  --nbms-color-error: #b3261e;
+  --nbms-color-info: #1664a2;
+
+  /* Slate neutrals */
+  --nbms-slate-950: #0f1720;
+  --nbms-slate-900: #16212c;
+  --nbms-slate-800: #253342;
+  --nbms-slate-700: #3a4e60;
+  --nbms-slate-600: #556a7d;
+  --nbms-slate-500: #6f8499;
+  --nbms-slate-300: #b5c3cf;
+  --nbms-slate-200: #d8e0e6;
+  --nbms-slate-100: #ecf1f4;
+  --nbms-slate-50: #f6f9fb;
+
+  /* Surfaces */
+  --nbms-bg: #f5f9f7;
+  --nbms-surface: #ffffff;
+  --nbms-surface-muted: #edf3f1;
+  --nbms-surface-elevated: #ffffff;
+  --nbms-border: #c8d4dd;
+  --nbms-divider: #d9e2e8;
+  --nbms-text-primary: #12222f;
+  --nbms-text-secondary: #3e5569;
+  --nbms-text-muted: #5f7688;
+  --nbms-link: #0f5e8d;
+
+  /* Topography + spacing */
+  --nbms-space-1: 0.25rem; /* 4px */
+  --nbms-space-2: 0.5rem; /* 8px */
+  --nbms-space-3: 0.75rem; /* 12px */
+  --nbms-space-4: 1rem; /* 16px */
+  --nbms-space-5: 1.25rem; /* 20px */
+  --nbms-space-6: 1.5rem; /* 24px */
+  --nbms-space-8: 2rem; /* 32px */
+  --nbms-space-10: 2.5rem; /* 40px */
+  --nbms-space-12: 3rem; /* 48px */
+
+  --nbms-radius-sm: 8px;
+  --nbms-radius-md: 12px;
+  --nbms-radius-lg: 16px;
+  --nbms-radius-pill: 999px;
+
+  --nbms-shadow-sm: 0 1px 2px rgb(15 23 32 / 8%);
+  --nbms-shadow-md: 0 4px 14px rgb(15 23 32 / 10%);
+  --nbms-shadow-lg: 0 14px 28px rgb(15 23 32 / 14%);
+
+  --nbms-font-family-base: 'Source Sans 3', 'Segoe UI', Tahoma, sans-serif;
+  --nbms-font-family-heading: 'Merriweather Sans', 'Trebuchet MS', sans-serif;
+  --nbms-font-size-base: 15px;
+  --nbms-font-size-dense: 14px;
+  --nbms-font-size-narrative: 16px;
+  --nbms-font-size-h1: 28px;
+  --nbms-font-size-h2: 22px;
+  --nbms-font-size-h3: 18px;
+  --nbms-font-size-h4: 16px;
+  --nbms-font-size-label: 13px;
+  --nbms-font-size-label-sm: 12px;
+
+  --nbms-focus: #0a84d0;
+  --nbms-focus-ring: 0 0 0 3px rgb(10 132 208 / 35%);
+}
+
+:root[data-theme='dark'] {
+  --nbms-bg: #0f1720;
+  --nbms-surface: #141f29;
+  --nbms-surface-muted: #102430;
+  --nbms-surface-elevated: #1b2833;
+  --nbms-border: #2f4355;
+  --nbms-divider: #364a5b;
+  --nbms-text-primary: #eff6fa;
+  --nbms-text-secondary: #c3d0da;
+  --nbms-text-muted: #a8bac8;
+  --nbms-link: #7cc7f4;
+  --nbms-shadow-sm: 0 1px 2px rgb(0 0 0 / 22%);
+  --nbms-shadow-md: 0 8px 18px rgb(0 0 0 / 24%);
+  --nbms-shadow-lg: 0 18px 34px rgb(0 0 0 / 30%);
+}
+
+@media (max-width: 720px) {
+  :root {
+    --nbms-font-size-base: 14px;
+  }
+}

@@ -1,44 +1,25 @@
-import { AsyncPipe, KeyValuePipe, NgFor, NgIf } from '@angular/common';
+import { AsyncPipe, NgIf } from '@angular/common';
 import { Component, inject } from '@angular/core';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, map, startWith, switchMap } from 'rxjs';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { MatListModule } from '@angular/material/list';
-import { MatSidenavModule } from '@angular/material/sidenav';
-import { MatToolbarModule } from '@angular/material/toolbar';
-import { MatDividerModule } from '@angular/material/divider';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { catchError, combineLatest, filter, map, of, startWith, switchMap } from 'rxjs';
 
 import { AuthService } from './services/auth.service';
 import { HelpService } from './services/help.service';
 import { AuthMeResponse } from './models/api.models';
+import { NbmsAppShellComponent } from './ui/nbms-app-shell.component';
+import { NbmsCommand } from './ui/nbms-command-palette.component';
+import { NbmsNavGroup, NbmsNavItem } from './ui/nbms-app-shell.types';
 
-type NavItem = {
-  route: string;
-  label: string;
-  icon: string;
-  public?: boolean;
-  capability?: string;
-};
+type NavGroup = NbmsNavGroup;
+type NavItem = NbmsNavItem;
 
 @Component({
   selector: 'app-root',
   imports: [
     AsyncPipe,
-    KeyValuePipe,
-    NgFor,
     NgIf,
     RouterOutlet,
-    RouterLink,
-    RouterLinkActive,
-    MatButtonModule,
-    MatIconModule,
-    MatListModule,
-    MatSidenavModule,
-    MatToolbarModule,
-    MatDividerModule,
-    MatProgressBarModule
+    NbmsAppShellComponent
   ],
   templateUrl: './app.html',
   styleUrl: './app.scss'
@@ -48,25 +29,65 @@ export class App {
   private readonly helpService = inject(HelpService);
   private readonly router = inject(Router);
 
-  readonly navItems: NavItem[] = [
-    { route: '/dashboard', label: 'Dashboard', icon: 'dashboard', capability: 'can_view_dashboard' },
-    { route: '/indicators', label: 'Indicator Explorer', icon: 'insights', public: true },
-    { route: '/map', label: 'Spatial Viewer', icon: 'map', capability: 'can_view_spatial' },
-    { route: '/programmes', label: 'Programme Ops', icon: 'lan', capability: 'can_view_programmes' },
-    { route: '/programmes/templates', label: 'Programme Templates', icon: 'schema', capability: 'can_manage_programme_templates' },
-    { route: '/programmes/birdie', label: 'BIRDIE', icon: 'water', capability: 'can_view_birdie' },
-    { route: '/registries/ecosystems', label: 'Ecosystem Registry', icon: 'terrain', capability: 'can_view_registries' },
-    { route: '/registries/taxa', label: 'Taxon Registry', icon: 'pets', capability: 'can_view_registries' },
-    { route: '/registries/ias', label: 'IAS Registry', icon: 'bug_report', capability: 'can_view_registries' },
-    { route: '/nr7-builder', label: 'National Report', icon: 'assignment', capability: 'can_view_reporting_builder' },
-    { route: '/template-packs', label: 'MEA Packs', icon: 'account_tree', capability: 'can_view_template_packs' },
-    { route: '/report-products', label: 'Report Products', icon: 'auto_stories', capability: 'can_view_report_products' },
-    { route: '/system-health', label: 'System Health', icon: 'monitor_heart', capability: 'can_view_system_health' }
+  readonly navGroups: NavGroup[] = [
+    {
+      label: 'Core',
+      items: [
+        { route: '/dashboard', label: 'Dashboard', icon: 'dashboard', capability: 'can_view_dashboard' },
+        { route: '/work', label: 'My Work', icon: 'task', public: true },
+        { route: '/indicators', label: 'Indicators', icon: 'insights', public: true }
+      ]
+    },
+    {
+      label: 'Publishing',
+      items: [
+        { route: '/reporting', label: 'Reporting', icon: 'description', capability: 'can_view_reporting_builder' },
+        { route: '/template-packs', label: 'Template Packs', icon: 'account_tree', capability: 'can_view_template_packs' },
+        { route: '/downloads', label: 'Downloads', icon: 'download', public: true }
+      ]
+    },
+    {
+      label: 'Biodiversity',
+      items: [
+        { route: '/registries', label: 'Registries', icon: 'biotech', capability: 'can_view_registries' },
+        { route: '/spatial/map', label: 'Spatial Viewer', icon: 'map', capability: 'can_view_spatial' },
+        { route: '/spatial/layers', label: 'Spatial Layers', icon: 'layers', capability: 'can_view_spatial' }
+      ]
+    },
+    {
+      label: 'Operations',
+      items: [
+        { route: '/programmes', label: 'Programmes', icon: 'lan', capability: 'can_view_programmes' },
+        { route: '/integrations', label: 'Integrations', icon: 'sync', capability: 'can_view_birdie' },
+        { route: '/admin', label: 'Admin', icon: 'admin_panel_settings', capability: 'can_view_system_health' },
+        { route: '/system/health', label: 'System Health', icon: 'monitor_heart', capability: 'can_view_system_health' }
+      ]
+    }
   ];
 
-  readonly me$ = this.authService.getMe();
-  readonly visibleNavItems$ = this.me$.pipe(
-    map((me) => this.navItems.filter((item) => this.canShowNavItem(item, me)))
+  readonly me$ = this.authService.getMe().pipe(startWith(null));
+  readonly visibleNavGroups$ = this.me$.pipe(
+    map((me) =>
+      this.navGroups
+        .map((group) => ({
+          ...group,
+          items: group.items.filter((item) => this.canShowNavItem(item, me))
+        }))
+        .filter((group) => group.items.length > 0)
+    )
+  );
+
+  readonly commandItems$ = this.visibleNavGroups$.pipe(
+    map((groups) =>
+      groups.flatMap((group) =>
+        group.items.map<NbmsCommand>((item) => ({
+          id: `${group.label}-${item.route}`,
+          label: `${group.label}: ${item.label}`,
+          icon: item.icon,
+          route: item.route
+        }))
+      )
+    )
   );
   readonly sectionHelp$ = this.router.events.pipe(
     filter((event) => event instanceof NavigationEnd),
@@ -82,8 +103,12 @@ export class App {
     switchMap((sectionKey) =>
       this.helpService
         .getSections()
-        .pipe(map((payload) => payload.sections[sectionKey] ?? payload.sections['section_i'] ?? {}))
-    )
+        .pipe(
+          map((payload) => payload.sections[sectionKey] ?? payload.sections['section_i'] ?? {}),
+          catchError(() => of({}))
+        )
+    ),
+    startWith({})
   );
 
   readonly title$ = this.router.events.pipe(
@@ -98,6 +123,26 @@ export class App {
       return (active.data?.['title'] as string) || 'NBMS Workspace';
     })
   );
+
+  readonly shellVm$ = combineLatest([this.me$, this.sectionHelp$, this.title$, this.visibleNavGroups$, this.commandItems$]).pipe(
+    map(([me, help, title, navGroups, commandItems]) => ({
+      me,
+      help,
+      title,
+      navGroups,
+      commandItems
+    }))
+  );
+
+  readonly environmentBadge =
+    typeof window !== 'undefined' && window.location.hostname.includes('localhost') ? 'DEV' : 'PROD';
+
+  onGlobalSearch(search: string): void {
+    if (!search.trim()) {
+      return;
+    }
+    void this.router.navigate(['/indicators'], { queryParams: { search } });
+  }
 
   private canShowNavItem(item: NavItem, me: AuthMeResponse | null): boolean {
     if (item.public) {

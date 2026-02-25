@@ -10,6 +10,13 @@ export function requireCapability(capability: string): CanActivateFn {
     const router = inject(Router);
     return authService.getMe().pipe(
       map((me) => {
+        if (!me) {
+          if (typeof window !== 'undefined') {
+            const next = encodeURIComponent(window.location.pathname + window.location.search);
+            window.location.assign(`/account/login/?next=${next}`);
+          }
+          return false;
+        }
         if (me?.capabilities?.[capability]) {
           return true;
         }
