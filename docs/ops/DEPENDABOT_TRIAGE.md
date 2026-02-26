@@ -92,3 +92,4 @@ A PR is mergeable now only when all are true:
   - LOW: #31, #32, #33, #35, #36-#46, #49, #54
   - MEDIUM: #47, #51, #52, #53
 - Deferred to upgrade track (HIGH): #34, #48, #50
+- Note: repository auto-merge is currently disabled (`enablePullRequestAutoMerge`), so merges must be triggered manually after checks pass.
