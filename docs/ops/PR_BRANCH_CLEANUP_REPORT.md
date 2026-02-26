@@ -118,9 +118,8 @@
   - Merge with squash + auto-delete after checks pass.
 - Optional: after dependency PRs are merged/closed, repeat this cleanup to remove their branches.
 - Default-branch CI hardening (post-cleanup baseline issues still present):
-  - `tests-linux-full`: one failing test (`test_alignment_bulk_ordering_lexicographic`).
   - `security-baseline`: gitleaks findings in `docs/external/*.html` treated as leaks.
-  - `docker-minimal-smoke` and `docker-spatial-smoke`: `postgis` container exits during compose startup.
+  - `docker-minimal-smoke` and `docker-spatial-smoke`: compose startup fails due `postgis` container exit (3).
 
 ## Post-Cleanup Verification
 
@@ -130,7 +129,7 @@
 - CI on `main` after cleanup + workflow remediation:
   - `Migration Verification`: success
   - `CodeQL`: success
-  - `CI`: failure (baseline issues above; branch-cleanup changes verified as not the root cause)
+  - `CI`: failure (security scan and docker smoke baseline issues above; branch-cleanup changes verified as not the root cause)
 
 ## Branches Deleted (Remote, with Archive Tags)
 
