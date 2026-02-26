@@ -103,6 +103,7 @@
   - Investigated failing `Migration Verification` and `CodeQL` runs after cleanup.
   - Root cause: Python dependency installation failed on `pycairo` due missing Cairo system libs on runner.
   - Remediation committed in workflows:
+    - `.github/workflows/ci.yml`: add `libcairo2-dev` and `pkg-config` in Python Ubuntu jobs
     - `.github/workflows/migration-verify.yml`: install `libcairo2-dev` and `pkg-config`
     - `.github/workflows/codeql.yml`: add Python-job system dependency install for `libcairo2-dev` and `pkg-config`
 
