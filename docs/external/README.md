@@ -1,0 +1,34 @@
+# External Standards Notes
+
+This folder tracks authoritative external references used to align NBMS implementation decisions.
+
+Captured on: 2026-02-08
+
+Files:
+
+- `cbd-cop16-31-notes.md`
+- `gbf-indicator-repository-notes.md`
+- `unep-dart-notes.md`
+- `ramsar-cop14-reporting-notes.md`
+- `birdie-integration-notes.md`
+- `spatial_sources/README.md`
+- `spatial_sources/natural_earth_admin1.md`
+- `spatial_sources/natural_earth_protected_lands.md`
+- `spatial_sources/dffe_sapad_protected_areas.md`
+- `spatial_sources/natural_earth_geography_regions.md`
+- `spatial_sources/wdpa_optional.md`
+- `registry_standards/README.md`
+- `registry_standards/darwin_core.md`
+- `registry_standards/gbif_taxonomy_interpretation.md`
+- `registry_standards/sanbi_vegmap.md`
+- `registry_standards/iucn_get.md`
+- `registry_standards/iucn_rle.md`
+- `registry_standards/eicat.md`
+- `registry_standards/seicat.md`
+- `registry_standards/griis.md`
+
+Each note includes:
+
+- source link(s),
+- extracted requirements,
+- implementation mapping into this repository.

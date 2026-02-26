@@ -7,14 +7,23 @@ from django.utils import timezone
 
 from nbms_app.exports.ort_nr7_narrative import _active_ruleset_code, _required_templates
 from nbms_app.models import (
+    BinaryIndicatorGroupResponse,
     BinaryIndicatorResponse,
     Dataset,
     DatasetRelease,
     Evidence,
     Indicator,
+    FrameworkGoal,
+    LifecycleStatus,
+    NbsapStatus,
     ReportSectionResponse,
+    SectionIINBSAPStatus,
+    SectionIReportContext,
     SectionIIINationalTargetProgress,
+    SectionIVFrameworkGoalProgress,
     SectionIVFrameworkTargetProgress,
+    SectionVConclusions,
+    StakeholderInvolvement,
 )
 from nbms_app.services.authorization import filter_queryset_for_user
 from nbms_app.services.consent import consent_is_granted, requires_consent
@@ -25,6 +34,7 @@ from nbms_app.services.indicator_data import (
     indicator_data_series_for_user,
 )
 from nbms_app.services.instance_approvals import approved_queryset
+from nbms_app.services.export_contracts import validate_ort_nr7_v2_payload_shape
 from nbms_app.services.section_progress import scoped_framework_targets, scoped_national_targets
 
 
@@ -43,6 +53,186 @@ def _sort_series_key(series):
     framework_code = series.framework_indicator.code if series.framework_indicator_id else ""
     indicator_code = series.indicator.code if series.indicator_id else str(series.uuid)
     return (framework_code, indicator_code)
+
+
+def _section_response_by_code(*, templates, response_map):
+    by_code = {}
+    for template in templates:
+        by_code[template.code] = response_map.get(template.id)
+    return by_code
+
+
+def _serialize_section_i_content(*, instance, fallback):
+    section = SectionIReportContext.objects.filter(reporting_instance=instance).first()
+    additional_languages = []
+    if section:
+        additional_languages = sorted([str(value) for value in section.additional_languages or []])
+    elif isinstance(fallback.get("additional_languages"), list):
+        additional_languages = sorted([str(value) for value in fallback.get("additional_languages") or []])
+
+    return {
+        "reporting_party_name": (
+            section.reporting_party_name
+            if section
+            else str(fallback.get("reporting_party_name") or getattr(settings, "NBMS_REPORTING_PARTY_NAME", "South Africa"))
+        ),
+        "submission_language": (
+            section.submission_language
+            if section
+            else str(fallback.get("submission_language") or getattr(settings, "NBMS_SUBMISSION_LANGUAGE", "English"))
+        ),
+        "additional_languages": additional_languages,
+        "responsible_authorities": section.responsible_authorities if section else str(fallback.get("responsible_authorities") or ""),
+        "contact_name": section.contact_name if section else str(fallback.get("contact_name") or ""),
+        "contact_email": section.contact_email if section else str(fallback.get("contact_email") or ""),
+        "preparation_process": section.preparation_process if section else str(fallback.get("preparation_process") or ""),
+        "preparation_challenges": (
+            section.preparation_challenges if section else str(fallback.get("preparation_challenges") or "")
+        ),
+        "acknowledgements": section.acknowledgements if section else str(fallback.get("acknowledgements") or ""),
+        "updated_at": section.updated_at.isoformat() if section else None,
+        "updated_by": section.updated_by.username if section and section.updated_by else None,
+    }
+
+
+def _serialize_section_ii_content(*, instance, fallback):
+    section = SectionIINBSAPStatus.objects.filter(reporting_instance=instance).first()
+    stakeholder_groups = []
+    if section:
+        stakeholder_groups = sorted([str(value) for value in section.stakeholder_groups or []])
+    elif isinstance(fallback.get("stakeholder_groups"), list):
+        stakeholder_groups = sorted([str(value) for value in fallback.get("stakeholder_groups") or []])
+
+    return {
+        "nbsap_updated_status": section.nbsap_updated_status if section else str(fallback.get("nbsap_updated_status") or NbsapStatus.UNKNOWN),
+        "nbsap_updated_other_text": section.nbsap_updated_other_text if section else str(fallback.get("nbsap_updated_other_text") or ""),
+        "nbsap_expected_completion_date": (
+            section.nbsap_expected_completion_date.isoformat()
+            if section and section.nbsap_expected_completion_date
+            else None
+        ),
+        "stakeholders_involved": section.stakeholders_involved if section else str(fallback.get("stakeholders_involved") or StakeholderInvolvement.UNKNOWN),
+        "stakeholder_groups": stakeholder_groups,
+        "stakeholder_groups_other_text": (
+            section.stakeholder_groups_other_text if section else str(fallback.get("stakeholder_groups_other_text") or "")
+        ),
+        "stakeholder_groups_notes": section.stakeholder_groups_notes if section else str(fallback.get("stakeholder_groups_notes") or ""),
+        "nbsap_adopted_status": section.nbsap_adopted_status if section else str(fallback.get("nbsap_adopted_status") or NbsapStatus.UNKNOWN),
+        "nbsap_adopted_other_text": section.nbsap_adopted_other_text if section else str(fallback.get("nbsap_adopted_other_text") or ""),
+        "nbsap_adoption_mechanism": section.nbsap_adoption_mechanism if section else str(fallback.get("nbsap_adoption_mechanism") or ""),
+        "nbsap_expected_adoption_date": (
+            section.nbsap_expected_adoption_date.isoformat()
+            if section and section.nbsap_expected_adoption_date
+            else None
+        ),
+        "monitoring_system_description": (
+            section.monitoring_system_description if section else str(fallback.get("monitoring_system_description") or "")
+        ),
+        "updated_at": section.updated_at.isoformat() if section else None,
+        "updated_by": section.updated_by.username if section and section.updated_by else None,
+    }
+
+
+def _serialize_section_v_content(*, instance, fallback):
+    section = SectionVConclusions.objects.filter(reporting_instance=instance).prefetch_related("evidence_items").first()
+    evidence_uuids = _sorted_uuid_list(section.evidence_items.all()) if section else []
+    return {
+        "overall_assessment": section.overall_assessment if section else str(fallback.get("overall_assessment") or ""),
+        "decision_15_8_information": (
+            section.decision_15_8_information if section else str(fallback.get("decision_15_8_information") or "")
+        ),
+        "decision_15_7_information": (
+            section.decision_15_7_information if section else str(fallback.get("decision_15_7_information") or "")
+        ),
+        "decision_15_11_information": (
+            section.decision_15_11_information if section else str(fallback.get("decision_15_11_information") or "")
+        ),
+        "plant_conservation_information": (
+            section.plant_conservation_information if section else str(fallback.get("plant_conservation_information") or "")
+        ),
+        "additional_notes": section.additional_notes if section else str(fallback.get("additional_notes") or ""),
+        "evidence_uuids": evidence_uuids,
+        "updated_at": section.updated_at.isoformat() if section else None,
+        "updated_by": section.updated_by.username if section and section.updated_by else None,
+    }
+
+
+def _serialize_section_iv_goals(*, instance, user, scoped_framework_targets):
+    goals_qs = filter_queryset_for_user(
+        FrameworkGoal.objects.select_related("framework"),
+        user,
+        perm="nbms_app.view_frameworkgoal",
+    ).filter(status=LifecycleStatus.PUBLISHED)
+    if scoped_framework_targets.exists():
+        goal_ids = scoped_framework_targets.values_list("goal_id", flat=True)
+        goals_qs = goals_qs.filter(id__in=goal_ids)
+    goal_entries = (
+        SectionIVFrameworkGoalProgress.objects.filter(
+            reporting_instance=instance,
+            framework_goal__in=goals_qs,
+        )
+        .select_related("framework_goal", "framework_goal__framework")
+        .prefetch_related("evidence_items")
+        .order_by("framework_goal__framework__code", "framework_goal__sort_order", "framework_goal__code")
+    )
+    payload = []
+    for entry in goal_entries:
+        payload.append(
+            {
+                "uuid": str(entry.uuid),
+                "framework_goal": {
+                    "uuid": str(entry.framework_goal.uuid),
+                    "code": entry.framework_goal.code,
+                    "title": entry.framework_goal.title,
+                    "framework_code": entry.framework_goal.framework.code,
+                },
+                "progress_summary": entry.progress_summary,
+                "actions_taken": entry.actions_taken,
+                "outcomes": entry.outcomes,
+                "challenges_and_approaches": entry.challenges_and_approaches,
+                "sdg_and_other_agreements": entry.sdg_and_other_agreements,
+                "evidence_uuids": _sorted_uuid_list(entry.evidence_items.all()),
+            }
+        )
+    return payload
+
+
+def _binary_group_sort_key(group_response):
+    group = group_response.group
+    framework_target_code = group.framework_target.code if group.framework_target_id and group.framework_target else ""
+    indicator_code = group.framework_indicator.code if group.framework_indicator_id and group.framework_indicator else ""
+    return (framework_target_code, indicator_code, group.ordering, group.key)
+
+
+def _serialize_binary_group_responses(*, instance, user):
+    allowed_question_ids = binary_indicator_responses_for_user(user, instance).values_list("question_id", flat=True)
+    group_responses = (
+        BinaryIndicatorGroupResponse.objects.filter(
+            reporting_instance=instance,
+            group__questions__id__in=allowed_question_ids,
+        )
+        .select_related("group", "group__framework_target", "group__framework_indicator")
+        .distinct()
+    )
+    payload = []
+    for response in sorted(group_responses, key=_binary_group_sort_key):
+        group = response.group
+        payload.append(
+            {
+                "uuid": str(response.uuid),
+                "group": {
+                    "uuid": str(group.uuid),
+                    "key": group.key,
+                    "framework_target_code": group.framework_target.code if group.framework_target_id else group.target_code,
+                    "framework_indicator_code": group.framework_indicator.code if group.framework_indicator_id else None,
+                    "binary_indicator_code": group.binary_indicator_code,
+                    "title": group.title,
+                    "ordering": group.ordering,
+                },
+                "comments": response.comments,
+            }
+        )
+    return payload
 
 
 def _require_referential_integrity(*, instance, user, section_iii_entries, section_iv_entries):
@@ -136,15 +326,25 @@ def build_ort_nr7_v2_payload(*, instance, user):
         template__in=templates,
     ).select_related("template", "updated_by")
     response_map = {response.template_id: response for response in responses}
+    response_by_code = _section_response_by_code(templates=templates, response_map=response_map)
 
     sections = []
     for template in templates:
-        response = response_map.get(template.id)
+        response = response_by_code.get(template.code)
+        fallback_content = response.response_json if response else {}
+        if template.code == "section-i":
+            content = _serialize_section_i_content(instance=instance, fallback=fallback_content)
+        elif template.code == "section-ii":
+            content = _serialize_section_ii_content(instance=instance, fallback=fallback_content)
+        elif template.code == "section-v":
+            content = _serialize_section_v_content(instance=instance, fallback=fallback_content)
+        else:
+            content = fallback_content
         sections.append(
             {
                 "code": template.code,
                 "title": template.title,
-                "content": response.response_json if response else {},
+                "content": content,
             }
         )
 
@@ -180,6 +380,11 @@ def build_ort_nr7_v2_payload(*, instance, user):
         )
         .order_by("framework_target__code")
     )
+    section_iv_goal_payload = _serialize_section_iv_goals(
+        instance=instance,
+        user=user,
+        scoped_framework_targets=scoped_framework,
+    )
 
     eligibility = _require_referential_integrity(
         instance=instance,
@@ -208,10 +413,15 @@ def build_ort_nr7_v2_payload(*, instance, user):
                     "title": entry.national_target.title,
                 },
                 "progress_status": entry.progress_status,
+                "progress_level": entry.progress_level,
+                "progress_summary": entry.summary,
                 "summary": entry.summary,
                 "actions_taken": entry.actions_taken,
                 "outcomes": entry.outcomes,
                 "challenges": entry.challenges,
+                "challenges_and_approaches": entry.challenges_and_approaches,
+                "effectiveness_examples": entry.effectiveness_examples,
+                "sdg_and_other_agreements": entry.sdg_and_other_agreements,
                 "support_needed": entry.support_needed,
                 "period_start": entry.period_start.isoformat() if entry.period_start else None,
                 "period_end": entry.period_end.isoformat() if entry.period_end else None,
@@ -242,10 +452,15 @@ def build_ort_nr7_v2_payload(*, instance, user):
                     "framework_code": entry.framework_target.framework.code,
                 },
                 "progress_status": entry.progress_status,
+                "progress_level": entry.progress_level,
+                "progress_summary": entry.summary,
                 "summary": entry.summary,
                 "actions_taken": entry.actions_taken,
                 "outcomes": entry.outcomes,
                 "challenges": entry.challenges,
+                "challenges_and_approaches": entry.challenges_and_approaches,
+                "effectiveness_examples": entry.effectiveness_examples,
+                "sdg_and_other_agreements": entry.sdg_and_other_agreements,
                 "support_needed": entry.support_needed,
                 "period_start": entry.period_start.isoformat() if entry.period_start else None,
                 "period_end": entry.period_end.isoformat() if entry.period_end else None,
@@ -333,6 +548,8 @@ def build_ort_nr7_v2_payload(*, instance, user):
             }
         )
 
+    binary_group_payloads = _serialize_binary_group_responses(instance=instance, user=user)
+
     generated_at = timezone.now().isoformat()
     payload = {
         "schema": "nbms.ort.nr7.v2",
@@ -354,9 +571,11 @@ def build_ort_nr7_v2_payload(*, instance, user):
         },
         "sections": sections,
         "section_iii_progress": section_iii_payload,
+        "section_iv_goal_progress": section_iv_goal_payload,
         "section_iv_progress": section_iv_payload,
         "indicator_data_series": series_payloads,
         "binary_indicator_data": binary_payloads,
+        "binary_indicator_group_responses": binary_group_payloads,
         "nbms_meta": {
             "instance_uuid": str(instance.uuid),
             "ruleset_code": _active_ruleset_code(instance),
@@ -373,4 +592,4 @@ def build_ort_nr7_v2_payload(*, instance, user):
             },
         },
     }
-    return payload
+    return validate_ort_nr7_v2_payload_shape(payload)

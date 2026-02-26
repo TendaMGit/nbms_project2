@@ -19,7 +19,10 @@ from nbms_app.models import (
     FrameworkIndicatorType,
     FrameworkTarget,
     Indicator,
+    IndicatorReportingCapability,
+    IndicatorUpdateFrequency,
     IndicatorMethodologyVersionLink,
+    License,
     LifecycleStatus,
     Methodology,
     MethodologyDatasetLink,
@@ -27,6 +30,8 @@ from nbms_app.models import (
     MethodologyStatus,
     MethodologyVersion,
     MonitoringProgramme,
+    NationalIndicatorType,
+    NationalTarget,
     Organisation,
     ProgrammeDatasetLink,
     ProgrammeIndicatorLink,
@@ -35,7 +40,9 @@ from nbms_app.models import (
     RelationshipType,
     SensitivityClass,
     SensitivityLevel,
+    SourceDocument,
     UpdateFrequency,
+    User,
 )
 
 
@@ -241,6 +248,39 @@ ENTITY_HEADERS = {
         "source_system",
         "source_ref",
     ],
+    "indicator": [
+        "indicator_uuid",
+        "indicator_code",
+        "indicator_title",
+        "national_target_code",
+        "national_target_uuid",
+        "indicator_type",
+        "reporting_cadence",
+        "qa_status",
+        "responsible_org_code",
+        "data_steward_username",
+        "indicator_lead_username",
+        "source_document_uuid",
+        "license_code",
+        "computation_notes",
+        "limitations",
+        "spatial_coverage",
+        "temporal_coverage",
+        "organisation_code",
+        "sensitivity",
+        "source_system",
+        "source_ref",
+        "reporting_capability",
+        "reporting_no_reason_codes",
+        "reporting_no_reason_notes",
+        "owner_org_code",
+        "update_frequency",
+        "last_updated_on",
+        "coverage_geography",
+        "coverage_time_start_year",
+        "coverage_time_end_year",
+        "data_quality_note",
+    ],
     "gbf_goals": [
         "framework_code",
         "goal_code",
@@ -288,8 +328,11 @@ CONTROLLED_VOCABS = {
     "relationship_type": {choice.value for choice in RelationshipType},
     "methodology_status": {choice.value for choice in MethodologyStatus},
     "framework_indicator_type": {choice.value for choice in FrameworkIndicatorType},
+    "national_indicator_type": {choice.value for choice in NationalIndicatorType},
     "lifecycle_status": {choice.value for choice in LifecycleStatus},
     "sensitivity_level": {choice.value for choice in SensitivityLevel},
+    "indicator_reporting_capability": {choice.value for choice in IndicatorReportingCapability},
+    "indicator_update_frequency": {choice.value for choice in IndicatorUpdateFrequency},
     "licence_type": {"CC-BY", "CC-BY-SA", "CC0", "custom", "restricted"},
 }
 
@@ -1201,6 +1244,166 @@ def _import_methodology_indicator_link(row, mode, row_number):
     return created_total, updated_total
 
 
+def _import_indicator(row, mode, row_number):
+    uuid_value = _parse_uuid(row.get("indicator_uuid"), "indicator_uuid", row_number)
+    code = _clean(row.get("indicator_code"))
+    title = _clean(row.get("indicator_title"))
+    if not code:
+        raise CommandError("indicator_code is required.")
+    if not title:
+        raise CommandError("indicator_title is required.")
+    _check_uuid_conflict(Indicator, uuid_value, "code", code, row_number, "Indicator")
+
+    target_uuid = _parse_uuid(row.get("national_target_uuid"), "national_target_uuid", row_number)
+    target_code = _clean(row.get("national_target_code"))
+    target = None
+    if target_uuid:
+        target = NationalTarget.objects.filter(uuid=target_uuid).first()
+    elif target_code:
+        target = NationalTarget.objects.filter(code=target_code).first()
+    if not target:
+        raise CommandError("NationalTarget is required (national_target_uuid or national_target_code).")
+
+    indicator_type = _normalize_choice(
+        row.get("indicator_type"),
+        CONTROLLED_VOCABS["national_indicator_type"],
+        "indicator_type",
+        row_number,
+        default=NationalIndicatorType.OTHER,
+    )
+    reporting_cadence = _normalize_choice(
+        row.get("reporting_cadence"),
+        CONTROLLED_VOCABS["update_frequency"],
+        "reporting_cadence",
+        row_number,
+        default="",
+    )
+    qa_status = _normalize_choice(
+        row.get("qa_status"),
+        CONTROLLED_VOCABS["qa_status"],
+        "qa_status",
+        row_number,
+        default=QaStatus.DRAFT,
+    )
+    sensitivity = _normalize_choice(
+        row.get("sensitivity"),
+        CONTROLLED_VOCABS["sensitivity_level"],
+        "sensitivity",
+        row_number,
+        default=SensitivityLevel.INTERNAL,
+    )
+    reporting_capability = _normalize_choice(
+        row.get("reporting_capability"),
+        CONTROLLED_VOCABS["indicator_reporting_capability"],
+        "reporting_capability",
+        row_number,
+        default=IndicatorReportingCapability.UNKNOWN,
+    )
+    update_frequency = _normalize_choice(
+        row.get("update_frequency"),
+        CONTROLLED_VOCABS["indicator_update_frequency"],
+        "update_frequency",
+        row_number,
+        default=IndicatorUpdateFrequency.UNKNOWN,
+    )
+
+    responsible_org = _resolve_by_code(
+        Organisation,
+        "org_code",
+        row.get("responsible_org_code"),
+        row_number,
+        "Organisation",
+    )
+    organisation = _resolve_by_code(
+        Organisation,
+        "org_code",
+        row.get("organisation_code"),
+        row_number,
+        "Organisation",
+    )
+    owner_org = _resolve_by_code(
+        Organisation,
+        "org_code",
+        row.get("owner_org_code"),
+        row_number,
+        "Organisation",
+    )
+    license_obj = _resolve_by_code(
+        License,
+        "code",
+        row.get("license_code"),
+        row_number,
+        "License",
+    )
+
+    data_steward = None
+    data_steward_username = _clean(row.get("data_steward_username"))
+    if data_steward_username:
+        data_steward = User.objects.filter(username=data_steward_username).first()
+        if not data_steward:
+            raise CommandError(f"User not found for data_steward_username '{data_steward_username}'.")
+
+    indicator_lead = None
+    indicator_lead_username = _clean(row.get("indicator_lead_username"))
+    if indicator_lead_username:
+        indicator_lead = User.objects.filter(username=indicator_lead_username).first()
+        if not indicator_lead:
+            raise CommandError(f"User not found for indicator_lead_username '{indicator_lead_username}'.")
+
+    source_document = None
+    source_document_uuid = _parse_uuid(
+        row.get("source_document_uuid"),
+        "source_document_uuid",
+        row_number,
+    )
+    if source_document_uuid:
+        source_document = SourceDocument.objects.filter(uuid=source_document_uuid).first()
+        if not source_document:
+            raise CommandError(f"SourceDocument not found for UUID '{source_document_uuid}'.")
+
+    reporting_no_reason_codes = _split_codes(row.get("reporting_no_reason_codes"))
+
+    defaults = {
+        "code": code,
+        "title": title,
+        "national_target": target,
+        "indicator_type": indicator_type,
+        "reporting_cadence": reporting_cadence,
+        "qa_status": qa_status,
+        "responsible_org": responsible_org,
+        "data_steward": data_steward,
+        "indicator_lead": indicator_lead,
+        "source_document": source_document,
+        "license": license_obj,
+        "computation_notes": _clean(row.get("computation_notes")),
+        "limitations": _clean(row.get("limitations")),
+        "spatial_coverage": _clean(row.get("spatial_coverage")),
+        "temporal_coverage": _clean(row.get("temporal_coverage")),
+        "organisation": organisation,
+        "sensitivity": sensitivity,
+        "source_system": _clean(row.get("source_system")),
+        "source_ref": _clean(row.get("source_ref")),
+        "reporting_capability": reporting_capability,
+        "reporting_no_reason_codes": reporting_no_reason_codes,
+        "reporting_no_reason_notes": _clean(row.get("reporting_no_reason_notes")),
+        "owner_organisation": owner_org,
+        "update_frequency": update_frequency,
+        "last_updated_on": _parse_date(row.get("last_updated_on"), "last_updated_on", row_number),
+        "coverage_geography": _clean(row.get("coverage_geography")),
+        "coverage_time_start_year": _parse_int(
+            row.get("coverage_time_start_year"), "coverage_time_start_year", row_number
+        ),
+        "coverage_time_end_year": _parse_int(
+            row.get("coverage_time_end_year"), "coverage_time_end_year", row_number
+        ),
+        "data_quality_note": _clean(row.get("data_quality_note")),
+    }
+
+    lookup = {"uuid": uuid_value} if uuid_value else {"code": code}
+    _, created, updated = _upsert_model(Indicator, lookup, defaults, mode, row_number, "Indicator")
+    return created, updated
+
+
 
 def _import_gbf_goal(row, mode, row_number):
     framework_code = _clean(row.get("framework_code"))
@@ -1316,6 +1519,7 @@ _IMPORTERS = {
     "programme_indicator_link": _import_programme_indicator_link,
     "methodology_dataset_link": _import_methodology_dataset_link,
     "methodology_indicator_link": _import_methodology_indicator_link,
+    "indicator": _import_indicator,
     "gbf_goals": _import_gbf_goal,
     "gbf_targets": _import_gbf_target,
     "gbf_indicators": _import_gbf_indicator,

@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.urls import reverse
 
 from nbms_app.models import (
+    AlienTaxonProfile,
     ApprovalDecision,
     AccessLevel,
     ConsentRecord,
@@ -17,11 +18,13 @@ from nbms_app.models import (
     DatasetRelease,
     Evidence,
     ExportStatus,
+    EcosystemType,
     FrameworkTarget,
     Indicator,
     IndicatorDataPoint,
     IndicatorDataSeries,
     IndicatorFrameworkIndicatorLink,
+    IndicatorRegistryCoverageRequirement,
     IndicatorMethodologyVersionLink,
     InstanceExportApproval,
     LifecycleStatus,
@@ -37,6 +40,7 @@ from nbms_app.models import (
     SensitivityLevel,
     SectionIIINationalTargetProgress,
     SectionIVFrameworkTargetProgress,
+    TaxonConcept,
     ValidationRuleSet,
     ValidationScope,
     MethodologyDatasetLink,
@@ -135,6 +139,39 @@ def _approved_ids(instance, model):
         approval_scope="export",
         decision=ApprovalDecision.APPROVED,
     ).values_list("object_uuid", flat=True)
+
+
+def _consent_granted_uuids(instance, model):
+    if not instance:
+        return set()
+    content_type = ContentType.objects.get_for_model(model)
+    return set(
+        ConsentRecord.objects.filter(
+            content_type=content_type,
+            status=ConsentStatus.GRANTED,
+        )
+        .filter(Q(reporting_instance=instance) | Q(reporting_instance__isnull=True))
+        .values_list("object_uuid", flat=True)
+    )
+
+
+def _indicator_reporting_capability_counts(instance, user):
+    queryset = filter_queryset_for_user(Indicator.objects.all(), user).filter(status=LifecycleStatus.PUBLISHED)
+    if instance:
+        approved_ids = _approved_ids(instance, Indicator)
+        queryset = queryset.filter(uuid__in=approved_ids)
+    indicators = list(queryset)
+    consent_granted = _consent_granted_uuids(instance, Indicator)
+    indicators = [
+        indicator
+        for indicator in indicators
+        if not requires_consent(indicator) or indicator.uuid in consent_granted
+    ]
+    counts = Counter()
+    for indicator in indicators:
+        key = (indicator.reporting_capability or "unknown").lower()
+        counts[key] += 1
+    return {"total": len(indicators), "by_capability": dict(counts), "items": indicators}
 
 
 def _approval_counts(instance, model, user):
@@ -632,6 +669,31 @@ def get_instance_readiness(instance, user):
     if missing_consent:
         blockers.append(_blocker("consent_missing", "Missing consent for approved IPLC records.", count=missing_consent))
 
+    reporting_counts = _indicator_reporting_capability_counts(instance, user)
+    require_reporting_metadata = bool(
+        (rules or {}).get("require_indicator_reporting_metadata")
+        or (rules or {}).get("indicator_reporting_metadata", {}).get("required")
+    )
+    if require_reporting_metadata:
+        missing_reporting_metadata = 0
+        for indicator in reporting_counts["items"]:
+            capability = (indicator.reporting_capability or "unknown").lower()
+            codes = indicator.reporting_no_reason_codes or []
+            if capability == "unknown":
+                missing_reporting_metadata += 1
+            elif capability == "no" and not codes:
+                missing_reporting_metadata += 1
+            elif capability in {"yes", "partial"} and codes:
+                missing_reporting_metadata += 1
+        if missing_reporting_metadata:
+            warnings.append(
+                _warning(
+                    "indicator_reporting_metadata_missing",
+                    "Indicators missing reporting capability metadata.",
+                    count=missing_reporting_metadata,
+                )
+            )
+
     section_state_label = "ok"
     if missing_required:
         section_state_label = "blocked" if settings.EXPORT_REQUIRE_SECTIONS else "missing"
@@ -682,6 +744,10 @@ def get_instance_readiness(instance, user):
         "progress": progress_state,
         "approvals": approvals,
         "consent": consent,
+        "indicator_reporting_capability": {
+            "total": reporting_counts["total"],
+            "by_capability": reporting_counts["by_capability"],
+        },
         "export_require_sections": settings.EXPORT_REQUIRE_SECTIONS,
         "frozen_at": instance.frozen_at,
         "frozen_by": instance.frozen_by,
@@ -689,6 +755,7 @@ def get_instance_readiness(instance, user):
     counts = {
         "approvals": approvals,
         "missing_consents": missing_consent,
+        "indicator_reporting_capability": reporting_counts["by_capability"],
     }
     result = _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
     section_score = _score_sections(section_state)
@@ -791,6 +858,54 @@ def get_indicator_readiness(indicator, user, instance=None):
     if not methodology_versions.exists():
         warnings.append(_warning("missing_methodology_version", "No linked methodology version."))
 
+    registry_requirement = (
+        IndicatorRegistryCoverageRequirement.objects.filter(indicator=indicator).first()
+    )
+    registry_counts = {
+        "ecosystems": filter_queryset_for_user(EcosystemType.objects.all(), user).count(),
+        "taxa": filter_queryset_for_user(TaxonConcept.objects.all(), user).count(),
+        "ias_profiles": filter_queryset_for_user(AlienTaxonProfile.objects.all(), user).count(),
+    }
+    registry_checks = []
+    if registry_requirement:
+        registry_checks = [
+            {
+                "key": "ecosystems",
+                "required": registry_requirement.require_ecosystem_registry,
+                "minimum": registry_requirement.min_ecosystem_count,
+                "available": registry_counts["ecosystems"],
+            },
+            {
+                "key": "taxa",
+                "required": registry_requirement.require_taxon_registry,
+                "minimum": registry_requirement.min_taxon_count,
+                "available": registry_counts["taxa"],
+            },
+            {
+                "key": "ias_profiles",
+                "required": registry_requirement.require_ias_registry,
+                "minimum": registry_requirement.min_ias_count,
+                "available": registry_counts["ias_profiles"],
+            },
+        ]
+        for row in registry_checks:
+            label = row["key"].replace("_", " ").title()
+            if not row["required"]:
+                checks.append(_check(f"registry_{row['key']}", f"Registry: {label}", "n/a"))
+                continue
+            if row["available"] >= row["minimum"]:
+                checks.append(_check(f"registry_{row['key']}", f"Registry: {label}", "ok"))
+            else:
+                blockers.append(
+                    _blocker(
+                        f"registry_{row['key']}_insufficient",
+                        f"{label} registry coverage below minimum ({row['available']} < {row['minimum']}).",
+                    )
+                )
+                checks.append(_check(f"registry_{row['key']}", f"Registry: {label}", "missing"))
+    else:
+        checks.append(_check("registry_requirements", "Registry requirements", "n/a"))
+
     checks.append(
         _check("status", "Status", "ok" if indicator.status == LifecycleStatus.PUBLISHED else "incomplete")
     )
@@ -833,11 +948,24 @@ def get_indicator_readiness(indicator, user, instance=None):
         "consent_status": consent_status,
         "consent_required": requires_consent(indicator),
         "eligible_for_export": eligible,
+        "registry_requirement": {
+            "configured": bool(registry_requirement),
+            "checks": registry_checks,
+            "notes": registry_requirement.notes if registry_requirement else "",
+            "last_checked_at": (
+                registry_requirement.last_checked_at.isoformat()
+                if registry_requirement and registry_requirement.last_checked_at
+                else None
+            ),
+        },
     }
     counts = {
         "evidence": evidence_qs.count(),
         "datasets": dataset_qs.count(),
         "methodology_versions": methodology_versions.count(),
+        "registry_ecosystems": registry_counts["ecosystems"],
+        "registry_taxa": registry_counts["taxa"],
+        "registry_ias_profiles": registry_counts["ias_profiles"],
     }
     return _readiness_result(blockers, warnings, details, checks=checks, counts=counts)
 

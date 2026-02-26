@@ -1,0 +1,15 @@
+<div class="field-with-help">
+  <label for="{{ field.id_for_label }}">
+    {{ field.label }}
+    {% if field.help_text %}
+      <span class="help-icon" title="{{ field.help_text }}">&#9432;</span>
+    {% endif %}
+  </label>
+  {{ field }}
+  {% if field.errors %}
+    <div class="field-errors">{{ field.errors }}</div>
+  {% endif %}
+  {% if field.help_text %}
+    <small class="field-help-text">{{ field.help_text }}</small>
+  {% endif %}
+</div>

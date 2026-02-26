@@ -6,28 +6,49 @@ import logging
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
+import environ
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 SRC_DIR = BASE_DIR / "src"
 
-load_dotenv(BASE_DIR / ".env")
+env = environ.Env()
+if os.environ.get("DJANGO_READ_DOT_ENV_FILE", "1").lower() in ("1", "true", "yes"):
+    environ.Env.read_env(str(BASE_DIR / ".env"))
 
-SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
-DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
-ENVIRONMENT = os.environ.get("ENVIRONMENT", "dev").lower()
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="")
+DEBUG = env.bool("DJANGO_DEBUG", default=False)
+ENVIRONMENT = env("ENVIRONMENT", default="dev").lower()
 
 logger = logging.getLogger(__name__)
 
-_default_hosts = "localhost,127.0.0.1,0.0.0.0"
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("DJANGO_ALLOWED_HOSTS", _default_hosts).split(",") if h.strip()]
+_default_hosts = ["localhost", "127.0.0.1", "0.0.0.0"]
+ALLOWED_HOSTS = [h.strip() for h in env.list("DJANGO_ALLOWED_HOSTS", default=_default_hosts) if h.strip()]
 
-_default_csrf = "http://localhost,http://127.0.0.1,http://0.0.0.0"
-CSRF_TRUSTED_ORIGINS = [
-    o.strip() for o in os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", _default_csrf).split(",") if o.strip()
+_default_csrf = [
+    "http://localhost",
+    "http://127.0.0.1",
+    "http://0.0.0.0",
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
 ]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=_default_csrf) if o.strip()]
+CORS_ALLOWED_ORIGINS = [origin.strip() for origin in env.list("CORS_ALLOWED_ORIGINS", default=[]) if origin.strip()]
+CORS_ALLOW_ALL_ORIGINS = env.bool("CORS_ALLOW_ALL_ORIGINS", default=False)
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=True)
+_cors_headers_default = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+CORS_ALLOW_HEADERS = [header.strip().lower() for header in env.list("CORS_ALLOW_HEADERS", default=_cors_headers_default)]
 
-ENABLE_GIS = os.environ.get("ENABLE_GIS", "true").lower() == "true"
+ENABLE_GIS = env.bool("ENABLE_GIS", default=False)
 
 GIS_APPS = ["django.contrib.gis"] if ENABLE_GIS else []
 
@@ -38,6 +59,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "corsheaders",
     *GIS_APPS,
     "django.contrib.sites",
     "rest_framework",
@@ -56,11 +78,16 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
+    "nbms_app.middleware_request_id.RequestIDMiddleware",
     "django.middleware.common.CommonMiddleware",
     "nbms_app.middleware.RateLimitMiddleware",
     "nbms_app.middleware_metrics.MetricsMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "nbms_app.middleware_request_logging.RequestLoggingMiddleware",
+    "nbms_app.middleware_security.SessionSecurityMiddleware",
+    "nbms_app.middleware_security.SecurityHeadersMiddleware",
     "nbms_app.middleware_audit.AuditContextMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -89,37 +116,44 @@ WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
 
-DATABASE_URL = os.environ.get("DATABASE_URL")
+DATABASE_URL = env("DATABASE_URL", default="")
+DB_CONN_MAX_AGE = env.int("DB_CONN_MAX_AGE", default=600)
 if DATABASE_URL:
     import dj_database_url
 
     DATABASES = {
         "default": dj_database_url.parse(
             DATABASE_URL,
-            conn_max_age=600,
+            conn_max_age=DB_CONN_MAX_AGE,
         )
     }
 else:
-    db_name = os.environ.get("NBMS_DB_NAME", os.environ.get("POSTGRES_DB", "nbms_project_db2"))
-    db_user = os.environ.get("NBMS_DB_USER", os.environ.get("POSTGRES_USER", "nbms_user"))
-    db_password = os.environ.get("NBMS_DB_PASSWORD", os.environ.get("POSTGRES_PASSWORD", ""))
-    db_host = os.environ.get("POSTGRES_HOST", "localhost")
-    db_port = os.environ.get("POSTGRES_PORT", "5432")
-    test_db_name = os.environ.get("NBMS_TEST_DB_NAME", os.environ.get("POSTGRES_TEST_DB", "test_nbms_project_db2"))
+    db_name = env("NBMS_DB_NAME", default=env("POSTGRES_DB", default="nbms_project_db2"))
+    db_user = env("NBMS_DB_USER", default=env("POSTGRES_USER", default="nbms_user"))
+    db_password = env("NBMS_DB_PASSWORD", default=env("POSTGRES_PASSWORD", default=""))
+    db_host = env("POSTGRES_HOST", default="localhost")
+    db_port = env("POSTGRES_PORT", default="5432")
+    test_db_name = env("NBMS_TEST_DB_NAME", default=env("POSTGRES_TEST_DB", default="test_nbms_project_db2"))
     DATABASES = {
         "default": {
-            "ENGINE": os.environ.get("DJANGO_DB_ENGINE", "django.contrib.gis.db.backends.postgis"),
+            "ENGINE": env("DJANGO_DB_ENGINE", default="django.contrib.gis.db.backends.postgis"),
             "NAME": db_name,
             "USER": db_user,
             "PASSWORD": db_password,
             "HOST": db_host,
             "PORT": db_port,
+            "CONN_MAX_AGE": DB_CONN_MAX_AGE,
             "TEST": {"NAME": test_db_name},
         }
     }
 
+if ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.db.backends.postgresql"):
+    DATABASES["default"]["ENGINE"] = "django.contrib.gis.db.backends.postgis"
 if not ENABLE_GIS and DATABASES["default"]["ENGINE"].startswith("django.contrib.gis"):
     DATABASES["default"]["ENGINE"] = "django.db.backends.postgresql"
+
+if env.bool("DB_DISABLE_SERVER_SIDE_CURSORS", default=False):
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
 
 
 AUTH_USER_MODEL = "nbms_app.User"
@@ -137,9 +171,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = os.environ.get("DJANGO_TIME_ZONE", "Africa/Johannesburg")
+TIME_ZONE = env("DJANGO_TIME_ZONE", default="Africa/Johannesburg")
 USE_I18N = True
 USE_TZ = True
+# Transitional setting until URLField assume_scheme handling is fully migrated before Django 6.0.
+FORMS_URLFIELD_ASSUME_HTTPS = env.bool("FORMS_URLFIELD_ASSUME_HTTPS", default=True)
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
@@ -147,40 +183,51 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
+DATA_UPLOAD_MAX_MEMORY_SIZE = env.int("DATA_UPLOAD_MAX_MEMORY_SIZE", default=10 * 1024 * 1024)
+FILE_UPLOAD_MAX_MEMORY_SIZE = env.int("FILE_UPLOAD_MAX_MEMORY_SIZE", default=5 * 1024 * 1024)
+DATA_UPLOAD_MAX_NUMBER_FIELDS = env.int("DATA_UPLOAD_MAX_NUMBER_FIELDS", default=2000)
 
-EVIDENCE_MAX_FILE_SIZE = int(os.environ.get("EVIDENCE_MAX_FILE_SIZE", str(25 * 1024 * 1024)))
+EVIDENCE_MAX_FILE_SIZE = env.int("EVIDENCE_MAX_FILE_SIZE", default=25 * 1024 * 1024)
 EVIDENCE_ALLOWED_EXTENSIONS = [
     ext.strip().lower()
-    for ext in os.environ.get(
+    for ext in env(
         "EVIDENCE_ALLOWED_EXTENSIONS",
-        ".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt",
+        default=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt",
     ).split(",")
     if ext.strip()
 ]
 
-EXPORT_REQUIRE_SECTIONS = os.environ.get("EXPORT_REQUIRE_SECTIONS", "false").lower() == "true"
-EXPORT_REQUIRE_READINESS = os.environ.get("EXPORT_REQUIRE_READINESS", "false").lower() == "true"
+EXPORT_REQUIRE_SECTIONS = env.bool("EXPORT_REQUIRE_SECTIONS", default=False)
+EXPORT_REQUIRE_READINESS = env.bool("EXPORT_REQUIRE_READINESS", default=False)
+
+ONLYOFFICE_ENABLED = env.bool("ONLYOFFICE_ENABLED", default=False)
+ONLYOFFICE_DOCUMENT_SERVER_URL = env("ONLYOFFICE_DOCUMENT_SERVER_URL", default="http://onlyoffice")
+ONLYOFFICE_DOCUMENT_SERVER_PUBLIC_URL = env(
+    "ONLYOFFICE_DOCUMENT_SERVER_PUBLIC_URL",
+    default="http://localhost:8082",
+)
+ONLYOFFICE_JWT_SECRET = env("ONLYOFFICE_JWT_SECRET", default="")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 if ENABLE_GIS and os.name == "nt":
-    gdal_path = os.environ.get("GDAL_LIBRARY_PATH")
-    geos_path = os.environ.get("GEOS_LIBRARY_PATH")
+    gdal_path = env("GDAL_LIBRARY_PATH", default=None)
+    geos_path = env("GEOS_LIBRARY_PATH", default=None)
     if gdal_path:
         GDAL_LIBRARY_PATH = gdal_path
     if geos_path:
         GEOS_LIBRARY_PATH = geos_path
 
-if ENABLE_GIS and os.environ.get("DJANGO_DB_ENGINE") == "django.contrib.gis.db.backends.spatialite":
-    os.environ.setdefault("SPATIALITE_LIBRARY_PATH", os.environ.get("SPATIALITE_LIBRARY_PATH", "mod_spatialite"))
+if ENABLE_GIS and env("DJANGO_DB_ENGINE", default="") == "django.contrib.gis.db.backends.spatialite":
+    os.environ.setdefault("SPATIALITE_LIBRARY_PATH", env("SPATIALITE_LIBRARY_PATH", default="mod_spatialite"))
 
-EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
-EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
-EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
-EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
-EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
-EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True").lower() == "true"
-DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "no-reply@nbms.local")
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="no-reply@nbms.local")
 
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
@@ -202,6 +249,14 @@ REST_FRAMEWORK = {
         "rest_framework.authentication.SessionAuthentication",
         "rest_framework.authentication.BasicAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": env("DRF_THROTTLE_ANON", default="120/min"),
+        "user": env("DRF_THROTTLE_USER", default="600/min"),
+    },
 }
 
 SPECTACULAR_SETTINGS = {
@@ -214,17 +269,17 @@ SPECTACULAR_SETTINGS = {
 REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = "drf_spectacular.openapi.AutoSchema"
 
 
-_use_s3_env = os.environ.get("USE_S3")
+_use_s3_env = env("USE_S3", default=None)
 if _use_s3_env is None:
-    _use_s3_env = os.environ.get("USE_S3_STORAGE", "0")
+    _use_s3_env = env("USE_S3_STORAGE", default="0")
 USE_S3 = _use_s3_env.lower() in ("1", "true", "yes")
 USE_S3_STORAGE = USE_S3
-AWS_S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", "http://localhost:9000")
-AWS_ACCESS_KEY_ID = os.environ.get("S3_ACCESS_KEY", "minioadmin")
-AWS_SECRET_ACCESS_KEY = os.environ.get("S3_SECRET_KEY", "minioadmin")
-AWS_STORAGE_BUCKET_NAME = os.environ.get("S3_BUCKET", "nbms-media")
-AWS_S3_REGION_NAME = os.environ.get("S3_REGION", "us-east-1")
-AWS_S3_ADDRESSING_STYLE = os.environ.get("S3_ADDRESSING_STYLE", "path")
+AWS_S3_ENDPOINT_URL = env("S3_ENDPOINT_URL", default="http://localhost:9000")
+AWS_ACCESS_KEY_ID = env("S3_ACCESS_KEY", default="minioadmin")
+AWS_SECRET_ACCESS_KEY = env("S3_SECRET_KEY", default="minioadmin")
+AWS_STORAGE_BUCKET_NAME = env("S3_BUCKET", default="nbms-media")
+AWS_S3_REGION_NAME = env("S3_REGION", default="us-east-1")
+AWS_S3_ADDRESSING_STYLE = env("S3_ADDRESSING_STYLE", default="path")
 AWS_DEFAULT_ACL = None
 AWS_QUERYSTRING_AUTH = False
 
@@ -241,31 +296,120 @@ else:
     }
 
 
-LOG_LEVEL = os.environ.get("DJANGO_LOG_LEVEL", "INFO")
+LOG_LEVEL = env("DJANGO_LOG_LEVEL", default="INFO")
+LOG_JSON = env.bool("DJANGO_LOG_JSON", default=False)
+LOGGING_FORMATTER = "json" if LOG_JSON else "plain"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "handlers": {"console": {"class": "logging.StreamHandler"}},
+    "filters": {
+        "request_id": {
+            "()": "nbms_app.logging_utils.RequestIdLogFilter",
+        },
+        "sensitive_data": {
+            "()": "nbms_app.logging_utils.SensitiveDataFilter",
+        },
+    },
+    "formatters": {
+        "plain": {
+            "format": (
+                "%(asctime)s %(levelname)s %(name)s "
+                "[request_id=%(request_id)s user_id=%(user_id)s method=%(method)s "
+                "path=%(path)s status=%(status_code)s latency_ms=%(latency_ms)s] %(message)s"
+            ),
+        },
+        "json": {
+            "()": "nbms_app.logging_utils.JsonLogFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "filters": ["request_id", "sensitive_data"],
+            "formatter": LOGGING_FORMATTER,
+        }
+    },
     "root": {"handlers": ["console"], "level": LOG_LEVEL},
-    "loggers": {"django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False}},
+    "loggers": {
+        "django": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+        "nbms.request": {"handlers": ["console"], "level": LOG_LEVEL, "propagate": False},
+    },
 }
+
+SENTRY_DSN = env("SENTRY_DSN", default="")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default=ENVIRONMENT)
+SENTRY_TRACES_SAMPLE_RATE = env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.0)
+SENTRY_PROFILES_SAMPLE_RATE = env.float("SENTRY_PROFILES_SAMPLE_RATE", default=0.0)
+SENTRY_SEND_DEFAULT_PII = env.bool("SENTRY_SEND_DEFAULT_PII", default=False)
+SENTRY_RELEASE = env("SENTRY_RELEASE", default="")
+OTEL_ENABLED = env.bool("OTEL_ENABLED", default=False)
+OTEL_SERVICE_NAME = env("OTEL_SERVICE_NAME", default="nbms-backend")
+OTEL_EXPORTER_OTLP_ENDPOINT = env("OTEL_EXPORTER_OTLP_ENDPOINT", default="")
+OTEL_EXPORTER_OTLP_HEADERS = env("OTEL_EXPORTER_OTLP_HEADERS", default="")
+
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            profiles_sample_rate=SENTRY_PROFILES_SAMPLE_RATE,
+            send_default_pii=SENTRY_SEND_DEFAULT_PII,
+            environment=SENTRY_ENVIRONMENT,
+            release=SENTRY_RELEASE or None,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Sentry initialization skipped: %s", exc)
+
+if OTEL_ENABLED:
+    try:
+        from opentelemetry import trace
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.instrumentation.django import DjangoInstrumentor
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+
+        provider = TracerProvider(
+            resource=Resource.create(
+                {
+                    "service.name": OTEL_SERVICE_NAME,
+                    "service.namespace": "nbms",
+                    "deployment.environment": ENVIRONMENT,
+                }
+            )
+        )
+        exporter_kwargs = {}
+        if OTEL_EXPORTER_OTLP_ENDPOINT:
+            exporter_kwargs["endpoint"] = OTEL_EXPORTER_OTLP_ENDPOINT
+        if OTEL_EXPORTER_OTLP_HEADERS:
+            exporter_kwargs["headers"] = OTEL_EXPORTER_OTLP_HEADERS
+        span_exporter = OTLPSpanExporter(**exporter_kwargs)
+        provider.add_span_processor(BatchSpanProcessor(span_exporter))
+        trace.set_tracer_provider(provider)
+        DjangoInstrumentor().instrument()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("OpenTelemetry initialization skipped: %s", exc)
 
 def _bool_env(value):
     return str(value).lower() in ("1", "true", "yes")
 
 
 def _should_use_redis():
-    explicit = os.environ.get("USE_REDIS")
+    explicit = env("USE_REDIS", default=None)
     if explicit is not None:
         return _bool_env(explicit)
-    cache_backend = os.environ.get("CACHE_BACKEND", "").lower()
+    cache_backend = env("CACHE_BACKEND", default="").lower()
     if cache_backend == "redis":
         return True
     return False
 
 
 def _build_cache_settings():
-    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+    redis_url = env("REDIS_URL", default="redis://localhost:6379/0")
     use_redis = _should_use_redis()
     allow_fallback = DEBUG or ENVIRONMENT in ("dev", "test")
 
@@ -298,24 +442,62 @@ CACHES = _build_cache_settings()
 
 RATE_LIMITS = {
     "login": {
-        "rate": os.environ.get("RATE_LIMIT_LOGIN", "5/300"),
+        "rate": env("RATE_LIMIT_LOGIN", default="5/300"),
         "methods": ["POST"],
         "paths": ["/accounts/login/", "/account/login/"],
     },
     "password_reset": {
-        "rate": os.environ.get("RATE_LIMIT_PASSWORD_RESET", "5/300"),
+        "rate": env("RATE_LIMIT_PASSWORD_RESET", default="5/300"),
         "methods": ["POST"],
         "paths": ["/accounts/password_reset/"],
     },
     "workflow": {
-        "rate": os.environ.get("RATE_LIMIT_WORKFLOW", "10/60"),
+        "rate": env("RATE_LIMIT_WORKFLOW", default="10/60"),
         "methods": ["POST"],
         "paths": ["/manage/review-queue/"],
         "actions": ["approve", "reject", "publish", "archive"],
     },
+    "exports": {
+        "rate": env("RATE_LIMIT_EXPORTS", default="20/60"),
+        "methods": ["POST", "GET"],
+        "paths": [
+            "/exports/",
+            "/api/template-packs/",
+            "/api/indicators/",
+            "/api/spatial/layers/",
+        ],
+    },
+    "public_api": {
+        "rate": env("RATE_LIMIT_PUBLIC_API", default="600/60"),
+        "methods": ["GET"],
+        "paths": [
+            "/api/indicators",
+            "/api/spatial/layers",
+            "/api/ogc",
+            "/api/tiles",
+            "/api/help/sections",
+        ],
+    },
+    "spatial_heavy": {
+        "rate": env("RATE_LIMIT_SPATIAL_HEAVY", default="120/60"),
+        "methods": ["GET"],
+        "paths": ["/api/ogc/collections/", "/api/tiles/"],
+    },
+    "metrics": {
+        "rate": env("RATE_LIMIT_METRICS", default="30/60"),
+        "methods": ["GET"],
+        "paths": ["/metrics/", "/api/system/health"],
+    },
 }
 
-METRICS_TOKEN = os.environ.get("METRICS_TOKEN", "")
+METRICS_TOKEN = env("METRICS_TOKEN", default="")
+METRICS_ALLOW_QUERY_TOKEN = env.bool("METRICS_ALLOW_QUERY_TOKEN", default=False)
+HEALTHCHECK_SKIP_MIGRATION_CHECK = env.bool("HEALTHCHECK_SKIP_MIGRATION_CHECK", default=False)
+
+BIRDIE_BASE_URL = env("BIRDIE_BASE_URL", default="")
+BIRDIE_API_TOKEN = env("BIRDIE_API_TOKEN", default="")
+BIRDIE_TIMEOUT_SECONDS = env.int("BIRDIE_TIMEOUT_SECONDS", default=20)
+BIRDIE_USE_FIXTURE = env.bool("BIRDIE_USE_FIXTURE", default=True)
 
 LOGIN_URL = "two_factor:login"
 LOGIN_REDIRECT_URL = "/"

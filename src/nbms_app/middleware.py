@@ -16,7 +16,10 @@ def _parse_rate(rate):
     parts = rate.split("/")
     if len(parts) != 2:
         return None
-    count = int(parts[0])
+    try:
+        count = int(parts[0])
+    except (TypeError, ValueError):
+        return None
     window = parts[1].strip().lower()
     if window.isdigit():
         return count, int(window)
@@ -50,7 +53,7 @@ class RateLimitMiddleware:
                 continue
 
             max_requests, window = parsed
-            key = f"rl:{name}:{_get_client_ip(request)}:{request.path}"
+            key = f"rl:{name}:{_get_client_ip(request)}:{request.method}:{request.path}"
             allowed = self._allow_request(key, max_requests, window)
             if not allowed:
                 response = HttpResponse("Too Many Requests", status=429)

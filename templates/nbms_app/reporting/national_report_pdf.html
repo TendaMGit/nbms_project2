@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ instance.report_title|default:"CBD National Report" }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 20mm;
+      }
+      body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 10pt;
+        color: #1d2a24;
+      }
+      h1, h2, h3 {
+        color: #14503f;
+      }
+      .cover {
+        border: 2px solid #14503f;
+        padding: 18mm 12mm;
+        margin-bottom: 10mm;
+      }
+      .meta {
+        margin: 4mm 0;
+      }
+      .toc {
+        border: 1px solid #d6e4dc;
+        background: #f5f8f6;
+        padding: 4mm;
+      }
+      .section {
+        page-break-inside: avoid;
+        margin-top: 8mm;
+      }
+      .field {
+        margin: 3mm 0;
+      }
+      .label {
+        font-weight: bold;
+      }
+      .value {
+        white-space: pre-wrap;
+      }
+      .annex {
+        margin-top: 8mm;
+      }
+      .mono {
+        font-family: Courier, monospace;
+        font-size: 8pt;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="cover">
+      <h1>{{ instance.report_title|default:"CBD National Report" }}</h1>
+      <div class="meta">Country: {{ instance.country_name }}</div>
+      <div class="meta">Cycle: {{ instance.cycle_code }} - {{ instance.cycle_title }}</div>
+      <div class="meta">Version: {{ instance.version_label }}</div>
+      <div class="meta">Visibility: {% if instance.is_public %}Public{% else %}Internal{% endif %}</div>
+      <div class="meta">Generated at: {{ generated_at|date:"Y-m-d H:i:s" }}</div>
+    </div>
+
+    <div class="toc">
+      <h2>Table of Contents</h2>
+      <ol>
+        {% for section in sections %}
+          <li>{{ section.code|upper }} - {{ section.title }}</li>
+        {% endfor %}
+        {% if annex %}
+          <li>Annex</li>
+        {% endif %}
+      </ol>
+    </div>
+
+    {% for section in sections %}
+      <div class="section">
+        <h2>{{ section.code|upper }} - {{ section.title }}</h2>
+        {% for key, value in section.content.items %}
+          <div class="field">
+            <div class="label">{{ key }}</div>
+            <div class="value">{{ value }}</div>
+          </div>
+        {% empty %}
+          <div class="value">No content provided.</div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+
+    {% if annex %}
+      <div class="annex">
+        <h2>Annex</h2>
+        {% for row in annex %}
+          <h3>{{ row.decision_topic_code }} - {{ row.title }}</h3>
+          {% for key, value in row.response_json.items %}
+            <div class="field">
+              <div class="label">{{ key }}</div>
+              <div class="value">{{ value }}</div>
+            </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="mono">
+      Integrity hash: {{ payload.payload_hash }}
+    </div>
+  </body>
+</html>

@@ -1,0 +1,31 @@
+erDiagram
+  %% Legend and conventions
+  Legend_Notation {
+    string PK_primary_key
+    string FK_foreign_key
+    string UUID_universally_unique_id
+    string GFK_content_type_plus_object_uuid
+    string M2M_shown_via_through_table
+    string STATUS_status_or_lifecycle
+  }
+
+  Legend_TBI {
+    string AS_IS_existing_django_models
+    string TBI_prefix_for_future_tables
+    string _2bi_suffix_for_future_tables
+    string AUTO_M2M_tables_prefix_nbms_app
+  }
+
+  UserCore {
+    bigint id PK
+    string(150) username
+    string(254) email
+    string(150) first_name
+    string(150) last_name
+    boolean is_active
+    boolean is_staff
+    boolean is_superuser
+    datetime last_login
+    datetime date_joined
+    fk organisation FK
+  }

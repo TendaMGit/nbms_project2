@@ -1,88 +1,134 @@
-# Security/Governance Integrity Pack PR
+# PR: Phase 12 National Report Collaboration + Sign-Off + Dossier Integrity (on top of spatial/programme baseline)
 
-## What changed
+## Phase 12 Increment Summary
+This increment adds a production-style CBD National Report workspace (NR7/NR8 unified pack), multi-author revisioning/comments/suggestions, a defensible sign-off chain (including Technical Committee and Publishing Authority steps), print-ready exports (PDF + DOCX), and deterministic reporting dossiers with integrity manifests.
 
-### Authorization
-- Defined SystemAdmin as the only unrestricted role (superuser OR SystemAdmin group OR `nbms_app.system_admin` permission).
-- Removed staff-based ABAC bypasses across authorization and catalog access.
-- Enforced anonymous/public list constraints (published + public + non-sensitive only).
+Primary additions:
+- Unified pack/runtime:
+  - `cbd_national_report_v1` template pack used for both NR7 and NR8 instances.
+- Multi-author collaboration:
+  - section revision chain (`ReportSectionRevision`)
+  - comment threads/messages (`ReportCommentThread`, `ReportComment`)
+  - suggestion workflow (`ReportSuggestedChange`)
+- Sign-off chain:
+  - workflow definitions/instances/actions/section approvals (`ReportWorkflow*`)
+  - evidence gate before technical approval
+  - lock/finalize behavior with final content hash
+- Exports + dossier:
+  - export artifacts (`ReportExportArtifact`)
+  - dossier artifacts (`ReportDossierArtifact`)
+  - deterministic ZIP bundle with integrity/audit/evidence manifests
+- Angular National Report workspace:
+  - section nav + schema-driven editor
+  - comments/suggestions/history/workflow panels
+  - export and dossier actions
 
-### Audit
-- Expanded `AuditEvent` schema to include request metadata and content type references.
-- Added request context middleware and admin hooks for consistent audit context.
-- Added audit events for sensitive reads (detail + list + API) and downloads/exports.
-- Added audit redaction denylist for sensitive fields (geometry, narrative text, contact data, payloads).
-- Prevented duplicate audit entries by suppressing signal-based CRUD logging during workflow/approval/export actions.
+## Phase 12 Commands Run
+```powershell
+docker compose --profile minimal up -d --build
+docker compose --profile spatial up -d --build
+docker compose exec backend python manage.py migrate
+docker compose exec backend pytest -q
+npm --prefix frontend run build
+npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless
+npm --prefix frontend run e2e
 
-### Lifecycle / Workflow
-- Routed archive actions through lifecycle/workflow services (no direct status writes in views).
-- Added service-layer audit logging for workflow transitions.
-
-### Integrity
-- Enforced cross-framework integrity for goal/target/indicator relations in model `clean()` and `save()`.
-- Standardized FrameworkGoal lifecycle to match catalog patterns.
-
-### Methodology Versioning
-- Added MethodologyVersion-first linkage and backfill logic.
-- Updated readiness diagnostics to require active MethodologyVersion links.
-
-### Alignments
-- Added alignment management UI for national to framework targets/indicators and indicator to methodology version links.
-
-### Exports
-- Unified export approvals on `InstanceExportApproval` only.
-- Added audit events for export approvals, submissions, releases, and downloads.
-
-### API
-- Added read-only API endpoints for registry entities with ABAC filtering and audited reads.
-
-## Why (mapped to original findings)
-- Staff ABAC bypass -> replaced with `is_system_admin()` and strict ABAC filtering.
-- Missing audit trails -> centralized audit service + request context + sensitive read logging + export/download audit.
-- Lifecycle edits in views -> moved to workflow/lifecycle services with audited transitions.
-- Cross-framework integrity gaps -> enforced model-level validation and `full_clean()` on save.
-- Methodology versioning ambiguity -> linked indicators to MethodologyVersion and updated readiness.
-- Alignment UI missing -> implemented alignment management pages and permissions.
-- Export approval ambiguity -> InstanceExportApproval as sole authority; UI/logic updated.
-- Limited API -> read-only, ABAC-safe registry endpoints.
-
-## Authorization Evidence
-
-**Code references**
-- `src/nbms_app/services/authorization.py`: `is_system_admin()`, `filter_queryset_for_user()`
-- `src/nbms_app/services/catalog_access.py`: SystemAdmin-only bypass
-- `src/nbms_app/api.py`: audited reads via `audit_sensitive_access()`
-
-**Tests**
-- `src/nbms_app/tests/test_abac_views.py::test_staff_without_system_admin_cannot_view_iplc`
-- `src/nbms_app/tests/test_abac_views.py::test_system_admin_can_view_restricted_and_iplc`
-- `src/nbms_app/tests/test_authorization.py` (SystemAdmin behavior)
-
-## Risk areas + mitigations
-- Audit volume: sensitive reads logged per object; metadata redaction applied.
-- Migration/backfill: additive migration + guarded backfill (only when exactly one active version exists).
-- GDAL/PostGIS dependency: migration verification requires GDAL-enabled environment (documented in `docs/MIGRATION_VERIFICATION.md`).
-
-## How to test
-
-### Automated
+docker compose exec -e NBMS_ADMIN_USERNAME=admin_user -e NBMS_ADMIN_EMAIL=admin@example.org -e NBMS_ADMIN_PASSWORD=CHANGE_ME backend python manage.py ensure_system_admin
+docker compose exec -e SEED_DEMO_USERS=1 -e ALLOW_INSECURE_DEMO_PASSWORDS=1 backend python manage.py seed_demo_users
+docker compose exec backend python manage.py seed_demo_reports
 ```
-$env:DJANGO_SETTINGS_MODULE='config.settings.test'
-$env:PYTHONPATH="$PWD\src"
-pytest -q
+
+## Phase 12 Results
+- Docker stacks: healthy (`minimal` and `spatial`)
+- Migrations: `No migrations to apply`
+- Backend tests: `401 passed`
+- Frontend unit tests: `11 files, 12 tests passed`
+- Playwright e2e: `3 passed`
+- System admin ensured: `Tenda` with `SystemAdmin` group + superuser
+- Demo users ensured: 17 seeded (idempotent)
+- Demo reports ensured: NR7 + NR8 seeded
+
+## Phase 11 Update (Registry Operationalization)
+- Added workflow-governed registry transitions with evidence gates and audit logging:
+  - `/api/registries/{object_type}/{object_uuid}/transition`
+  - `/api/registries/{object_type}/{object_uuid}/evidence`
+- Added registry gold marts and API:
+  - `TaxonGoldSummary`, `EcosystemGoldSummary`, `IASGoldSummary`
+  - `python manage.py refresh_registry_marts`
+  - `GET /api/registries/gold`
+- Added indicator registry readiness linkage:
+  - `IndicatorRegistryCoverageRequirement`
+  - indicator detail now returns `registry_readiness` + `used_by_graph`
+- Added registry-consuming method SDK implementations:
+  - `ecosystem_registry_summary`
+  - `ias_registry_pressure_index`
+  - `taxon_registry_native_voucher_ratio`
+- Updated report products (NBA/GMO/Invasive) to include deterministic mart-derived `auto_sections`, citations, and evidence hooks.
+
+## Summary
+This PR includes the prior spatial/programme hardening stack and extends it with Phase 10 reference registries and programme templates.  
+It adds ecosystem/taxon/IAS registry models, ingestion commands, ABAC-aware registry APIs, Angular registry explorers, and standards traceability docs.
+
+## Commit Phases
+1. `feat(spatial): harden source sync and ingest filtering`
+   - Spatial ingest filters (country subset support), resilient source refresh fallback, schema/migration updates, and sync tests.
+2. `feat(programmes): orchestrate spatial baselines runs with provenance`
+   - Programme run command/orchestration, artefact+QA logging, geoserver publish hooks, overlay compute step, provenance linkage.
+3. `feat(spatial-api): add indicator map endpoints and capability surface`
+   - Indicator map endpoint + province aggregation support, API route additions, capability endpoint/service, API tests.
+4. `feat(frontend): refine map workspace and indicator overlay views`
+   - Map workspace AOI draw/legend upgrades, indicator detail multi-chart + map panel + pipeline metadata.
+5. `feat(demo): add seeded role users and deterministic e2e auth sessions`
+   - Demo/admin bootstrap commands, role visibility matrix export, deterministic session issuance for Playwright, e2e hardening.
+6. `docs(spatial): publish pr-ready runbook/state/api matrix updates`
+   - Runbook/API/integration/changelog/state updates and ADR.
+7. `feat(registries): add standards-aligned ecosystem/taxon/ias registries`
+   - Registry models/migration, enums, programme template model, and registry APIs.
+8. `feat(registry-ingest): add vegmap/taxon/voucher/griis sync commands`
+   - Ingestion and seed commands with provenance/idempotency.
+9. `feat(frontend): add registry explorers and programme template page`
+   - Angular routes/pages/service/models and capability-guarded navigation.
+10. `test(registries): add API and command coverage`
+    - Backend tests for filters/sensitivity and command idempotency.
+11. `docs(registries): add standards trace and runbooks`
+    - ADR, overview/runbook, external standards notes, and state/changelog/api/integration updates.
+
+## Commands Run
+```powershell
+docker compose --profile spatial up -d --build
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py sync_spatial_sources
+docker compose exec backend python manage.py seed_geoserver_layers
+docker compose exec backend python manage.py run_programme --programme-code NBMS-SPATIAL-BASELINES
+docker compose exec backend pytest -q
+npm --prefix frontend run build
+npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless
+npm --prefix frontend run e2e
 ```
-Result: `221 passed, 14 warnings in 88.30s`
 
-### Migration verification (Docker)
-- Windows: `scripts\\verify_migrations.ps1`
-- Linux/macOS: `docker compose -f docker-compose.verify.yml --env-file .env.verify run --rm app ./scripts/verify_migrations.sh`
+## Results
+- Docker spatial stack: up/healthy.
+- Backend tests (docker): `399 passed`.
+- Backend tests (host): `398 passed, 1 skipped`.
+- Frontend unit tests: `11 files, 12 tests passed`.
+- Playwright e2e: `3 passed` (anonymous, system admin, role matrix visibility).
 
-Warnings summary (pre-existing):
-- 2x `RemovedInDjango60Warning` for `CheckConstraint.check` deprecation.
-- 12x `RemovedInDjango60Warning` for default URL scheme change in `forms.URLField`.
+## Screenshot Checklist (to attach in PR)
+- [ ] Map Workspace with layer catalog + AOI draw + legend
+- [ ] Indicator detail showing trend + province bars + map panel
+- [ ] Programme run detail showing QA + artefacts
+- [ ] Role-based nav comparison (Contributor vs Reviewer vs PublicUser)
+- [ ] Ecosystem registry explorer + detail tabs
+- [ ] Taxon registry detail with sensitive locality redaction behavior
+- [ ] IAS registry detail with EICAT/SEICAT panels
+- [ ] GeoServer layer preview for published NBMS layer
 
-### Manual smoke
-- Verify SystemAdmin sees sensitive objects while non-admin staff do not.
-- Exercise workflow transitions (submit/approve/publish/archive) and confirm audit logs.
-- Validate export approvals and export downloads create audit events.
-- Confirm alignment pages render and enforce permissions.
+## Risks & Mitigations
+- Upstream source outages can fail refresh:
+  - Mitigation: fallback keeps previous valid snapshot and marks sync as `skipped`.
+- E2E auth flakiness across session rotation:
+  - Mitigation: `issue_e2e_sessions` command + bootstrap flow; form-login fallback in tests.
+- Access-surface drift with role changes:
+  - Mitigation: centralized capabilities service + exported role visibility matrix + e2e role checks.
+- External source variability in registry ingest:
+  - Mitigation: idempotent command behavior, deterministic hashing, and stored source provenance.

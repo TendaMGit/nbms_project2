@@ -45,6 +45,7 @@ from nbms_app.models import (
     User,
 )
 from nbms_app.roles import get_canonical_groups_queryset
+from nbms_app.section_help import apply_section_help
 from nbms_app.services.authorization import filter_queryset_for_user
 from nbms_app.services.catalog_access import (
     filter_data_agreements_for_user,
@@ -417,6 +418,16 @@ class IndicatorForm(forms.ModelForm):
             "limitations",
             "spatial_coverage",
             "temporal_coverage",
+            "reporting_capability",
+            "reporting_no_reason_codes",
+            "reporting_no_reason_notes",
+            "owner_organisation",
+            "update_frequency",
+            "last_updated_on",
+            "coverage_geography",
+            "coverage_time_start_year",
+            "coverage_time_end_year",
+            "data_quality_note",
             "organisation",
             "sensitivity",
             "source_system",
@@ -429,6 +440,9 @@ class IndicatorForm(forms.ModelForm):
             Organisation.objects.order_by("name"), user
         )
         self.fields["responsible_org"].queryset = filter_organisations_for_user(
+            Organisation.objects.order_by("name"), user
+        )
+        self.fields["owner_organisation"].queryset = filter_organisations_for_user(
             Organisation.objects.order_by("name"), user
         )
         user_qs = User.objects.order_by("username")
@@ -674,6 +688,7 @@ class SectionIIINationalTargetProgressForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
         super().__init__(*args, **kwargs)
+        apply_section_help(self, "section_iii")
         if user is None:
             return
         instance = reporting_instance
@@ -688,6 +703,12 @@ class SectionIIINationalTargetProgressForm(forms.ModelForm):
         self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
         self.fields["evidence_items"].queryset = _filter_evidence_queryset(user, instance)
         self.fields["dataset_releases"].queryset = _filter_dataset_releases_queryset(user, instance)
+
+    def clean(self):
+        cleaned = super().clean()
+        if not (cleaned.get("summary") or "").strip():
+            self.add_error("summary", "Progress summary is required for Section III.")
+        return cleaned
 
 
 class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
@@ -730,6 +751,7 @@ class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
         super().__init__(*args, **kwargs)
+        apply_section_help(self, "section_iv_target")
         if user is None:
             return
         instance = reporting_instance
@@ -744,6 +766,12 @@ class SectionIVFrameworkTargetProgressForm(forms.ModelForm):
         self.fields["binary_indicator_responses"].queryset = binary_indicator_responses_for_user(user, instance)
         self.fields["evidence_items"].queryset = _filter_evidence_queryset(user, instance)
         self.fields["dataset_releases"].queryset = _filter_dataset_releases_queryset(user, instance)
+
+    def clean(self):
+        cleaned = super().clean()
+        if not (cleaned.get("summary") or "").strip():
+            self.add_error("summary", "Progress summary is required for Section IV targets.")
+        return cleaned
 
 
 STAKEHOLDER_GROUP_CHOICES = [
@@ -774,6 +802,10 @@ class SectionIReportContextForm(forms.ModelForm):
             "acknowledgements",
         ]
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        apply_section_help(self, "section_i")
+
 
 class SectionIINBSAPStatusForm(forms.ModelForm):
     stakeholder_groups = forms.MultipleChoiceField(
@@ -801,6 +833,7 @@ class SectionIINBSAPStatusForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        apply_section_help(self, "section_ii")
         self.fields["stakeholder_groups"].choices = STAKEHOLDER_GROUP_CHOICES
 
         if self.instance and getattr(self.instance, "stakeholder_groups", None):
@@ -826,6 +859,7 @@ class SectionIVFrameworkGoalProgressForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
         super().__init__(*args, **kwargs)
+        apply_section_help(self, "section_iv_goal")
         if user is None:
             return
         instance = reporting_instance
@@ -852,6 +886,7 @@ class SectionVConclusionsForm(forms.ModelForm):
 
     def __init__(self, *args, user=None, reporting_instance=None, **kwargs):
         super().__init__(*args, **kwargs)
+        apply_section_help(self, "section_v")
         if user is None:
             return
         instance = reporting_instance

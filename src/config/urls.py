@@ -11,6 +11,7 @@ urlpatterns = [
     path("accounts/", include("django.contrib.auth.urls")),
     path("", include((tf_urls[0], tf_urls[1]), namespace=tf_urls[1])),
     path("", include("nbms_app.urls")),
+    path("api/", include("nbms_app.api_urls")),
     path("api/v1/", include(api_router.urls)),
 ]
 

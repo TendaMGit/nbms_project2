@@ -7,6 +7,36 @@ Clean, portable baseline for the NBMS platform (PostGIS + MinIO + GeoServer).
 NBMS Project 2 is a manager-ready prototype for biodiversity reporting workflows,
 including governance, consent checks, and instance-scoped approvals.
 
+Blueprint boundary (authoritative operating stance):
+- NBMS is a governed registry, ingestion, validation, publication, and reporting platform.
+- Indicator computation pipelines remain contributor-owned and run outside NBMS.
+- NBMS stores approved releases and exposes search, exports, readiness, and reporting outputs.
+- Governance is minimal: ITSC approves methods, and Data Steward review is conditional for flagged sensitivity/licence/IPLC cases.
+- Delivery is framed as `Phase 1 - National MVP (Reporting + Interoperability + Scale Path)` with backlog tiers inside Phase 1.
+
+## Current UI and API reality
+
+- Primary interactive UI is Angular SPA under `frontend/`.
+- Backend is Django (`src/config`, `src/nbms_app`) and remains the source of truth for permissions, workflows, and exports.
+- Authentication for SPA/API is session-cookie + CSRF:
+  - `GET /api/auth/csrf`
+  - `GET /api/auth/me`
+  - `GET /api/auth/capabilities`
+- API surfaces:
+  - SPA/BFF endpoints: `/api/*` (`src/nbms_app/api_urls.py`, handlers in `src/nbms_app/api_spa.py`)
+  - DRF read-only catalog endpoints: `/api/v1/*` (`src/nbms_app/api.py`)
+
+Local dev run (non-Docker):
+
+```bash
+# backend
+python manage.py runserver
+
+# frontend
+npm --prefix frontend install
+npm --prefix frontend run start
+```
+
 ## Feature summary
 
 - Auth and staff management UI (no Django admin needed for day-to-day)
@@ -16,6 +46,9 @@ including governance, consent checks, and instance-scoped approvals.
 - Consent gating for IPLC-sensitive content
 - Export packages with instance-scoped approvals
 - ORT NR7 v2 export (gated) at `/exports/instances/<uuid>/ort-nr7-v2.json`
+- Ramsar/CITES/CMS template-pack runtime (Ramsar includes QA + PDF export)
+- BIRDIE connector ingest with bronze/silver/gold lineage persistence
+- Report product framework for NBA/GMO/Invasive shells (HTML/PDF)
 - Manager report pack preview (HTML)
 - Reference catalog UI for programmes, datasets, methodologies, agreements, and sensitivity classes
 
@@ -33,7 +66,68 @@ See `docs/ops/STATE_OF_REPO.md` for the authoritative Windows-first runbook, pos
 6) Review the manager report pack preview.
 7) Release an export package once blockers are cleared.
 
-## Quickstart (local, no Docker) - Primary (Windows local Postgres, ENABLE_GIS=false)
+## Quickstart (Docker-first) - Primary
+
+1) Create `.env` from example and set required secrets:
+
+```
+copy .env.example .env
+```
+
+Required for Docker compose:
+- `POSTGRES_PASSWORD`
+- `NBMS_DB_PASSWORD`
+- `S3_ACCESS_KEY`
+- `S3_SECRET_KEY`
+- `GEOSERVER_PASSWORD` (only required for `spatial` profile)
+
+2) Start deterministic infrastructure:
+
+A) Minimal profile:
+
+```
+docker compose --profile minimal up -d --build
+```
+
+B) Full profile (minimal + GeoServer):
+
+```
+docker compose --profile full up -d --build
+```
+
+C) Spatial profile (minimal + GeoServer, spatial-focused):
+
+```
+docker compose --profile spatial up -d --build
+```
+
+3) Run backend bootstrap/migrations:
+
+```
+scripts\bootstrap.ps1
+python manage.py bootstrap_roles
+python manage.py seed_reporting_defaults
+python manage.py seed_mea_template_packs
+python manage.py seed_gbf_indicators
+python manage.py seed_birdie_integration
+python manage.py seed_report_products
+```
+
+4) Start backend and run smoke checks:
+
+```
+python manage.py runserver
+scripts\smoke.ps1
+```
+
+Docker-first URLs:
+- Angular app + reverse proxy: `http://localhost:8081/`
+- Backend direct: `http://localhost:8000/`
+- Health through frontend proxy: `http://localhost:8081/health/`
+- BIRDIE dashboard route: `http://localhost:8081/programmes/birdie`
+- Report products route: `http://localhost:8081/report-products`
+
+## Quickstart (Windows no-Docker fallback)
 
 1) Create a virtual environment and install deps:
 
@@ -76,11 +170,21 @@ python manage.py seed_reporting_defaults
 python manage.py runserver
 ```
 
+Deterministic setup shortcut (PowerShell):
+
+```
+scripts\bootstrap.ps1
+python manage.py bootstrap_roles
+python manage.py seed_reporting_defaults
+```
+
 5) Smoke check (PowerShell):
 
 ```
 Invoke-WebRequest http://127.0.0.1:8000/health/ | Select-Object -Expand Content
 Invoke-WebRequest http://127.0.0.1:8000/health/storage/ | Select-Object -Expand Content
+# or
+scripts\smoke.ps1
 ```
 
 Expected responses (with `USE_S3=0`):
@@ -93,45 +197,42 @@ Expected responses (with `USE_S3=0`):
 $env:DJANGO_SETTINGS_MODULE='config.settings.test'
 $env:PYTHONPATH="$PWD\src"
 pytest -q
+# or
+scripts\test.ps1
 ```
 
 Notes:
 - Default test script (`scripts/test.sh`, bash) uses `--keepdb` to avoid prompts on re-runs.
+- PowerShell parity script (`scripts/test.ps1`) follows the same `--keepdb` default.
 - For CI, set `CI=1` (uses `--noinput`).
 - PowerShell users should prefer the `pytest -q` command above.
 - To drop only the test DB: `CONFIRM_DROP_TEST=YES scripts/drop_test_db.sh`.
   Use this if `--keepdb` hits schema drift or test DB mismatch errors.
 The helper drops ONLY the configured test DB and refuses to run if it matches the main DB.
 
-## Optional: Docker infra (PostGIS/Redis/MinIO/optional GeoServer)
+## Docker Profiles
 
-1) Copy the environment file and fill in credentials:
-
-```
-copy .env.example .env
-```
-
-2) Start infra services (choose a mode):
-
-A) Minimal stack (PostGIS + Redis + MinIO):
+Minimal stack (PostGIS + Redis + MinIO):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init
+docker compose --profile minimal up -d --build
 ```
 
-B) Full stack (includes GeoServer):
+Full stack (minimal + GeoServer):
 
 ```
-docker compose -f docker/docker-compose.yml up -d postgis redis minio minio-init geoserver
+docker compose --profile full up -d --build
 ```
 
-3) Bootstrap the app (installs deps + migrate):
+Spatial stack (minimal + GeoServer):
 
 ```
-scripts/bootstrap.sh
+docker compose --profile spatial up -d --build
 ```
 
-4) Reset databases (only when you need a clean slate):
+Legacy infra-only compose file remains available at `docker/docker-compose.yml` for service-only startup.
+
+Reset databases (only when you need a clean slate):
 
 ```
 CONFIRM_DROP=YES scripts/reset_db.sh
@@ -139,7 +240,7 @@ CONFIRM_DROP=YES scripts/reset_db.sh
 
 Use `USE_DOCKER=0` to run the reset against a local Postgres (requires `psql`).
 
-5) Run the server:
+Run the server:
 
 ```
 python manage.py runserver
@@ -241,7 +342,53 @@ Reporting and exports:
 
 Security and monitoring:
 - `RATE_LIMIT_LOGIN`, `RATE_LIMIT_PASSWORD_RESET`, `RATE_LIMIT_WORKFLOW`
+- `RATE_LIMIT_EXPORTS`, `RATE_LIMIT_PUBLIC_API`, `RATE_LIMIT_METRICS`
 - `METRICS_TOKEN` (optional; protects /metrics when set)
+- `DJANGO_LOG_JSON` (set `1` for JSON logs with request correlation)
+- `CONTENT_SECURITY_POLICY`, `CONTENT_SECURITY_POLICY_REPORT_ONLY`
+
+BIRDIE integration:
+- `BIRDIE_BASE_URL` (optional live API base URL)
+- `BIRDIE_API_TOKEN` (optional bearer token)
+- `BIRDIE_TIMEOUT_SECONDS`
+- `BIRDIE_USE_FIXTURE` (`1` default; deterministic fixture fallback)
+
+Demo/admin bootstrap (local only):
+- `SEED_DEMO_USERS` (default `0`)
+- `ALLOW_INSECURE_DEMO_PASSWORDS` (default `0`; required for username=password demo logins)
+- `NBMS_ADMIN_USERNAME`, `NBMS_ADMIN_EMAIL`, `NBMS_ADMIN_PASSWORD`
+- Optional: `NBMS_ADMIN_FIRST_NAME`, `NBMS_ADMIN_LAST_NAME`
+
+## Demo & Admin Verification
+
+Local Docker demo bootstrap (dev profile only):
+
+```
+$env:SEED_DEMO_USERS='1'
+$env:ALLOW_INSECURE_DEMO_PASSWORDS='1'
+$env:NBMS_ADMIN_USERNAME='admin_local'
+$env:NBMS_ADMIN_EMAIL='admin@example.org'
+$env:NBMS_ADMIN_PASSWORD='change-me-now'
+docker compose --profile minimal up -d --build
+```
+
+If the stack is already running:
+
+```
+docker compose exec backend python manage.py seed_demo_users
+docker compose exec backend python manage.py ensure_system_admin
+docker compose exec backend python manage.py list_demo_users
+```
+
+Login URLs:
+- App: `http://localhost:8081/`
+- Django admin: `http://localhost:8081/admin/`
+- MFA login: `http://localhost:8081/account/login/`
+
+Disable demo users and rotate credentials:
+1. Set `SEED_DEMO_USERS=0` and `ALLOW_INSECURE_DEMO_PASSWORDS=0` in `.env`.
+2. Reset demo user passwords in Django admin or deactivate demo accounts.
+3. Rotate `NBMS_ADMIN_PASSWORD` and rerun `python manage.py ensure_system_admin`.
 
 ## Settings
 
@@ -252,12 +399,29 @@ Security and monitoring:
 ## Reporting
 
 - Manager Report Pack preview: `/reporting/instances/<uuid>/report-pack/` (staff-only).
-- Use the browser print dialog to save a PDF (server-side PDF generation is not implemented yet).
+- Angular NR7 Builder: `/nr7-builder` (via frontend app route) with QA bar, section completion, and live preview.
+- NR7 PDF export API: `/api/reporting/instances/<uuid>/nr7/export.pdf`.
 
 ## Exports
 
 - ORT NR7 v2 (gated): `/exports/instances/<uuid>/ort-nr7-v2.json`
 - Gating: readiness + instance approvals + consent checks (IPLC-sensitive content)
+
+## Operations
+
+- System health API (staff/system-admin): `/api/system/health`
+- Programme ops API:
+  - `/api/programmes`
+  - `/api/programmes/<uuid>`
+  - `/api/programmes/<uuid>/runs`
+  - `/api/programmes/runs/<uuid>`
+- Programme ops commands:
+  - `python manage.py seed_programme_ops_v1`
+  - `python manage.py run_monitoring_programmes --limit 10`
+- Backup/restore helpers:
+  - PowerShell: `scripts/backup_stack.ps1`, `scripts/restore_stack.ps1`
+  - POSIX: `scripts/backup_stack.sh`, `scripts/restore_stack.sh`
+  - Runbook: `docs/ops/BACKUP_RESTORE.md`
 
 ## Reference catalog UI
 
@@ -294,4 +458,4 @@ intentionally want multiple active configurations.
 ## Known limitations
 
 - Report pack is HTML only; use print-to-PDF for now.
-- Background jobs (Celery) are not wired yet.
+- Programme scheduler is command-driven; optional always-on worker profile is planned.

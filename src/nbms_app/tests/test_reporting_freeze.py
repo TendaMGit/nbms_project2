@@ -9,6 +9,7 @@ from nbms_app.models import (
     ApprovalDecision,
     AuditEvent,
     InstanceExportApproval,
+    LifecycleStatus,
     NationalTarget,
     Organisation,
     ReportingCycle,
@@ -50,6 +51,7 @@ class ReportingFreezeTests(TestCase):
             title="Target",
             organisation=self.org,
             created_by=self.owner,
+            status=LifecycleStatus.PUBLISHED,
         )
 
     def test_freeze_blocks_non_admin_approvals(self):

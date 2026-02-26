@@ -4,8 +4,16 @@ __pycache__/
 *.pyo
 *.pyd
 *.log
+*.log.*
+coverage.xml
+.coverage
+.coverage.*
+htmlcov/
 celery_worker.err
 .pytest_cache/
+.pytest_tmp/
+.pytest_tmp_local/
+.tmp_ps/
 
 # Virtual environments
 .venv/
@@ -28,4 +36,16 @@ Thumbs.db
 
 # Docker volumes
 .docker/
+
+# Frontend
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+frontend/e2e/.session-keys.json
+
+# Local workspace artifacts
+Instructions v2.docx
+NBMS_Draft Design & Scope.docx
 

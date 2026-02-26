@@ -15,76 +15,52 @@
     <fieldset>
       <legend>Updated NBSAP published</legend>
       <div>
-        {{ form.nbsap_updated_status.label_tag }}
-        {{ form.nbsap_updated_status }}
-        {{ form.nbsap_updated_status.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_updated_status %}
       </div>
       <div id="field_nbsap_updated_other_text">
-        {{ form.nbsap_updated_other_text.label_tag }}
-        {{ form.nbsap_updated_other_text }}
-        {{ form.nbsap_updated_other_text.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_updated_other_text %}
       </div>
       <div id="field_nbsap_expected_completion_date">
-        {{ form.nbsap_expected_completion_date.label_tag }}
-        {{ form.nbsap_expected_completion_date }}
-        {{ form.nbsap_expected_completion_date.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_expected_completion_date %}
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Stakeholders involved</legend>
       <div>
-        {{ form.stakeholders_involved.label_tag }}
-        {{ form.stakeholders_involved }}
-        {{ form.stakeholders_involved.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.stakeholders_involved %}
       </div>
       <div id="field_stakeholder_groups">
-        {{ form.stakeholder_groups.label_tag }}
-        {{ form.stakeholder_groups }}
-        {{ form.stakeholder_groups.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.stakeholder_groups %}
       </div>
       <div id="field_stakeholder_groups_other_text">
-        {{ form.stakeholder_groups_other_text.label_tag }}
-        {{ form.stakeholder_groups_other_text }}
-        {{ form.stakeholder_groups_other_text.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.stakeholder_groups_other_text %}
       </div>
       <div>
-        {{ form.stakeholder_groups_notes.label_tag }}
-        {{ form.stakeholder_groups_notes }}
-        {{ form.stakeholder_groups_notes.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.stakeholder_groups_notes %}
       </div>
     </fieldset>
 
     <fieldset>
       <legend>NBSAP formally adopted</legend>
       <div>
-        {{ form.nbsap_adopted_status.label_tag }}
-        {{ form.nbsap_adopted_status }}
-        {{ form.nbsap_adopted_status.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_adopted_status %}
       </div>
       <div id="field_nbsap_adopted_other_text">
-        {{ form.nbsap_adopted_other_text.label_tag }}
-        {{ form.nbsap_adopted_other_text }}
-        {{ form.nbsap_adopted_other_text.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_adopted_other_text %}
       </div>
       <div id="field_nbsap_adoption_mechanism">
-        {{ form.nbsap_adoption_mechanism.label_tag }}
-        {{ form.nbsap_adoption_mechanism }}
-        {{ form.nbsap_adoption_mechanism.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_adoption_mechanism %}
       </div>
       <div id="field_nbsap_expected_adoption_date">
-        {{ form.nbsap_expected_adoption_date.label_tag }}
-        {{ form.nbsap_expected_adoption_date }}
-        {{ form.nbsap_expected_adoption_date.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.nbsap_expected_adoption_date %}
       </div>
     </fieldset>
 
     <fieldset>
       <legend>Monitoring system description</legend>
       <div>
-        {{ form.monitoring_system_description.label_tag }}
-        {{ form.monitoring_system_description }}
-        {{ form.monitoring_system_description.errors }}
+        {% include "nbms_app/partials/_field_with_help.html" with field=form.monitoring_system_description %}
       </div>
     </fieldset>
 

@@ -1,0 +1,1063 @@
+﻿{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Birdie - OpenAPI 3.0.0",
+    "description": "This is the BIRDIE OpenAPI based on the OpenAPI 3.0 specification. \n<br />\nThis OpenAPI Specification is used by both the BIRDIE website for reporting and map viewer for visualization purposes.\n<br />\nYou can find out more about Swagger at [https://swagger.io](https://swagger.io). \n\nSome useful links:\n- [The Birdie Website](https://birdie.sanbi.org.za/)\n- [The Birdie Map Viewer](https://birdieapp.sanbi.org.za/birdie/mviewer)",
+    "version": "1.0",
+    "contact": {
+      "name": "Institute of Natural Sciences - Biodiversity & Ecosystems Data & Information centre",
+      "email": "bedic@naturalsciences.be"
+    },
+    "license": {
+      "name": "GPL",
+      "url": "https://www.gnu.org/licenses/gpl-3.0.html"
+    }
+  },
+  "servers": [
+    {
+      "url": "/application"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Distribution",
+      "description": "Access Occupancy model data",
+      "x-expanded": false,
+      "x-tagGroups": [
+        {
+          "name": "Models",
+          "tags": [
+            "Distribution",
+            "Abundance"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Abundance",
+      "description": "Access State-Space model data",
+      "x-expanded": false,
+      "x-tagGroups": [
+        {
+          "name": "Models",
+          "tags": [
+            "Distribution",
+            "Abundance"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Site",
+      "description": "Access site information data",
+      "x-expanded": false
+    },
+    {
+      "name": "Species",
+      "description": "Access species information data",
+      "x-expanded": false
+    },
+    {
+      "name": "Variables",
+      "description": "Access ancillary data and additional variables",
+      "x-expanded": false
+    },
+    {
+      "name": "API",
+      "description": "API service up",
+      "x-expanded": false
+    },
+    {
+      "name": "Dev",
+      "description": "API in development",
+      "x-expanded": false
+    }
+  ],
+  "x-metadata": {
+    "authors": [
+      "Yvan Stojanov",
+      "Francis Strobbe"
+    ],
+    "keywords": [
+      "CWAC State-Space model data",
+      "ABAP Occupancy model data",
+      "Data retrieval",
+      "Data analysis"
+    ],
+    "version": 1
+  },
+  "paths": {
+    "/openapi/v1/rec/geojson/pentad/{parameter}/{year}": {
+      "get": {
+        "tags": [
+          "Variables"
+        ],
+        "summary": "Get data for ancillary variables",
+        "parameters": [
+          {
+            "name": "parameter",
+            "in": "path",
+            "description": "The parameter for which to retrieve data. Valid values are prcp (precipitation), tmmn (average minimum temperature), tmmx (average maximum temperature), elev (elevation), ndvi (normalized difference vegetation index), watext (water extent), watrec (water recurrence), elev (elevation), dist-coast (distance to coast)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "year",
+            "in": "path",
+            "description": "The year for which to retrieve data. Valid values are between the range 2008 - 2023 (for elevation & dist-coast, year = 2023)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The geojson data for the specified year and parameter.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "example": "FeatureCollection"
+                    },
+                    "features": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "type": {
+                            "type": "string",
+                            "example": "Feature"
+                          },
+                          "geometry": {
+                            "type": "object",
+                            "properties": {
+                              "type": {
+                                "type": "string",
+                                "example": "Point"
+                              },
+                              "coordinates": {
+                                "type": "array",
+                                "items": {
+                                  "type": "number"
+                                },
+                                "example": [
+                                  23.456,
+                                  -32.789
+                                ]
+                              }
+                            }
+                          },
+                          "properties": {
+                            "type": "object",
+                            "properties": {
+                              "name": {
+                                "type": "string",
+                                "example": "Site A"
+                              },
+                              "value": {
+                                "type": "number",
+                                "example": 12.34
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi/v1/sites_cwac/{sites}": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "summary": "Get CWAC sites info on species (numbers, redlisting status...)",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239 (Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },    
+    "/openapi/v1/wcv/{sites}": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "summary": "Get  Waterbird Conservation Value (WCV) info on species at a site",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239 (Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ramsar_sites": {
+      "get": {
+        "tags": [
+          "Site"
+        ],
+        "summary": "Get the RAMSAR sites info",
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/1_pc_levels": {
+      "get": {
+        "tags": [
+          "Species"
+        ],
+        "summary": "Get the waterbirds 1 percents levels info",
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/aoo/{species}": {
+      "get": {
+        "tags": [
+          "Species"
+        ],
+        "summary": "Get AOO info of species",
+        "parameters": [
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/{site_convention}/{site_type}/{site_group}": {
+      "get": {
+        "tags": [
+          "Dev"
+        ],
+        "summary": "Get the list of sites filtered by convention (AEWA...), type (wetland, dam...) and province",
+        "parameters": [
+          {
+            "name": "site_convention",
+            "in": "path",
+            "description": "convention ID (AEWA, all)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "site_group",
+            "description": "Provinces (ALL, Eastern Cape, Free State, Gauteng, KwaZulu-Natal, Limpopo, Mpumalanga, North West, Northern Cape, Western Cape)",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "site_type",
+            "in": "path",
+            "description": "site type ID (wetland = 9, dam = 10, estuary = 7, marine-coast-island = 11, river = 8)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ratio_est_sites/{sites}/{species}/{ratio}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get the proportion or slope modeled information on species at a site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ratio",
+            "in": "path",
+            "description": "Winter/Summer ratio (PROP) or rate of change (SLOPE)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ratio_estcilower_sites/{sites}/{species}/{ratio}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get the proportion or slope lower confidence intervals modeled information on species at a site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ratio",
+            "in": "path",
+            "description": "Winter/Summer ratio (PROP) or rate of change (SLOPE)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ratio_estciupper_sites/{sites}/{species}/{ratio}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get the proportion or slope upper confidence intervals modeled information on species at a site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ratio",
+            "in": "path",
+            "description": "Winter/Summer ratio (PROP) or rate of change (SLOPE)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/season_count_sites/{sites}/{species}/{season}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get the counts on species at a site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "path",
+            "description": "The season for which to retrieve data. Valid values are 'summer' or 'winter'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/season_est_sites/{sites}/{species}/{season}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get modelled estimates on species at site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "path",
+            "description": "The season for which to retrieve data. Valid values are 'summer' or 'winter'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/season_estcilower_sites/{sites}/{species}/{season}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get modelled lower confidence intervals on species at site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish))",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "path",
+            "description": "The season for which to retrieve data. Valid values are 'summer' or 'winter'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/season_estciupper_sites/{sites}/{species}/{season}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Abundance"
+        ],
+        "summary": "Get the modelled upper confidence interval on species at site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "path",
+            "description": "The season for which to retrieve data. Valid values are 'summer' or 'winter'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/guild": {
+      "get": {
+        "tags": [
+          "Species"
+        ],
+        "summary": "Get the guilds and species under that guild",
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/list_species": {
+      "get": {
+        "summary": "Get the list of species used",
+        "description": "See the species code (key_value), common name and scientific name",
+        "tags": [
+          "Species"
+        ],
+        "responses": {
+          "200": {
+            "description": "A List of Species for BIRDIE"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ok": {
+      "get": {
+        "tags": [
+          "API"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/openapi/v1/psi/{pentad}/{species}": {
+      "get": {
+        "tags": [
+          "Distribution"
+        ],
+        "summary": "Get the predicted occurrence of a species in a pentad (estimate 'est', median 'med', upper bound 'up', lower bound 'lb')",
+        "description": "See also v1/list_species for all species codes, and the map viewer for a pentad code",
+        "parameters": [
+          {
+            "name": "pentad",
+            "in": "path",
+            "description": "The pentad code for which to retrieve data (eg. 2555_2725).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/real_occ/{pentad}/{species}": {
+      "get": {
+        "tags": [
+          "Dev"
+        ],
+        "summary": "('/' need to be removed) Get the estimated occurrence of a species in a pentad (estimate 'est', median 'med', upper bound 'up', lower bound 'lb')",
+        "description": "See also v1/list_species for all species codes, and the map viewer for a pentad code",
+        "parameters": [
+          {
+            "name": "pentad",
+            "in": "path",
+            "description": "The pentad code for which to retrieve data (eg. 2555_2725).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ssm/{sites}/{species}/{season}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Dev"
+        ],
+        "summary": "Get the state-space model output on species at a site, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "sites",
+            "in": "path",
+            "description": "The site location (loc_code) code for which to retrieve data (eg. 26352535 (Barberspan), 33592239\t(Eilandvlei), 34052454 (Seekoei River Estuary)).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "path",
+            "description": "The season for which to retrieve data. Valid values are 'summer' or 'winter'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/ssm/{site_group}/{species}/{season}/{start_year}/{end_year}": {
+      "get": {
+        "tags": [
+          "Dev"
+        ],
+        "summary": "Get the state-space model output on species for a province, over a range of years",
+        "description": "See also v1/list_species for all species codes",
+        "parameters": [
+          {
+            "name": "site_group",
+            "in": "path",
+            "description": "Provinces (ALL, Eastern Cape, Free State, Gauteng, KwaZulu-Natal, Limpopo, Mpumalanga, North West, Northern Cape, Western Cape)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "species",
+            "in": "path",
+            "description": "The species code (key_value) for which to retrieve data (eg. 269 (Avocet, Pied), 212 (Coot, Red-knobbed), 149 (Eagle, African Fish)). You can put multiple codes, separated by a comma (eg. 269,212,149).",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "season",
+            "in": "path",
+            "description": "The season for which to retrieve data. Valid values are 'summer' or 'winter'.",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "start_year",
+            "description": "The start year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          },
+          {
+            "name": "end_year",
+            "in": "path",
+            "description": "The end year of the interval for which to retrieve data. Valid values are between the range 2008 - 2023.",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Get info"
+          }
+        }
+      }
+    },
+    "/openapi/v1/year_list": {
+      "get": {
+        "tags": [
+          "Variables"
+        ],
+        "summary": "Get the list of years",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/year_list"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "site_group": {
+        "type": "object",
+        "properties": {
+          "province": {
+            "type": "string",
+            "example": "ALL, Eastern Cape, Free State, Gauteng, KwaZulu-Natal, Limpopo, Mpumalanga, North West, Northern Cape, Western Cape"
+          }
+        },
+        "xml": {
+          "name": "site_group"
+        }
+      },
+      "year_list": {
+        "type": "object",
+        "properties": {
+          "yearlist": {
+            "type": "integer",
+            "example": "2008"
+          }
+        },
+        "xml": {
+          "name": "yearlist"
+        }
+      }
+    },
+    "securitySchemes": {
+      "birdie_auth": {
+        "type": "oauth2",
+        "flows": {
+          "implicit": {
+            "authorizationUrl": "/swagger-ui/oauth/authorize",
+            "scopes": {
+              "write:birdie": "modify birdie data in your account",
+              "read:birdie": "read your birdie data"
+            }
+          }
+        }
+      },
+      "api_key": {
+        "type": "apiKey",
+        "name": "api_key",
+        "in": "header"
+      }
+    }
+  }
+}

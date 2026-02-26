@@ -1,5 +1,323 @@
 # Changelog
 
+## Unreleased
+
+Highlights:
+- Phase 12 national-report collaboration, sign-off, and dossier integrity:
+  - Unified NR7/NR8 authoring on a single pack:
+    - seeded pack `cbd_national_report_v1` via `seed_mea_template_packs`
+    - added `seed_demo_reports` for deterministic NR7 + NR8 demo instances
+  - Extended reporting models for full workspace metadata and governance:
+    - `ReportingCycle`: submission window and language controls
+    - `ReportingInstance`: report metadata (`report_title`, `country_name`, focal/publishing orgs), `is_public`, final hash fields
+    - `ReportTemplatePackResponse`: version/hash + edit locking metadata
+  - Added multi-author collaboration tables and services:
+    - `ReportSectionRevision`, `ReportCommentThread`, `ReportComment`, `ReportSuggestedChange`
+    - services: `reporting_collab.py`
+  - Added role-gated sign-off workflow engine:
+    - `ReportWorkflowDefinition`, `ReportWorkflowInstance`, `ReportWorkflowAction`, `ReportWorkflowSectionApproval`
+    - Technical Committee and Publishing Authority steps enforced
+    - evidence gate before technical approval
+  - Added export + dossier artifact integrity layer:
+    - `ReportExportArtifact`, `ReportDossierArtifact`
+    - services: `reporting_exports.py`, `reporting_dossier.py`
+    - deterministic dossier ZIP with:
+      - `submission.json`
+      - `report.pdf`
+      - `report.docx`
+      - `evidence_manifest.json`
+      - `audit_log.json`
+      - `integrity.json`
+      - `visibility.json`
+  - Added National Report workspace API surface:
+    - `/api/reports/{uuid}/workspace`
+    - `/api/reports/{uuid}/sections/*` (CRUD/history/comments/suggestions)
+    - `/api/reports/{uuid}/workflow` + `/workflow/action`
+    - `/api/reports/{uuid}/export(.pdf|.docx|.json)`
+    - `/api/reports/{uuid}/dossier` + `/dossier/latest`
+    - `/api/reports/{uuid}/public`
+  - Angular reporting UX upgraded to a full National Report workspace:
+    - section navigation
+    - dynamic field rendering from schema
+    - suggestion mode, comments, revision history
+    - workflow action panel
+    - export + dossier actions
+  - Added Phase 12 docs:
+    - `docs/SCHEMA_REDUNDANCY_REVIEW_PHASE12.md`
+    - `docs/SIGNOFF_CHAIN.md`
+    - `docs/NR_WORKSPACE_RUNBOOK.md`
+    - `docs/NR_DOSSIER_RUNBOOK.md`
+  - Added backend tests:
+    - `test_reporting_workspace_phase12.py` (collaboration, workflow, export, dossier, ABAC gating)
+- Phase 11 registries operationalization:
+  - Added registry workflow governance components:
+    - `RegistryEvidenceLink`
+    - workflow service `src/nbms_app/services/registry_workflows.py`
+    - configurable evidence-gate rule seed command `seed_registry_workflow_rules`
+    - transition/evidence APIs:
+      - `POST /api/registries/{object_type}/{object_uuid}/transition`
+      - `GET|POST /api/registries/{object_type}/{object_uuid}/evidence`
+  - Added registry gold marts:
+    - `TaxonGoldSummary`, `EcosystemGoldSummary`, `IASGoldSummary`
+    - refresh command: `python manage.py refresh_registry_marts`
+    - API: `GET /api/registries/gold`
+  - Added indicator registry coverage requirements:
+    - `IndicatorRegistryCoverageRequirement`
+    - indicator detail/readiness now includes `registry_readiness` and `used_by_graph`.
+  - Extended Indicator Method SDK with registry-consuming methods:
+    - `ecosystem_registry_summary`
+    - `ias_registry_pressure_index`
+    - `taxon_registry_native_voucher_ratio`
+  - Updated GBF seed path (`seed_gbf_indicators`) to attach registry-driven methods/readiness requirements for ecosystem, IAS, and species indicators.
+  - Enhanced report product payload generation:
+    - deterministic `auto_sections` populated from registry marts,
+    - citation and evidence-hook blocks for NBA/GMO/Invasive outputs,
+    - template updated to render auto-populated sections.
+  - Added ADR:
+    - `docs/adr/0014-registry-workflow-gold-marts-and-indicator-integration.md`
+  - Added backend coverage:
+    - `test_registry_workflows_and_marts.py`
+    - `test_refresh_registry_marts_command.py`
+    - `test_indicator_registry_methods.py`
+    - extended indicator/report-product API tests for registry readiness and auto-sections.
+- Phase 10 reference registries and programme-template runtime:
+  - Added standards-aligned registry entities and migration:
+    - Ecosystems: `IucnGetNode`, `EcosystemType`, `EcosystemTypologyCrosswalk`, `EcosystemRiskAssessment`
+    - Taxa: `TaxonConcept`, `TaxonName`, `TaxonSourceRecord`, `SpecimenVoucher`
+    - IAS: `AlienTaxonProfile`, `IASCountryChecklistRecord`, `EICATAssessment`, `SEICATAssessment`
+    - Programme-driven registry templates: `ProgrammeTemplate`
+  - Added ingestion and seed command set:
+    - `seed_get_reference`
+    - `sync_vegmap_baseline`
+    - `sync_taxon_backbone`
+    - `sync_specimen_vouchers`
+    - `sync_griis_za`
+    - `seed_programme_templates`
+    - `seed_registry_demo`
+  - Extended programme-run orchestration to execute registry pipelines:
+    - `NBMS-PROG-ECOSYSTEMS`
+    - `NBMS-PROG-TAXA`
+    - `NBMS-PROG-IAS`
+    - `NBMS-PROG-PROTECTED-AREAS`
+  - Added registry API surface:
+    - `/api/registries/ecosystems*`
+    - `/api/registries/taxa*`
+    - `/api/registries/ias*`
+    - `/api/programmes/templates`
+  - Added Angular registry pages and programme template catalog page:
+    - `/registries/ecosystems`
+    - `/registries/taxa`
+    - `/registries/ias`
+    - `/programmes/templates`
+  - Added ABAC-sensitive specimen locality masking for non-privileged users.
+  - Added backend and frontend test coverage for registry APIs/commands/pages.
+  - Added docs:
+    - `docs/REGISTRIES_OVERVIEW.md`
+    - `docs/CROSSWALK_EDITOR_RUNBOOK.md`
+    - `docs/adr/0013-registries-standards-programme-templates.md`
+    - `docs/external/registry_standards/*`
+- Spatial operations hardening + role-authenticated e2e stability:
+  - Added `issue_e2e_sessions` management command for deterministic authenticated Playwright sessions.
+  - Updated `frontend/e2e/bootstrap-users.mjs` to use backend-issued sessions (replacing fragile inline shell session generation).
+  - Hardened spatial source sync fallback:
+    - when upstream refresh fails but a prior snapshot exists, sync returns `skipped` and retains existing valid data.
+  - Added regression test:
+    - `test_sync_spatial_source_reuses_existing_snapshot_when_refresh_fails`.
+  - Added role visibility artefact generation:
+    - `docs/ops/ROLE_VISIBILITY_MATRIX.md`
+    - `docs/ops/ROLE_VISIBILITY_MATRIX.csv`
+  - Added ADR:
+    - `docs/adr/0012-spatial-baselines-overlay-method.md`
+- Spatial registry hardening and interoperability uplift:
+  - Added first-class spatial registry entities and ingestion runtime:
+    - `SpatialUnitType`, `SpatialUnit`, `SpatialIngestionRun`
+    - enriched `SpatialLayer` + `SpatialFeature` fields and indexes.
+  - Added standards-style spatial API surface:
+    - OGC landing/collections/items endpoints (`/api/ogc*`)
+    - vector tile endpoints (`/api/tiles/*`) with TileJSON, ETag and cache headers.
+  - Added spatial ingestion command/API:
+    - `python manage.py ingest_spatial_layer`
+    - `POST /api/spatial/layers/upload`
+  - Added South Africa protected-area source hardening:
+    - `NE_PROTECTED_LANDS_ZA` now syncs from DFFE SAPAD public ArcGIS feed.
+    - ArcGIS feature JSON is normalized to GeoJSON before PostGIS ingestion.
+  - Added GeoServer publication command:
+    - `python manage.py seed_geoserver_layers`
+    - idempotent rerun behavior for pre-existing published layers.
+  - Added GeoServer smoke verification command:
+    - `python manage.py verify_geoserver_smoke`
+  - Added Map Workspace UX upgrade:
+    - layer catalog with theme grouping/search/toggles/opacity
+    - AOI/property filters
+    - feature inspector
+    - GeoJSON export + report-product handoff.
+  - Added spatial runtime docs and ADR:
+    - `docs/SPATIAL_RUNBOOK.md`
+    - `docs/adr/0011-spatial-registry-ogc-apis.md`
+- Seed idempotency hardening for scale:
+  - Added unique seeding keys and backfill path:
+    - `Dataset.dataset_code`
+    - `Evidence.evidence_code`
+    - `IndicatorDataSeries.series_code`
+  - Updated indicator/spatial seed commands to avoid duplicate conflicts in reruns and mixed legacy states.
+- Docker/dev reproducibility hardening:
+  - backend docker image now installs `requirements-dev.txt` enabling in-container `pytest`.
+  - compose backend defaults now enforce GIS runtime in Docker (`ENABLE_GIS=true`) with PostGIS engine alignment.
+  - CSRF trusted origins now include frontend proxy origins (`http://localhost:8081`, `http://127.0.0.1:8081`) for cookie/session login through nginx.
+  - Docker build context now excludes Playwright artifacts (`frontend/test-results`, `frontend/playwright-report`) to prevent non-deterministic build failures.
+
+- Demo identity bootstrap hardening:
+  - Added `ensure_system_admin` command (env-driven, idempotent, enforces superuser + `SystemAdmin` role + `system_admin` permission).
+  - Added `seed_demo_users` command with strict non-production gating:
+    - requires DEBUG/dev/test runtime,
+    - requires `SEED_DEMO_USERS=1`,
+    - requires `ALLOW_INSECURE_DEMO_PASSWORDS=1`.
+  - Added `list_demo_users` command and generated `docs/ops/DEMO_USERS.md` warning matrix.
+  - Wired Docker backend entrypoint to run demo/admin bootstrap only for explicit dev-mode flags.
+  - Added nav/access hardening:
+    - backend `/api/auth/me` capability flags expanded,
+    - Angular side-nav hides unauthorized features,
+    - Angular route capability guards added,
+    - Django template nav hides inaccessible staff links.
+  - Added local login UX fix for two-factor template warning:
+    - `templates/two_factor/_base.html`.
+  - Strengthened migration verification tooling for Windows + Docker:
+    - `scripts/verify_migrations.ps1` now builds verify image and fails fast on non-zero exits,
+    - `scripts/verify_migrations.sh` normalizes runtime DB URL for container execution,
+    - `docker/verify/Dockerfile` includes cairo build dependencies required for `xhtml2pdf` tests.
+- Phase 7 report product framework:
+  - Added report product runtime models:
+    - `ReportProductTemplate`
+    - `ReportProductRun`
+  - Added report product services and seeded templates:
+    - `nba_v1`
+    - `gmo_v1`
+    - `invasive_v1`
+  - Added report product APIs:
+    - `GET /api/report-products`
+    - `GET /api/report-products/runs`
+    - `GET /api/report-products/{code}/preview`
+    - `GET /api/report-products/{code}/export.html`
+    - `GET /api/report-products/{code}/export.pdf`
+  - Added Angular Report Products workspace (`/report-products`).
+- Phase 6 BIRDIE integration module:
+  - Added integration persistence models:
+    - `IntegrationDataAsset` (bronze/silver/gold lineage)
+    - `BirdieSpecies`
+    - `BirdieSite`
+    - `BirdieModelOutput`
+  - Added BIRDIE integration package:
+    - `src/nbms_app/integrations/birdie/client.py`
+    - `src/nbms_app/integrations/birdie/service.py`
+  - Added command:
+    - `python manage.py seed_birdie_integration`
+  - Added API endpoint:
+    - `GET /api/integrations/birdie/dashboard`
+  - Added Angular BIRDIE dashboard page (`/programmes/birdie`).
+- Phase 5 Ramsar pack hardening:
+  - Upgraded `ramsar_v1` from scaffold to COP14-oriented section schema (institutional, narrative, implementation questions, annex targets).
+  - Added template pack runtime validation service with required-field and reference checks (`src/nbms_app/services/template_packs.py`).
+  - Added template pack PDF export endpoint:
+    - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/export.pdf`
+  - Added template pack QA endpoint:
+    - `GET /api/template-packs/{pack_code}/instances/{instance_uuid}/validate`
+  - Replaced Angular MEA list-only page with an interactive pack editor + QA panel.
+- Added Playwright e2e smoke setup for docker runtime:
+  - `frontend/playwright.config.ts`
+  - `frontend/e2e/smoke.spec.ts`
+  - CI now runs playwright smoke in `docker-minimal-smoke` job.
+  - Angular nav now renders capability-filtered items only and route guards redirect unauthorized users to public surfaces.
+  - smoke now covers both:
+    - anonymous public-surface behavior (only public features visible),
+    - authenticated system-admin navigation across dashboard, indicators, spatial, NR7 builder, and MEA packs.
+- Phase 4 GBF indicator readiness increment:
+  - Added full GBF COP16/31 indicator catalog seeding command:
+    - `python manage.py seed_gbf_indicators`
+    - seeds 13 headline + 22 binary indicators and framework mappings.
+  - Added indicator method runtime schema:
+    - `IndicatorMethodProfile`
+    - `IndicatorMethodRun`
+  - Added indicator method SDK with cache/provenance support in `src/nbms_app/services/indicator_method_sdk.py`.
+  - Added method implementations:
+    - `binary_questionnaire_aggregator`
+    - `csv_import_aggregation`
+    - `spatial_overlay_area_by_province`
+  - Added indicator method APIs:
+    - `GET /api/indicators/{uuid}/methods`
+    - `POST /api/indicators/{uuid}/methods/{profile_uuid}/run`
+  - Added method readiness exposure in indicator explorer/list payloads and Angular readiness filter/chips.
+  - Added external reference capture in `docs/external/` with COP16/31, GBF repository, BIRDIE, DaRT, and Ramsar notes.
+- Phase 3 monitoring programme operations uplift:
+  - Extended `MonitoringProgramme` with operational controls (`refresh_cadence`, scheduler fields, pipeline/rules JSON, lineage notes, operating institutions).
+  - Added programme steward assignments and ABAC-aware steward visibility/edit support.
+  - Added programme run runtime models:
+    - `MonitoringProgrammeRun`
+    - `MonitoringProgrammeRunStep`
+    - `MonitoringProgrammeAlert`
+  - Added programme operations API endpoints:
+    - `GET /api/programmes`
+    - `GET /api/programmes/{uuid}`
+    - `POST /api/programmes/{uuid}/runs`
+    - `GET|POST /api/programmes/runs/{uuid}`
+  - Added programme operations Angular workspace in `frontend/src/app/pages/programme-ops-page.component.ts`.
+  - Added management commands:
+    - `seed_programme_ops_v1`
+    - `run_monitoring_programmes`
+  - Added programme ops tests (`test_api_programme_ops.py`, `test_programme_ops_commands.py`) and frontend component test.
+- Phase 2 NR7 authoring uplift:
+  - Added Angular NR7 Report Builder workspace in `frontend/src/app/pages/reporting-page.component.ts` with:
+    - section completion nav,
+    - QA bar (blockers/warnings),
+    - preview panel,
+    - direct links to structured section editors,
+    - PDF export action.
+  - Added backend NR7 builder APIs:
+    - `/api/reporting/instances`
+    - `/api/reporting/instances/{uuid}/nr7/summary`
+    - `/api/reporting/instances/{uuid}/nr7/export.pdf`
+  - Added NR7 validation engine and preview composition service (`src/nbms_app/services/nr7_builder.py`).
+  - Added server-side PDF rendering template and pipeline.
+- Phase 1 hardening increment:
+  - Added request-ID propagation end-to-end (`X-Request-ID`) with middleware and log correlation.
+  - Added structured JSON logging option (`DJANGO_LOG_JSON=1`) and request-id log filter.
+  - Added production CSP baseline and security header middleware.
+  - Added authenticated/staff-only system health API (`/api/system/health`) and Angular System Health page.
+  - Expanded rate limits for exports, public API reads, and metrics endpoints.
+  - Expanded CI security baseline with Bandit SAST and Trivy filesystem/image scans.
+  - Added backup/restore helper scripts for PostGIS + MinIO with runbook (`docs/ops/BACKUP_RESTORE.md`).
+  - Added audit coverage tests for critical transitions (export submit/approve/release; indicator/dataset publish).
+- Added Angular primary app (`frontend/`) with dashboard, indicator explorer/detail, spatial map viewer, reporting launcher, and template-pack pages.
+- Added SPA/BFF API layer under `/api/*`:
+  - auth/help: `/api/auth/me`, `/api/auth/csrf`, `/api/help/sections`
+  - dashboard: `/api/dashboard/summary`
+  - programme run reports: `/api/programmes/runs/{uuid}/report`
+  - indicators: `/api/indicators*` detail/datasets/series/validation/transition
+  - spatial: `/api/spatial/layers`, `/api/spatial/layers/{slug}/features`
+  - template packs: `/api/template-packs*`
+- Added spatial runtime models and services:
+  - `SpatialLayer`, `SpatialFeature` and ABAC filter service in `src/nbms_app/services/spatial_access.py`
+  - demo spatial seed command: `seed_spatial_demo_layers`
+- Added multi-MEA template-pack runtime scaffolding:
+  - `ReportTemplatePack`, `ReportTemplatePackSection`, `ReportTemplatePackResponse`
+  - pack seed command: `seed_mea_template_packs`
+  - exporter registry: `src/nbms_app/services/template_pack_registry.py`
+- Added GBF/NBA-inspired indicator workflow seed pack:
+  - command: `seed_indicator_workflow_v1`
+  - includes 4 end-to-end indicators with methodology/dataset/series/evidence/programme links
+- Added Docker-first full-stack runtime at repo root:
+  - `compose.yml` with `minimal`, `full`, `spatial` profiles
+  - backend and frontend Dockerfiles plus nginx reverse proxy config
+- Expanded CI:
+  - new `frontend-build` job
+  - new `docker-minimal-smoke` job
+- ORT NR7 v2 exporter now maps structured Section I/II/V models and enriched Section III/IV data, including Section IV goal progress and binary indicator group comments.
+- Added export payload contract validation service (`src/nbms_app/services/export_contracts.py`) with tests and golden fixture refresh flow.
+- Added centralized section field help dictionary and rendered field-level help/tooltips for Section I-V templates.
+- Added route policy registry (`src/nbms_app/services/policy_registry.py`) and policy coverage tests (`src/nbms_app/tests/test_policy_registry.py`).
+- Added split CI baseline workflow (`.github/workflows/ci.yml`) with Linux full tests, Windows smoke, and security checks.
+- Hardened staff-only decorator behavior for non-regression (redirect contract preserved) and snapshot strict-user handling.
+- Docker compose minio init image pin corrected to restore baseline startup.
+
 ## v0.3-manager-pack
 
 Highlights:

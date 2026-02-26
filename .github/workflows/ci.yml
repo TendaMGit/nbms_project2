@@ -1,0 +1,265 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build
+      - name: Frontend unit tests
+        working-directory: frontend
+        run: npm run test
+
+  quality-fast:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_DB_ENGINE: django.db.backends.sqlite3
+      NBMS_DB_NAME: nbms_quality.sqlite3
+      ENABLE_GIS: "false"
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Dependency consistency
+        run: python -m pip check
+      - name: Syntax check
+        run: python -m compileall src scripts manage.py
+      - name: Blueprint language guard
+        run: python scripts/check_blueprint_language.py
+      - name: Lint (Ruff, optional)
+        continue-on-error: true
+        run: |
+          pip install ruff
+          ruff check src scripts manage.py
+      - name: Django checks
+        run: |
+          python manage.py check
+
+  tests-linux-full:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: nbms_ci_db
+          POSTGRES_USER: nbms_ci_user
+          POSTGRES_PASSWORD: nbms_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nbms_ci_user -d nbms_ci_db"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      NBMS_DB_NAME: nbms_ci_db
+      NBMS_DB_USER: nbms_ci_user
+      NBMS_DB_PASSWORD: nbms_ci_password
+      NBMS_TEST_DB_NAME: test_nbms_ci_db
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      ENABLE_GIS: "true"
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev libgeos-dev libproj-dev
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Run tests
+        run: |
+          python manage.py makemigrations --check --dry-run
+          pytest -q
+
+  tests-windows-smoke:
+    runs-on: windows-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      DJANGO_DB_ENGINE: django.db.backends.sqlite3
+      NBMS_DB_NAME: nbms_windows_smoke.sqlite3
+      ENABLE_GIS: "false"
+      PYTHONPATH: ${{ github.workspace }}\\src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Windows smoke checks
+        shell: pwsh
+        run: |
+          pytest -q src/nbms_app/tests/test_prod_settings.py src/nbms_app/tests/test_verify_env.py
+
+  security-baseline:
+    runs-on: ubuntu-latest
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DJANGO_READ_DOT_ENV_FILE: "0"
+      DATABASE_URL: sqlite:///nbms_security.sqlite3
+      DJANGO_SECRET_KEY: CI_SECURITY_SECRET_KEY_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ
+      DJANGO_ALLOWED_HOSTS: example.org
+      DJANGO_CSRF_TRUSTED_ORIGINS: https://example.org
+      SECURE_HSTS_PRELOAD: "true"
+      PYTHONPATH: ${{ github.workspace }}/src
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install pip-audit bandit
+      - name: SAST (Bandit)
+        run: bandit -q -r src scripts -x src/nbms_app/tests,frontend -lll -ii
+      - name: Dependency audit
+        continue-on-error: true
+        run: pip-audit --progress-spinner off
+      - name: Secret scan
+        uses: gitleaks/gitleaks-action@v2
+      - name: Container and dependency scan baseline (Trivy FS)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Build backend image for scan
+        run: docker build -f docker/backend/Dockerfile -t nbms-backend-ci .
+      - name: Container image scan baseline (Trivy)
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: image
+          image-ref: nbms-backend-ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Deploy checks
+        env:
+          DJANGO_SECRET_KEY: CI_SECURITY_SECRET_KEY_1234567890_ABCDEFGHIJKLMNOPQRSTUVWXYZ
+          DATABASE_URL: sqlite:///nbms_security.sqlite3
+          DJANGO_ALLOWED_HOSTS: example.org
+          DJANGO_CSRF_TRUSTED_ORIGINS: https://example.org
+        run: |
+          python manage.py check --deploy
+          make deploy-check --always-make
+
+  docker-minimal-smoke:
+    runs-on: ubuntu-latest
+    needs:
+      - quality-fast
+      - frontend-build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Prepare environment
+        run: cp .env.example .env
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Build and start minimal profile
+        env:
+          SEED_DEMO_USERS: "1"
+          ALLOW_INSECURE_DEMO_PASSWORDS: "1"
+          NBMS_ADMIN_USERNAME: ciadmin
+          NBMS_ADMIN_EMAIL: ciadmin@example.org
+          NBMS_ADMIN_PASSWORD: CI_Admin_12345
+          NBMS_ADMIN_FIRST_NAME: CI
+          NBMS_ADMIN_LAST_NAME: Admin
+        run: docker compose --profile minimal up -d --build
+      - name: Wait for backend health
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8000/health/ >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS http://127.0.0.1:8000/health/
+      - name: Wait for frontend availability
+        run: |
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8081/ >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS http://127.0.0.1:8081/api/help/sections >/dev/null
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Playwright smoke
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:8081
+          PLAYWRIGHT_USERNAME: ciadmin
+          PLAYWRIGHT_PASSWORD: CI_Admin_12345
+        run: npm run e2e
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  docker-spatial-smoke:
+    runs-on: ubuntu-latest
+    needs:
+      - quality-fast
+      - frontend-build
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare environment
+        run: cp .env.example .env
+      - name: Build and start spatial profile
+        run: docker compose --profile spatial up -d --build
+      - name: Wait for backend and tile endpoints
+        run: |
+          for i in {1..80}; do
+            if curl -fsS http://127.0.0.1:8000/health/ >/dev/null; then
+              break
+            fi
+            sleep 5
+          done
+          curl -fsS http://127.0.0.1:8000/health/
+          curl -fsS http://127.0.0.1:8000/api/tiles/ZA_PROVINCES/tilejson >/dev/null
+      - name: Teardown
+        if: always()
+        run: docker compose down -v

@@ -103,7 +103,7 @@
 | target_year | int | 0..1 | N/A | Draft: optional; Publish: optional | Reporting context | Pilot NationalTarget.target_year |
 | target_value | string/number | 0..1 | N/A | Draft: optional; Publish: optional | Reporting context | Pilot NationalTarget.target_value |
 | unit | string | 0..1 | Controlled vocab | Draft: optional; Publish: optional | Use Unit vocab | Pilot NationalTarget.unit |
-| lead_agency | string | 0..1 | FK Organisation (future) | Draft: optional; Publish: optional | Prefer Organization FK in Phase 2 | Pilot NationalTarget.lead_agency |
+| lead_agency | string | 0..1 | FK Organisation (future) | Draft: optional; Publish: optional | Prefer Organization FK in Phase 1 P2 backlog | Pilot NationalTarget.lead_agency |
 | data_source | string | 0..1 | FK SourceDocument (future) | Draft: optional; Publish: optional | Prefer SourceDocument | Pilot NationalTarget.data_source |
 
 ## 6) NationalIndicator (Indicator)
@@ -368,4 +368,4 @@
 | AlignmentRelationType | Equivalent/contributes_to/etc. | Alignment links | Secretariat |
 | RelationshipType | Lead/partner/supporting | Link tables | Data Steward |
 
-**Phase 1 spec only.** Implementation of new tables/vocabs is a Phase 2 activity.
+**Phase 1 spec only.** Implementation of new tables/vocabs is tracked in Phase 1 P2 backlog.

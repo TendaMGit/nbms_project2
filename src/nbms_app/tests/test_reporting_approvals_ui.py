@@ -90,6 +90,8 @@ class ReportingApprovalsUiTests(TestCase):
         self.assertNotContains(resp, self.other_target.code)
 
     def test_approve_and_revoke_creates_audit_and_notification(self):
+        self.indicator.status = LifecycleStatus.PUBLISHED
+        self.indicator.save(update_fields=["status"])
         self.client.force_login(self.reviewer)
         approve_url = reverse(
             "nbms_app:reporting_instance_approval_action",
@@ -122,6 +124,22 @@ class ReportingApprovalsUiTests(TestCase):
         )
         self.assertTrue(
             Notification.objects.filter(recipient=self.owner, message__icontains="revoked").exists()
+        )
+
+    def test_single_approve_blocks_non_published_item(self):
+        self.client.force_login(self.reviewer)
+        approve_url = reverse(
+            "nbms_app:reporting_instance_approval_action",
+            args=[self.instance.uuid, "indicator", self.indicator.uuid, "approve"],
+        )
+        resp = self.client.post(approve_url, {"note": "should fail"})
+        self.assertEqual(resp.status_code, 403)
+        self.assertFalse(
+            InstanceExportApproval.objects.filter(
+                reporting_instance=self.instance,
+                object_uuid=self.indicator.uuid,
+                decision=ApprovalDecision.APPROVED,
+            ).exists()
         )
 
     def test_bulk_approve_preview_and_confirm(self):

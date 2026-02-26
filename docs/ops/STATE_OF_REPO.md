@@ -1,5 +1,456 @@
 # STATE OF REPO - NBMS Project 2
 
+Roadmap framing note:
+- Active delivery model is `Phase 1 - National MVP (Reporting + Interoperability + Scale Path)`.
+- Historical entries below may retain legacy "Phase X" labels as archived milestone names.
+- Current planning treats those items as backlog tiers within Phase 1.
+
+## PHASE 12 NATIONAL REPORT COLLAB + SIGN-OFF + DOSSIER VERIFIED (2026-02-09)
+- Branch: `feat/national-report-collab-signoff-v1`
+- Scope: unified NR7/NR8 workspace, multi-author revisions/comments/suggestions, sign-off chain, PDF/DOCX/JSON exports, dossier integrity pack, and internal/public gating.
+
+Commands executed (docker, required set):
+- `docker compose --profile minimal up -d --build` -> pass (backend/frontend/postgis/redis/minio healthy)
+- `docker compose --profile spatial up -d --build` -> pass (GeoServer profile healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend pytest -q` -> `401 passed` (warnings only)
+
+Commands executed (frontend, required set):
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `11 files, 12 tests passed`
+- `npm --prefix frontend run e2e` -> `3 passed`
+  - note: updated stale selector `NR7 Builder` to `National Report` in Playwright smoke specs.
+
+Identity + demo data verification:
+- `docker compose exec -e NBMS_ADMIN_USERNAME=admin_user -e NBMS_ADMIN_EMAIL=admin@example.org -e NBMS_ADMIN_PASSWORD=CHANGE_ME backend python manage.py ensure_system_admin`
+  -> `System admin updated: username=Tenda, staff=True, superuser=True, group=SystemAdmin`
+- `docker compose exec -e SEED_DEMO_USERS=1 -e ALLOW_INSECURE_DEMO_PASSWORDS=1 backend python manage.py seed_demo_users`
+  -> `Seeded demo users (17 rows)`, wrote `docs/ops/DEMO_USERS.md`
+- `docker compose exec backend python manage.py seed_demo_reports`
+  -> `Seeded demo report instances for NR7/NR8 (2 instances).`
+
+Phase outcomes:
+- New report workspace APIs operational under `/api/reports/{uuid}/*` for:
+  - sections/history/comments/suggestions
+  - workflow/status transitions
+  - PDF/DOCX/JSON exports
+  - dossier generation and retrieval
+- Dossier includes deterministic integrity files:
+  - `submission.json`, `report.pdf`, `report.docx`, `evidence_manifest.json`, `audit_log.json`, `integrity.json`, `visibility.json`
+- Internal report access controls are enforced for preview/export/dossier endpoints.
+
+## PHASE 11 REGISTRY WORKFLOWS + MARTS + INDICATOR/REPORT INTEGRATION VERIFIED (2026-02-08)
+- Branch: `feat/phase10-registries-programmes`
+- Scope: registry approval/evidence workflows, gold summary marts, registry-derived indicator methods/readiness, and report-product auto-populated sections.
+
+Commands executed (host):
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations nbms_app` -> created migration `0039_ecosystemgoldsummary_iasgoldsummary_and_more`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `398 passed, 1 skipped`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `11 files, 12 tests passed`
+- `npm --prefix frontend run e2e` -> `3 passed`
+
+Commands executed (docker, validation set):
+- `docker compose --profile spatial up -d --build` -> pass (backend/frontend/postgis/geoserver/minio/redis healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend pytest -q` -> `399 passed`
+- Runtime probes:
+  - `GET /health/` -> `200`
+  - `GET /health/storage/` -> `200`
+
+Phase outcomes:
+- New API surface operational:
+  - `/api/registries/gold`
+  - `/api/registries/{object_type}/{object_uuid}/evidence`
+  - `/api/registries/{object_type}/{object_uuid}/transition`
+- Registry transitions now evidence-gated and audited.
+- Indicator detail payload now includes:
+  - `registry_readiness`
+  - `used_by_graph`
+- Report product payload now includes deterministic `auto_sections` + `citations` + `evidence_hooks`.
+
+## PHASE 10 REGISTRIES + PROGRAMME TEMPLATES VERIFIED (2026-02-08)
+- Branch: `feat/phase10-registries-programmes`
+- Scope: standards-aligned ecosystem/taxon/IAS registries, programme template catalog, Angular registry explorers, ABAC-sensitive locality masking, and role visibility updates.
+
+Commands executed (host):
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `391 passed, 1 skipped`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `11 files, 12 tests passed`
+- `npm --prefix frontend run e2e` -> `3 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py export_role_visibility_matrix` -> wrote updated markdown+csv
+
+Commands executed (docker, required set):
+- `docker compose --profile spatial up -d --build` -> pass (backend/frontend/postgis/geoserver/minio/redis healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend python manage.py sync_spatial_sources` -> `ready=0, skipped=3, blocked=0, failed=0`
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=6, skipped=0`
+- `docker compose exec backend python manage.py run_programme --programme-code NBMS-SPATIAL-BASELINES` -> `status=succeeded`, run uuid `9822158c-e208-4d9b-b08e-b853a3e299f4`
+- `docker compose exec backend pytest -q` -> `392 passed`
+
+Phase outcome:
+- Registry APIs available:
+  - `/api/registries/ecosystems*`
+  - `/api/registries/taxa*`
+  - `/api/registries/ias*`
+  - `/api/programmes/templates`
+- Sensitive voucher locality redaction verified in API behavior and tests.
+- Role visibility matrix now includes registry and programme-template surfaces.
+
+## PR-READY REBASE (2026-02-08)
+- Branch: `feat/spatial-programme-overlay-e2e-prready`
+- Source baseline: `feat/spatial-real-data-programmes-v1` (starting from `759b414` + working-tree hardening set)
+- Commit series grouped by phase:
+  - `feat(spatial): harden source sync and ingest filtering`
+  - `feat(programmes): orchestrate spatial baselines runs with provenance`
+  - `feat(spatial-api): add indicator map endpoints and capability surface`
+  - `feat(frontend): refine map workspace and indicator overlay views`
+  - `feat(demo): add seeded role users and deterministic e2e auth sessions`
+  - `docs(spatial): publish pr-ready runbook/state/api matrix updates` (this docs commit)
+
+Validation commands executed:
+- `docker compose --profile spatial up -d --build` -> pass
+- `docker compose exec backend pytest -q` -> `382 passed, 45 warnings`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `8 passed`
+- `npm --prefix frontend run e2e` -> `3 passed` (anonymous + system admin + role-matrix smoke)
+
+## PHASE 8 OPERATIONAL STABILITY + ROLE E2E VERIFIED (2026-02-08)
+- Branch: `feat/spatial-real-data-programmes-v1`
+- Scope: stabilized authenticated e2e, added deterministic session bootstrap command, hardened spatial source refresh fallback, refreshed role-visibility artefacts.
+
+Commands executed (docker):
+- `docker compose --profile spatial up -d --build` -> pass (backend/frontend/geoserver healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend python manage.py sync_spatial_sources` -> `ready=0, skipped=3, blocked=0, failed=0`
+- `docker compose exec backend python manage.py run_programme --programme-code NBMS-SPATIAL-BASELINES` -> `status=succeeded`
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=6, skipped=0`
+- `docker compose exec backend python manage.py verify_geoserver_smoke` -> pass (`checked_layers=6`)
+- `docker compose exec backend pytest -q` -> `381 passed, 45 warnings`
+- `docker compose exec backend python manage.py export_role_visibility_matrix` -> wrote markdown + CSV artefacts
+
+Commands executed (frontend):
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `8 passed`
+- `npm --prefix frontend run e2e` -> `3 passed` (anonymous + system admin + role visibility matrix)
+
+Operational notes:
+- Added backend command `issue_e2e_sessions` and switched Playwright bootstrap to use it.
+- Spatial sync now retains prior valid snapshot (`skipped`) when source refresh fails transiently.
+- Role visibility docs exported to:
+  - `docs/ops/ROLE_VISIBILITY_MATRIX.md`
+  - `docs/ops/ROLE_VISIBILITY_MATRIX.csv`
+- Layer feature counts (PostGIS check):
+  - `ZA_PROVINCES_NE=51`
+  - `ZA_PROTECTED_AREAS_NE=1626`
+  - `ZA_ECOSYSTEM_PROXY_NE=12`
+- Runtime endpoint probes:
+  - `GET /api/ogc/collections` -> `200`
+  - `GET /api/tiles/ZA_PROVINCES_NE/0/0/0.pbf` -> `200`
+
+## PHASE 8 SPATIAL REAL-DATA + PROGRAMME OPS VERIFIED (2026-02-08)
+- Branch: `feat/spatial-real-data-programmes-v1`
+- Scope: real-source spatial sync, GeoServer publication verification, map/auth UX hardening, Docker reproducibility re-check.
+
+Commands executed (docker, mandatory set):
+- `docker compose --profile minimal up -d --build` -> pass (backend/frontend/core healthy)
+- `docker compose --profile spatial up -d --build` -> pass (GeoServer profile healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend python manage.py sync_spatial_sources` -> `ready=0, skipped=3, blocked=0, failed=0` (idempotent checksum skip)
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=6, skipped=0`
+- `docker compose exec backend python manage.py verify_geoserver_smoke` -> pass (`checked_layers=6`)
+- `docker compose exec backend pytest -q` -> `367 passed, 21 warnings`
+
+Commands executed (frontend):
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test` -> `8 passed`
+- `npm --prefix frontend run e2e` -> `1 passed, 1 skipped` (authenticated smoke skipped when `PLAYWRIGHT_*` credentials not set)
+
+Real-source ingest verification:
+- `docker compose exec backend python manage.py sync_spatial_sources --source-code NE_PROTECTED_LANDS_ZA --force` -> `rows_ingested=1626` from DFFE SAPAD public feed.
+- Source registry checks:
+  - `NE_ADMIN1_ZA` feature count: `51`
+  - `NE_PROTECTED_LANDS_ZA` feature count: `1626`
+  - `NE_GEOREGIONS_ZA` feature count: `12`
+
+Runtime checks:
+- `GET /health/` via backend -> `{"status":"ok"}`
+- `GET /api/ogc/collections` -> `200`, `collections=6`
+- `GET /api/tiles/ZA_PROVINCES_NE/0/0/0.pbf` -> `200`, `application/vnd.mapbox-vector-tile`
+- `GET http://127.0.0.1:8081/` -> `200` (Angular shell served)
+- GeoServer smoke includes WMS capabilities + map request verification for published NBMS layers.
+
+## SPATIAL REGISTRY + OGC VERIFIED (2026-02-07)
+- Branch: `feat/demo-users-systemadmin-v1` (working tree for spatial increment)
+- Scope: full spatial hardening pass (registry models, OGC APIs, vector tiles, GeoServer publish, Docker reproducibility, idempotent seed fixes)
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `366 passed, 1 skipped`
+- `npm --prefix frontend run build` -> pass
+- `npm --prefix frontend run test -- --watch=false --browsers=ChromeHeadless` -> `8 passed`
+- `$env:PLAYWRIGHT_BASE_URL='http://127.0.0.1:8081'; $env:PLAYWRIGHT_USERNAME='ciadmin'; $env:PLAYWRIGHT_PASSWORD='CI_Admin_12345'; npm --prefix frontend run e2e` -> `2 passed` (anonymous + authenticated smoke)
+
+Commands executed (docker):
+- `docker compose --profile minimal up -d --build` -> pass (backend/frontend/core healthy)
+- `docker compose --profile spatial up -d --build` -> pass (GeoServer profile healthy)
+- `docker compose exec backend python manage.py migrate` -> `No migrations to apply`
+- `docker compose exec backend pytest -q` -> `367 passed, 18 warnings`
+- `docker compose exec backend python manage.py seed_demo_spatial` -> `created=0` (idempotent rerun)
+- `docker compose exec backend python manage.py seed_geoserver_layers` -> `published=3, skipped=0`
+- `powershell -ExecutionPolicy Bypass -File scripts/verify_migrations.ps1` -> PASS (`366 passed, 1 skipped` in verify stack)
+
+Runtime checks:
+- `GET /health/` -> `{"status":"ok"}`
+- `GET /health/storage/` -> `{"status":"ok"}`
+- `GET /api/ogc/collections` -> `collections 3`
+- `GET /api/tiles/ZA_PROVINCES/tilejson` -> valid tilejson payload
+- `GET /api/tiles/ZA_PROVINCES/0/0/0.pbf` -> `200`
+- Frontend root `http://localhost:8081/` -> `200 OK`
+- `GET /account/login/` content check -> two-factor template warning absent (`two_factor/_base.html` active)
+- CSRF login through nginx proxy verified with trusted origins including `http://localhost:8081` and `http://127.0.0.1:8081`
+
+Key hardening notes:
+- Spatial migration compatibility fixed for non-GDAL environments (`0035` now uses GIS-safe wrappers).
+- Spatial seed commands are idempotent against legacy slug/code states.
+- GeoServer publish command is idempotent on reruns (handles pre-existing feature type responses).
+- Backend docker image now includes dev test dependencies, so `docker compose exec backend pytest -q` is first-class.
+
+## DEMO USERS + SYSTEMADMIN VERIFIED (2026-02-07)
+- Branch: `feat/demo-users-systemadmin-v1`
+- Runtime baseline reference: `docs/MIGRATION_VERIFICATION.md` (canonical verify path)
+
+Commands executed (host):
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `361 passed, 16 warnings`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.dev"; python manage.py ensure_system_admin` (with `NBMS_ADMIN_*`) -> `System admin updated: username=Tenda, staff=True, superuser=True`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.dev"; python manage.py seed_demo_users` (with `SEED_DEMO_USERS=1`, `ALLOW_INSECURE_DEMO_PASSWORDS=1`) -> demo matrix seeded and `docs/ops/DEMO_USERS.md` written
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.dev"; python manage.py list_demo_users` -> expected role pack listed
+
+Commands executed (docker minimal):
+- `docker compose --profile minimal up -d --build` (with `SEED_DEMO_USERS=1`, `ALLOW_INSECURE_DEMO_PASSWORDS=1`, `NBMS_ADMIN_*`) -> backend/frontend/core services healthy
+- `curl http://127.0.0.1:8000/health/` -> `{"status": "ok"}`
+- `curl http://127.0.0.1:8081/health/` -> `{"status": "ok"}`
+- `docker compose exec -T backend python manage.py list_demo_users` -> seeded role matrix present in container
+- `docker compose exec -T backend python manage.py shell -c "<auth checks>"` ->
+  - `admin_auth True`
+  - `admin_page 200`
+  - `indicatorlead_api 200`
+  - `public_draft_count 0`
+- Login flow probe via frontend proxy:
+  - POST `/account/login/?next=/dashboard` with `Tenda` credentials -> final URI `http://127.0.0.1:8081/dashboard`
+  - authenticated `GET /admin/` -> `200`
+- `curl http://127.0.0.1:8081/account/login/` content check -> two-factor template warning absent
+- `docker compose exec backend python manage.py ensure_system_admin` (with `NBMS_ADMIN_USERNAME=admin_user`) -> updated in-container system admin; `authenticate(username='admin_user', password='CHANGE_ME') -> True`
+
+Migration verification (canonical):
+- `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_migrations.ps1` -> PASS
+- Results:
+  - verification image built from current `docker/verify/Dockerfile`
+  - migrations apply cleanly
+  - `python manage.py check` clean
+  - docker test run `361 passed`
+  - `python manage.py verify_post_migration` passed
+
+## One Biodiversity Hardening V1 - Phases 4-7 Completion Slice (2026-02-07)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Working baseline advanced from uncommitted Phase 4 state to integrated hardening slice.
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `352 passed`
+- `$env:PYTHONPATH="$PWD\src"; python manage.py check` -> no issues
+- `$env:PYTHONPATH="$PWD\src"; python manage.py makemigrations nbms_app` -> created `0034_birdiesite_birdiespecies_integrationdataasset_and_more`
+- `$env:PYTHONPATH="$PWD\src"; python manage.py makemigrations --check --dry-run` -> no changes detected
+- `$env:PYTHONPATH="$PWD\src"; python manage.py migrate` -> applied `0034`
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_gbf_indicators` -> seeded `13` headline + `22` binary GBF indicators
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_mea_template_packs` -> seeded `4` packs, `15` sections
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_birdie_integration` -> ingested BIRDIE snapshot (`species=4, sites=3, abundance=9, occupancy=3, wcv=3`)
+- `$env:PYTHONPATH="$PWD\src"; python manage.py seed_report_products` -> seeded `nba_v1`, `gmo_v1`, `invasive_v1`
+
+Commands executed (frontend local):
+- `npm --prefix frontend install` -> updated lockfile and installed Playwright dependency
+- `npm --prefix frontend run test` -> `7 files, 8 tests passed`
+- `npm --prefix frontend run build` -> pass
+- `npx --prefix frontend playwright install chromium` -> browser installed
+- `npm --prefix frontend run e2e` -> `1 passed`
+
+Commands executed (docker minimal):
+- `docker compose --profile minimal up -d --build` -> backend/frontend/core services healthy
+- `docker compose ps` -> backend/frontend/postgis/redis/minio healthy
+- `curl.exe http://127.0.0.1:8000/health/` -> `{"status": "ok"}`
+- `curl.exe http://127.0.0.1:8081/health/` -> `{"status": "ok"}`
+- `curl.exe http://127.0.0.1:8081/` -> Angular shell served (`NBMS Workspace`)
+
+Implemented in this slice:
+- Phase 4:
+  - Completed GBF catalog readiness with `IndicatorMethodProfile`, `IndicatorMethodRun`, method SDK, and APIs.
+- Phase 5:
+  - Hardened Ramsar pack with COP14-style sections, QA endpoint, deterministic exporter, and PDF export.
+  - Added interactive Angular template-pack editor with section QA workflow.
+- Phase 6:
+  - Implemented BIRDIE connector module and ingestion command with bronze/silver/gold lineage persistence.
+  - Added BIRDIE dashboard API and Angular dashboard page with site/species/provenance panels.
+- Phase 7:
+  - Added report product framework for NBA/GMO/Invasive shells with HTML/PDF export endpoints and Angular workspace.
+  - Added Playwright smoke e2e for docker-served frontend.
+
+ADRs added:
+- `docs/adr/0008-gbf-indicator-catalog-import-strategy.md`
+- `docs/adr/0009-birdie-integration-connector-pattern.md`
+- `docs/adr/0010-report-product-framework.md`
+
+## One Biodiversity Hardening V1 - Phase 3 Programme Ops (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Base commit for phase: `14bbbff`
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations nbms_app` -> created `0032_monitoringprogramme_data_quality_rules_json_and_more`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q src/nbms_app/tests/test_api_programme_ops.py src/nbms_app/tests/test_programme_ops_commands.py` -> `7 passed`
+- `npm --prefix frontend run test` -> `4 files, 5 tests passed`
+- `npm --prefix frontend run build` -> pass
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `344 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py migrate` -> applied `0031` and `0032` on host DB
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py seed_programme_ops_v1` -> seeded NBMS core + BIRDIE integration programmes
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py run_monitoring_programmes --limit 5` -> command executed (0 due runs)
+
+Commands executed (docker):
+- `docker compose --profile minimal up -d --build` -> backend/frontend/core services healthy
+- `curl.exe http://127.0.0.1:8000/health/` -> `{"status":"ok"}`
+- `curl.exe http://127.0.0.1:8081/health/` -> `{"status":"ok"}`
+- `curl.exe -I http://127.0.0.1:8081/programmes` -> `HTTP/1.1 200 OK`
+
+Implemented in phase:
+- Added monitoring programme operations runtime models and migration (`MonitoringProgrammeSteward`, `MonitoringProgrammeRun`, `MonitoringProgrammeRunStep`, `MonitoringProgrammeAlert`).
+- Added programme ops service runner + queue (`src/nbms_app/services/programme_ops.py`).
+- Added programme ops API endpoints and ABAC steward-aware filtering.
+- Added Angular Programme Ops page with run-now/dry-run controls and run/alert panels.
+- Added seed + scheduler commands (`seed_programme_ops_v1`, `run_monitoring_programmes`).
+- Added ADR `docs/adr/0007-programme-job-runner-lineage-model.md`.
+
+## One Biodiversity Hardening V1 - Phase 0 Baseline (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Base branch/commit: `feat/ui-spatial-indicators-v1` @ `cc22263`
+
+Commands executed (host):
+- `python --version` -> `Python 3.13.4`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `324 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py check` -> no issues
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations --check --dry-run` -> no changes detected
+
+Commands executed (docker):
+- `docker compose --profile minimal up -d --build` -> backend/frontend/core services started
+- `docker compose --profile minimal ps` -> backend/frontend/postgis/redis/minio healthy
+- `Invoke-WebRequest http://127.0.0.1:8000/health/` -> `{"status": "ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/` -> `200`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/` -> `{"status": "ok"}`
+
+Baseline status:
+- Host baseline: PASS
+- Docker baseline: PASS
+- Proceeding to Phase 1 hardening
+
+## One Biodiversity Hardening V1 - Phase 1 Hardening (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Commit base for phase: `cc22263`
+
+Commands executed:
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q src/nbms_app/tests/test_request_id.py src/nbms_app/tests/test_rate_limiting.py src/nbms_app/tests/test_api_system_health.py src/nbms_app/tests/test_session_security.py src/nbms_app/tests/test_prod_settings.py src/nbms_app/tests/test_api_spa_auth.py src/nbms_app/tests/test_audit_transition_coverage.py` -> `16 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `334 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py check` -> no issues
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations --check --dry-run` -> no changes detected
+- `npm --prefix frontend run test` -> `2 passed`
+- `npm --prefix frontend run build` -> pass
+- `docker compose --profile minimal up -d --build` -> pass
+- `Invoke-WebRequest http://127.0.0.1:8000/health/` -> `{"status":"ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/` -> `{"status":"ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/help/sections` -> `200`
+
+Implemented in phase:
+- Request-ID middleware and log correlation.
+- CSP/security header middleware and production defaults.
+- Session fixation mitigation (single rekey after auth).
+- Expanded rate limits (exports/public API/metrics).
+- System health API + Angular page.
+- CI security additions: Bandit + Trivy.
+- Backup/restore helper scripts and runbook.
+
+## One Biodiversity Hardening V1 - Phase 1 P2 NR7 Builder Uplift (2026-02-06)
+- Branch: `feat/one-biodiversity-hardening-v1`
+- Base commit for phase: `7f533d8`
+
+Commands executed:
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q src/nbms_app/tests/test_api_nr7_builder.py src/nbms_app/tests/test_api_spa_auth.py src/nbms_app/tests/test_request_id.py` -> `9 passed`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q` -> `337 passed`
+- `npm --prefix frontend run test` -> `4 passed`
+- `npm --prefix frontend run build` -> pass
+- `docker compose --profile minimal up -d --build` -> pass
+- `Invoke-WebRequest http://127.0.0.1:8000/health/` -> `{"status":"ok"}`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/` -> `{"status":"ok"}`
+
+Implemented in phase:
+- Added NR7 builder APIs for instance listing, QA/preview summary, and PDF export.
+- Added validation engine for required fields, cross-section checks, and readiness integration.
+- Added Angular NR7 Report Builder page with QA bar, section completion list, live preview, and PDF action.
+- Added richer section-help payload (`sections_rich`) for contextual guidance.
+- Added PDF runtime dependencies to backend Docker image and requirements.
+
+## UI/Spatial/Indicator Increment Verification (2026-02-06)
+- Branch: `feat/ui-spatial-indicators-v1`
+- Base commit at start of increment: `db98d16`
+
+Commands executed (host):
+- `python --version`
+- `python -m pip install -r requirements.txt`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; pytest -q`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py check`
+- `$env:PYTHONPATH="$PWD\src"; $env:DJANGO_SETTINGS_MODULE="config.settings.test"; python manage.py makemigrations --check --dry-run`
+- `cd frontend; npm run build`
+- `cd frontend; npm run test`
+- `docker compose --profile minimal up -d --build`
+- `docker compose --profile full up -d`
+- `docker compose --profile minimal ps`
+- `Invoke-WebRequest http://127.0.0.1:8000/health/`
+- `Invoke-WebRequest http://127.0.0.1:8081/health/`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/help/sections`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/indicators?status=published`
+- `Invoke-WebRequest http://127.0.0.1:8081/api/spatial/layers`
+
+Result summary:
+- Backend test suite: `324 passed`
+- Django checks: clean (`No changes detected` for migrations)
+- Frontend: Angular build passes; frontend tests pass (`2 passed`)
+- Docker minimal profile: backend + frontend + PostGIS + Redis + MinIO healthy
+- Docker full profile: starts GeoServer on `http://127.0.0.1:8080/`
+- Health checks:
+  - backend direct `/health/` -> `{"status": "ok"}`
+  - frontend-proxied `/health/` -> `{"status": "ok"}`
+- API checks:
+  - `/api/help/sections` status `200`
+  - `/api/indicators?status=published` returns seeded GBF workflow indicators
+  - `/api/spatial/layers` returns seeded map layer metadata
+
+## BASELINE VERIFIED (2026-02-06)
+- Branch: `feat/nr7-full-conformance-integration`
+- Commands executed (Windows host):
+  - `git status`
+  - `git branch`
+  - `python --version`
+  - `python -m pip install -r requirements.txt`
+  - `python -m pip install -r requirements-dev.txt`
+  - `$env:DJANGO_SETTINGS_MODULE='config.settings.test'; $env:PYTHONPATH="$PWD\src"; pytest -q`
+  - `python manage.py check`
+  - `python manage.py migrate`
+  - `python manage.py runserver`
+  - health checks: `GET /health/`, `GET /health/storage/`
+- Result summary:
+  - local suite: `308 passed`
+  - `check` and `migrate` succeeded
+  - `/health/` returned `{"status":"ok"}`
+  - `/health/storage/` returned `{"status":"disabled","detail":"USE_S3=0"}`
+- Docker baseline:
+  - `docker compose -f docker/docker-compose.yml up -d` verified after fixing `minio-init` image tag to `minio/mc:latest`.
+
 ## Snapshot scope
 - Audited commit (main): `d4efd3f8d7cf6b9a7fea98586c40ee54f44e9559`
 - Captured at: 2026-01-30 10:17 (local) before docs branch `feat/docs-repo-state`

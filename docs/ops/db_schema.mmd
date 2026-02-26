@@ -1,0 +1,1039 @@
+erDiagram
+  %% Auto-generated from src/nbms_app/models.py
+  %% User inherits Django AbstractUser; standard fields omitted for brevity.
+  %% ContentType is a Django system table; fields omitted for brevity.
+
+  ContentType {
+    int id PK
+  }
+
+  AuditEvent {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk actor FK
+    string action
+    string event_type
+    fk content_type FK
+    string object_type
+    string object_id
+    uuid object_uuid
+    json metadata
+    string request_path
+    string request_method
+    string ip_address
+    text user_agent
+    string session_key
+    string request_id
+  }
+
+  BinaryIndicatorGroup {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string key
+    fk framework_target FK
+    fk framework_indicator FK
+    string target_code
+    string binary_indicator_code
+    string title
+    int ordering
+    string source_ref
+    boolean is_active
+  }
+
+  BinaryIndicatorGroupResponse {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk group FK
+    text comments
+    fk updated_by FK
+  }
+
+  BinaryIndicatorQuestion {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework_indicator FK
+    fk group FK
+    fk parent_question FK
+    string group_key
+    string question_key
+    string section
+    string number
+    string question_type
+    text question_text
+    text help_text
+    boolean multiple
+    boolean mandatory
+    json options
+    int sort_order
+    json validations
+    boolean is_active
+  }
+
+  BinaryIndicatorResponse {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk question FK
+    json response
+    text comments
+  }
+
+  ConsentRecord {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk content_type FK
+    uuid object_uuid
+    fk reporting_instance FK
+    string status
+    fk granted_by FK
+    datetime granted_at
+    text notes
+    string consent_document
+  }
+
+  DataAgreement {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string agreement_code
+    string title
+    string agreement_type
+    string status
+    date start_date
+    date end_date
+    string licence
+    text restrictions_summary
+    text benefit_sharing_terms
+    text citation_requirement
+    string document_url
+    string primary_contact_name
+    string primary_contact_email
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  Dataset {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string title
+    text description
+    text methodology
+    string source_url
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  DatasetCatalog {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string dataset_code
+    string title
+    text description
+    string dataset_type
+    fk custodian_org FK
+    fk producer_org FK
+    string licence
+    string access_level
+    fk sensitivity_class FK
+    boolean consent_required
+    fk agreement FK
+    date temporal_start
+    date temporal_end
+    string update_frequency
+    text spatial_coverage_description
+    string spatial_resolution
+    string taxonomy_standard
+    string ecosystem_classification
+    string doi_or_identifier
+    string landing_page_url
+    string api_endpoint_url
+    string file_formats
+    string qa_status
+    text citation
+    string keywords
+    date last_updated_date
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  DatasetCatalogIndicatorLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk dataset FK
+    fk indicator FK
+    string relationship_type
+    string role
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  DatasetRelease {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk dataset FK
+    string version
+    date release_date
+    string snapshot_title
+    text snapshot_description
+    text snapshot_methodology
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  Evidence {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string title
+    text description
+    string evidence_type
+    string source_url
+    string file
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  ExportPackage {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string title
+    text description
+    string status
+    text review_note
+    fk reporting_instance FK
+    fk organisation FK
+    fk created_by FK
+    json payload
+    datetime generated_at
+    datetime released_at
+  }
+
+  Framework {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string title
+    text description
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    text review_note
+  }
+
+  FrameworkGoal {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework FK
+    string code
+    string title
+    text official_text
+    text description
+    int sort_order
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    text review_note
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  FrameworkIndicator {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework FK
+    fk framework_target FK
+    string code
+    string title
+    text description
+    string indicator_type
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    text review_note
+    string source_system
+    string source_ref
+  }
+
+  FrameworkTarget {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework FK
+    fk goal FK
+    string code
+    string title
+    text official_text
+    text description
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    text review_note
+    string source_system
+    string source_ref
+  }
+
+  Indicator {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string title
+    fk national_target FK
+    string indicator_type
+    string reporting_cadence
+    string qa_status
+    fk responsible_org FK
+    fk data_steward FK
+    fk indicator_lead FK
+    fk source_document FK
+    fk license FK
+    text computation_notes
+    text limitations
+    text spatial_coverage
+    text temporal_coverage
+    string reporting_capability
+    json reporting_no_reason_codes
+    text reporting_no_reason_notes
+    fk owner_organisation FK
+    string update_frequency
+    date last_updated_on
+    text coverage_geography
+    int coverage_time_start_year
+    int coverage_time_end_year
+    text data_quality_note
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    boolean export_approved
+    text review_note
+    string source_system
+    string source_ref
+  }
+
+  IndicatorDataPoint {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk series FK
+    int year
+    decimal value_numeric
+    text value_text
+    text uncertainty
+    json disaggregation
+    fk dataset_release FK
+    string source_url
+    text footnote
+  }
+
+  IndicatorDataSeries {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk framework_indicator FK
+    fk indicator FK
+    string title
+    string unit
+    string value_type
+    text methodology
+    json disaggregation_schema
+    text source_notes
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    boolean export_approved
+    text review_note
+  }
+
+  IndicatorDatasetLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk dataset FK
+    text note
+  }
+
+  IndicatorEvidenceLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk evidence FK
+    text note
+  }
+
+  IndicatorFrameworkIndicatorLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk framework_indicator FK
+    string relation_type
+    int confidence
+    text notes
+    string source
+    boolean is_active
+  }
+
+  IndicatorMethodologyVersionLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk methodology_version FK
+    boolean is_primary
+    text notes
+    string source
+    boolean is_active
+  }
+
+  InstanceExportApproval {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk content_type FK
+    uuid object_uuid
+    string decision
+    string approval_scope
+    fk approved_by FK
+    datetime approved_at
+    text decision_note
+  }
+
+  License {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string title
+    string url
+    text description
+    boolean is_active
+  }
+
+  Methodology {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string methodology_code
+    string title
+    text description
+    fk owner_org FK
+    string scope
+    string references_url
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  MethodologyDatasetLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk methodology FK
+    fk dataset FK
+    string relationship_type
+    string role
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  MethodologyIndicatorLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk methodology FK
+    fk indicator FK
+    string relationship_type
+    string role
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  MethodologyVersion {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk methodology FK
+    string version
+    string status
+    date effective_date
+    date deprecated_date
+    text change_log
+    string protocol_url
+    string computational_script_url
+    json parameters_json
+    text qa_steps_summary
+    boolean peer_reviewed
+    string approval_body
+    string approval_reference
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  MonitoringProgramme {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string programme_code
+    string title
+    text description
+    string programme_type
+    fk lead_org FK
+    int start_year
+    int end_year
+    string geographic_scope
+    text spatial_coverage_description
+    string taxonomic_scope
+    string ecosystem_scope
+    text objectives
+    text sampling_design_summary
+    string update_frequency
+    text qa_process_summary
+    fk sensitivity_class FK
+    boolean consent_required
+    fk agreement FK
+    string website_url
+    string primary_contact_name
+    string primary_contact_email
+    string alternative_contact_name
+    string alternative_contact_email
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  NationalTarget {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string title
+    text description
+    fk responsible_org FK
+    string qa_status
+    string reporting_cadence
+    fk source_document FK
+    fk license FK
+    text provenance_notes
+    text spatial_coverage
+    text temporal_coverage
+    fk organisation FK
+    fk created_by FK
+    string status
+    string sensitivity
+    boolean export_approved
+    text review_note
+    string source_system
+    string source_ref
+  }
+
+  NationalTargetFrameworkTargetLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk national_target FK
+    fk framework_target FK
+    string relation_type
+    int confidence
+    text notes
+    string source
+    boolean is_active
+  }
+
+  Notification {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk recipient FK
+    string message
+    string url
+    boolean is_read
+  }
+
+  Organisation {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    string name
+    string org_code
+    string org_type
+    fk parent_org FK
+    string website_url
+    string primary_contact_name
+    string primary_contact_email
+    string alternative_contact_name
+    string alternative_contact_email
+    string contact_email
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  ProgrammeDatasetLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk programme FK
+    fk dataset FK
+    string relationship_type
+    string role
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  ProgrammeIndicatorLink {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk programme FK
+    fk indicator FK
+    string relationship_type
+    string role
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  ReportSectionResponse {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk template FK
+    json response_json
+    fk updated_by FK
+  }
+
+  ReportSectionTemplate {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string title
+    int ordering
+    json schema_json
+    boolean is_active
+  }
+
+  ReportingCycle {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string title
+    date start_date
+    date end_date
+    date due_date
+    boolean is_active
+  }
+
+  ReportingInstance {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk cycle FK
+    string version_label
+    string status
+    datetime frozen_at
+    fk frozen_by FK
+    text notes
+  }
+
+  ReportingSnapshot {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    string snapshot_type
+    json payload_json
+    string payload_hash
+    string exporter_schema
+    string exporter_version
+    json readiness_report_json
+    boolean readiness_overall_ready
+    int readiness_blocking_gap_count
+    fk created_by FK
+    text notes
+  }
+
+  ReviewDecision {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk snapshot FK
+    string decision
+    text notes
+    fk created_by FK
+    fk supersedes FK
+  }
+
+  SectionIIINationalTargetProgress {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk national_target FK
+    string progress_status
+    string progress_level
+    text summary
+    text actions_taken
+    text outcomes
+    text challenges
+    text challenges_and_approaches
+    text effectiveness_examples
+    text sdg_and_other_agreements
+    text support_needed
+    date period_start
+    date period_end
+  }
+
+  SectionIINBSAPStatus {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk reporting_instance FK
+    string nbsap_updated_status
+    text nbsap_updated_other_text
+    date nbsap_expected_completion_date
+    string stakeholders_involved
+    json stakeholder_groups
+    text stakeholder_groups_other_text
+    text stakeholder_groups_notes
+    string nbsap_adopted_status
+    text nbsap_adopted_other_text
+    text nbsap_adoption_mechanism
+    date nbsap_expected_adoption_date
+    text monitoring_system_description
+    fk updated_by FK
+  }
+
+  SectionIReportContext {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk reporting_instance FK
+    string reporting_party_name
+    string submission_language
+    json additional_languages
+    text responsible_authorities
+    string contact_name
+    string contact_email
+    text preparation_process
+    text preparation_challenges
+    text acknowledgements
+    fk updated_by FK
+  }
+
+  SectionIVFrameworkGoalProgress {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk framework_goal FK
+    text progress_summary
+    text actions_taken
+    text outcomes
+    text challenges_and_approaches
+    text sdg_and_other_agreements
+    fk updated_by FK
+  }
+
+  SectionIVFrameworkTargetProgress {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    fk framework_target FK
+    string progress_status
+    string progress_level
+    text summary
+    text actions_taken
+    text outcomes
+    text challenges
+    text challenges_and_approaches
+    text effectiveness_examples
+    text sdg_and_other_agreements
+    text support_needed
+    date period_start
+    date period_end
+  }
+
+  SectionVConclusions {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    fk reporting_instance FK
+    text overall_assessment
+    text decision_15_8_information
+    text decision_15_7_information
+    text decision_15_11_information
+    text plant_conservation_information
+    text additional_notes
+    fk updated_by FK
+  }
+
+  SensitivityClass {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string sensitivity_code
+    string sensitivity_name
+    text description
+    string access_level_default
+    boolean consent_required_default
+    text redaction_policy
+    text legal_basis
+    text notes
+    boolean is_active
+    string source_system
+    string source_ref
+  }
+
+  SourceDocument {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string title
+    string source_url
+    text citation
+    date version_date
+    text notes
+    fk created_by FK
+  }
+
+  User {
+    int id PK
+    fk organisation FK
+  }
+
+  ValidationRuleSet {
+    int id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string code
+    string applies_to
+    json rules_json
+    boolean is_active
+    fk created_by FK
+  }
+
+  User ||--o{ AuditEvent : "actor"
+  ContentType ||--o{ AuditEvent : "content_type"
+  FrameworkTarget ||--o{ BinaryIndicatorGroup : "framework_target"
+  FrameworkIndicator ||--o{ BinaryIndicatorGroup : "framework_indicator"
+  ReportingInstance ||--|{ BinaryIndicatorGroupResponse : "reporting_instance"
+  BinaryIndicatorGroup ||--|{ BinaryIndicatorGroupResponse : "group"
+  User ||--o{ BinaryIndicatorGroupResponse : "updated_by"
+  FrameworkIndicator ||--|{ BinaryIndicatorQuestion : "framework_indicator"
+  BinaryIndicatorGroup ||--o{ BinaryIndicatorQuestion : "group"
+  BinaryIndicatorQuestion ||--o{ BinaryIndicatorQuestion : "parent_question"
+  ReportingInstance ||--|{ BinaryIndicatorResponse : "reporting_instance"
+  BinaryIndicatorQuestion ||--|{ BinaryIndicatorResponse : "question"
+  ContentType ||--|{ ConsentRecord : "content_type"
+  ReportingInstance ||--o{ ConsentRecord : "reporting_instance"
+  User ||--o{ ConsentRecord : "granted_by"
+  DataAgreement }o--o{ Organisation : "parties"
+  Organisation ||--o{ Dataset : "organisation"
+  User ||--o{ Dataset : "created_by"
+  Organisation ||--o{ DatasetCatalog : "custodian_org"
+  Organisation ||--o{ DatasetCatalog : "producer_org"
+  SensitivityClass ||--o{ DatasetCatalog : "sensitivity_class"
+  DataAgreement ||--o{ DatasetCatalog : "agreement"
+  DatasetCatalog ||--|{ DatasetCatalogIndicatorLink : "dataset"
+  Indicator ||--|{ DatasetCatalogIndicatorLink : "indicator"
+  Dataset ||--|{ DatasetRelease : "dataset"
+  Organisation ||--o{ DatasetRelease : "organisation"
+  User ||--o{ DatasetRelease : "created_by"
+  Organisation ||--o{ Evidence : "organisation"
+  User ||--o{ Evidence : "created_by"
+  ReportingInstance ||--o{ ExportPackage : "reporting_instance"
+  Organisation ||--o{ ExportPackage : "organisation"
+  User ||--o{ ExportPackage : "created_by"
+  Organisation ||--o{ Framework : "organisation"
+  User ||--o{ Framework : "created_by"
+  Framework ||--|{ FrameworkGoal : "framework"
+  Organisation ||--o{ FrameworkGoal : "organisation"
+  User ||--o{ FrameworkGoal : "created_by"
+  Framework ||--|{ FrameworkIndicator : "framework"
+  FrameworkTarget ||--o{ FrameworkIndicator : "framework_target"
+  Organisation ||--o{ FrameworkIndicator : "organisation"
+  User ||--o{ FrameworkIndicator : "created_by"
+  Framework ||--|{ FrameworkTarget : "framework"
+  FrameworkGoal ||--o{ FrameworkTarget : "goal"
+  Organisation ||--o{ FrameworkTarget : "organisation"
+  User ||--o{ FrameworkTarget : "created_by"
+  NationalTarget ||--|{ Indicator : "national_target"
+  Organisation ||--o{ Indicator : "responsible_org"
+  User ||--o{ Indicator : "data_steward"
+  User ||--o{ Indicator : "indicator_lead"
+  SourceDocument ||--o{ Indicator : "source_document"
+  License ||--o{ Indicator : "license"
+  Organisation ||--o{ Indicator : "owner_organisation"
+  Organisation ||--o{ Indicator : "organisation"
+  User ||--o{ Indicator : "created_by"
+  IndicatorDataSeries ||--|{ IndicatorDataPoint : "series"
+  DatasetRelease ||--o{ IndicatorDataPoint : "dataset_release"
+  FrameworkIndicator ||--o{ IndicatorDataSeries : "framework_indicator"
+  Indicator ||--o{ IndicatorDataSeries : "indicator"
+  Organisation ||--o{ IndicatorDataSeries : "organisation"
+  User ||--o{ IndicatorDataSeries : "created_by"
+  Indicator ||--|{ IndicatorDatasetLink : "indicator"
+  Dataset ||--|{ IndicatorDatasetLink : "dataset"
+  Indicator ||--|{ IndicatorEvidenceLink : "indicator"
+  Evidence ||--|{ IndicatorEvidenceLink : "evidence"
+  Indicator ||--|{ IndicatorFrameworkIndicatorLink : "indicator"
+  FrameworkIndicator ||--|{ IndicatorFrameworkIndicatorLink : "framework_indicator"
+  Indicator ||--|{ IndicatorMethodologyVersionLink : "indicator"
+  MethodologyVersion ||--|{ IndicatorMethodologyVersionLink : "methodology_version"
+  ReportingInstance ||--|{ InstanceExportApproval : "reporting_instance"
+  ContentType ||--|{ InstanceExportApproval : "content_type"
+  User ||--o{ InstanceExportApproval : "approved_by"
+  Organisation ||--o{ Methodology : "owner_org"
+  Methodology ||--|{ MethodologyDatasetLink : "methodology"
+  DatasetCatalog ||--|{ MethodologyDatasetLink : "dataset"
+  Methodology ||--|{ MethodologyIndicatorLink : "methodology"
+  Indicator ||--|{ MethodologyIndicatorLink : "indicator"
+  Methodology ||--|{ MethodologyVersion : "methodology"
+  Organisation ||--o{ MonitoringProgramme : "lead_org"
+  MonitoringProgramme }o--o{ Organisation : "partners"
+  SensitivityClass ||--o{ MonitoringProgramme : "sensitivity_class"
+  DataAgreement ||--o{ MonitoringProgramme : "agreement"
+  Organisation ||--o{ NationalTarget : "responsible_org"
+  SourceDocument ||--o{ NationalTarget : "source_document"
+  License ||--o{ NationalTarget : "license"
+  Organisation ||--o{ NationalTarget : "organisation"
+  User ||--o{ NationalTarget : "created_by"
+  NationalTarget ||--|{ NationalTargetFrameworkTargetLink : "national_target"
+  FrameworkTarget ||--|{ NationalTargetFrameworkTargetLink : "framework_target"
+  User ||--|{ Notification : "recipient"
+  Organisation ||--o{ Organisation : "parent_org"
+  MonitoringProgramme ||--|{ ProgrammeDatasetLink : "programme"
+  DatasetCatalog ||--|{ ProgrammeDatasetLink : "dataset"
+  MonitoringProgramme ||--|{ ProgrammeIndicatorLink : "programme"
+  Indicator ||--|{ ProgrammeIndicatorLink : "indicator"
+  ReportingInstance ||--|{ ReportSectionResponse : "reporting_instance"
+  ReportSectionTemplate ||--|{ ReportSectionResponse : "template"
+  User ||--o{ ReportSectionResponse : "updated_by"
+  ReportingCycle ||--|{ ReportingInstance : "cycle"
+  User ||--o{ ReportingInstance : "frozen_by"
+  ReportingInstance ||--|{ ReportingSnapshot : "reporting_instance"
+  User ||--o{ ReportingSnapshot : "created_by"
+  ReportingInstance ||--|{ ReviewDecision : "reporting_instance"
+  ReportingSnapshot ||--|{ ReviewDecision : "snapshot"
+  User ||--o{ ReviewDecision : "created_by"
+  ReviewDecision ||--o{ ReviewDecision : "supersedes"
+  ReportingInstance ||--|{ SectionIIINationalTargetProgress : "reporting_instance"
+  NationalTarget ||--|{ SectionIIINationalTargetProgress : "national_target"
+  SectionIIINationalTargetProgress }o--o{ IndicatorDataSeries : "indicator_data_series"
+  SectionIIINationalTargetProgress }o--o{ BinaryIndicatorResponse : "binary_indicator_responses"
+  SectionIIINationalTargetProgress }o--o{ Evidence : "evidence_items"
+  SectionIIINationalTargetProgress }o--o{ DatasetRelease : "dataset_releases"
+  ReportingInstance ||--|| SectionIINBSAPStatus : "reporting_instance"
+  User ||--o{ SectionIINBSAPStatus : "updated_by"
+  ReportingInstance ||--|| SectionIReportContext : "reporting_instance"
+  User ||--o{ SectionIReportContext : "updated_by"
+  ReportingInstance ||--|{ SectionIVFrameworkGoalProgress : "reporting_instance"
+  FrameworkGoal ||--|{ SectionIVFrameworkGoalProgress : "framework_goal"
+  SectionIVFrameworkGoalProgress }o--o{ Evidence : "evidence_items"
+  User ||--o{ SectionIVFrameworkGoalProgress : "updated_by"
+  ReportingInstance ||--|{ SectionIVFrameworkTargetProgress : "reporting_instance"
+  FrameworkTarget ||--|{ SectionIVFrameworkTargetProgress : "framework_target"
+  SectionIVFrameworkTargetProgress }o--o{ IndicatorDataSeries : "indicator_data_series"
+  SectionIVFrameworkTargetProgress }o--o{ BinaryIndicatorResponse : "binary_indicator_responses"
+  SectionIVFrameworkTargetProgress }o--o{ Evidence : "evidence_items"
+  SectionIVFrameworkTargetProgress }o--o{ DatasetRelease : "dataset_releases"
+  ReportingInstance ||--|| SectionVConclusions : "reporting_instance"
+  SectionVConclusions }o--o{ Evidence : "evidence_items"
+  User ||--o{ SectionVConclusions : "updated_by"
+  User ||--o{ SourceDocument : "created_by"
+  Organisation ||--o{ User : "organisation"
+  User ||--o{ ValidationRuleSet : "created_by"
+

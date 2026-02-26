@@ -1,0 +1,156 @@
+erDiagram
+  %% Methodologies, versions, validation rules, and readiness snapshots (AS-IS).
+
+  Organisation {
+    bigint id PK
+    string(255) name
+    string(50) org_code
+  }
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    boolean is_active
+    fk organisation FK
+  }
+
+  Methodology {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(50) methodology_code
+    string(255) title
+    text description
+    fk owner_org FK
+    string(255) scope
+    string references_url
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  MethodologyVersion {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk methodology FK
+    string(50) version
+    string(20) status
+    date effective_date
+    date deprecated_date
+    text change_log
+    string protocol_url
+    string computational_script_url
+    json parameters_json
+    text qa_steps_summary
+    boolean peer_reviewed
+    string(255) approval_body
+    string(255) approval_reference
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  MethodologyDatasetLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk methodology FK
+    fk dataset FK
+    string(20) relationship_type
+    string(100) role
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  MethodologyIndicatorLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk methodology FK
+    fk indicator FK
+    string(20) relationship_type
+    string(100) role
+    text notes
+    boolean is_active
+    string(100) source_system
+    string(255) source_ref
+  }
+
+  IndicatorMethodologyVersionLink {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    fk indicator FK
+    fk methodology_version FK
+    boolean is_primary
+    text notes
+    string source
+    boolean is_active
+  }
+
+  ValidationRuleSet {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    string(100) code
+    string(20) applies_to
+    json rules_json
+    boolean is_active
+    fk created_by FK
+  }
+
+  ReportingSnapshot {
+    bigint id PK
+    datetime created_at
+    datetime updated_at
+    uuid uuid
+    fk reporting_instance FK
+    string(50) snapshot_type
+    json payload_json
+    string(64) payload_hash
+    string(100) exporter_schema
+    string(50) exporter_version
+    json readiness_report_json
+    boolean readiness_overall_ready
+    int readiness_blocking_gap_count
+    fk created_by FK
+    text notes
+  }
+
+  ReportingInstance {
+    bigint id PK
+    string(50) version_label
+    string(20) status
+  }
+
+  Indicator {
+    bigint id PK
+    string(50) code
+    string(255) title
+  }
+
+  DatasetCatalog {
+    bigint id PK
+    string(50) dataset_code
+    string(255) title
+  }
+
+  Indicator ||--|{ IndicatorMethodologyVersionLink : "indicator"
+  MethodologyVersion ||--|{ IndicatorMethodologyVersionLink : "methodology_version"
+  Organisation ||--o{ Methodology : "owner_org"
+  Methodology ||--|{ MethodologyDatasetLink : "methodology"
+  DatasetCatalog ||--|{ MethodologyDatasetLink : "dataset"
+  Methodology ||--|{ MethodologyIndicatorLink : "methodology"
+  Indicator ||--|{ MethodologyIndicatorLink : "indicator"
+  Methodology ||--|{ MethodologyVersion : "methodology"
+  ReportingInstance ||--|{ ReportingSnapshot : "reporting_instance"
+  User ||--o{ ReportingSnapshot : "created_by"
+  Organisation ||--o{ User : "organisation"
+  User ||--o{ ValidationRuleSet : "created_by"

@@ -74,7 +74,8 @@ def visible_framework_targets_for_user(*, instance, user, framework_code=None, q
     if query:
         queryset = queryset.filter(Q(code__icontains=query) | Q(title__icontains=query))
     queryset = order_queryset_by_framework_code_title_uuid(queryset)
-    return _apply_consent_queryset(instance, queryset, FrameworkTarget)
+    queryset = _apply_consent_queryset(instance, queryset, FrameworkTarget)
+    return order_queryset_by_framework_code_title_uuid(queryset)
 
 
 def visible_framework_indicators_for_user(*, instance, user, framework_code=None, query=None):
@@ -88,7 +89,8 @@ def visible_framework_indicators_for_user(*, instance, user, framework_code=None
     if query:
         queryset = queryset.filter(Q(code__icontains=query) | Q(title__icontains=query))
     queryset = order_queryset_by_framework_code_title_uuid(queryset)
-    return _apply_consent_queryset(instance, queryset, FrameworkIndicator)
+    queryset = _apply_consent_queryset(instance, queryset, FrameworkIndicator)
+    return order_queryset_by_framework_code_title_uuid(queryset)
 
 
 def selected_targets_and_indicators(instance, user):

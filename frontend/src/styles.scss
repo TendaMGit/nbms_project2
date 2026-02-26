@@ -1,0 +1,70 @@
+@use './styles/theme' as nbms-theme;
+@use './styles/tokens';
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
+@include nbms-theme.register-theme();
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(circle at top right, #dbe9df 0%, var(--nbms-bg) 42%, #f9fbfa 100%);
+  color: var(--nbms-text-primary);
+  font-family: var(--nbms-font-family-base);
+  font-size: var(--nbms-font-size-base);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--nbms-font-family-heading);
+  margin: 0;
+}
+
+a {
+  color: var(--nbms-link);
+}
+
+:root[data-theme='dark'] body {
+  background: radial-gradient(circle at top right, #16242f 0%, var(--nbms-bg) 45%, #1a2a36 100%);
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--nbms-focus);
+  outline-offset: 2px;
+  box-shadow: var(--nbms-focus-ring);
+}
+
+.nbms-card-surface {
+  background: var(--nbms-surface);
+  border: 1px solid var(--nbms-border);
+  border-radius: var(--nbms-radius-md);
+  box-shadow: var(--nbms-shadow-sm);
+}
+
+.nbms-toast-success .mat-mdc-snackbar-surface {
+  background: #0f5a31 !important;
+  color: #f3fff6 !important;
+}
+
+.nbms-toast-warn .mat-mdc-snackbar-surface {
+  background: #8e6102 !important;
+  color: #fff8ea !important;
+}
+
+.nbms-toast-error .mat-mdc-snackbar-surface {
+  background: #8f231d !important;
+  color: #ffefee !important;
+}

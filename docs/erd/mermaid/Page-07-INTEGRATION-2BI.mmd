@@ -1,0 +1,114 @@
+erDiagram
+  %% TO-BE (_2bi) integration and interoperability tables.
+  %% TBI_ prefix denotes proposed tables (documentation-only).
+
+  User {
+    bigint id PK
+    string(150) username
+    string(254) email
+    boolean is_active
+    fk organisation FK
+  }
+
+  Indicator {
+    bigint id PK
+    string(50) code
+    string(255) title
+  }
+
+  TBI_SdgGoal_2bi {
+    bigint id PK
+    string(20) code
+    string(255) title
+    text description
+    boolean is_active
+  }
+
+  TBI_SdgTarget_2bi {
+    bigint id PK
+    fk goal_id FK
+    string(20) code
+    string(255) title
+    text description
+    boolean is_active
+  }
+
+  TBI_SdgIndicator_2bi {
+    bigint id PK
+    fk target_id FK
+    string(50) code
+    string(255) title
+    text description
+    string(50) tier
+    boolean is_active
+  }
+
+  TBI_IndicatorSdgLink_2bi {
+    bigint id PK
+    fk indicator_id FK
+    fk sdg_target_id FK
+    string(50) relation_type
+    int confidence
+    text notes
+    string(200) source_url
+  }
+
+  TBI_MeaConvention_2bi {
+    bigint id PK
+    string(50) code
+    string(255) name
+    text description
+    string(200) url
+    boolean is_active
+  }
+
+  TBI_MeaReportingTemplate_2bi {
+    bigint id PK
+    fk convention_id FK
+    string(50) code
+    string(255) title
+    string(50) version
+    string(200) template_url
+    boolean is_active
+  }
+
+  TBI_ExternalSystem_2bi {
+    bigint id PK
+    string(50) system_code
+    string(255) name
+    string(200) base_url
+    string(255) contact_email
+    boolean is_active
+  }
+
+  TBI_ExternalSystemLink_2bi {
+    bigint id PK
+    fk external_system_id FK
+    string(100) entity_type
+    uuid entity_uuid
+    string(255) external_id
+    string(200) external_url
+    datetime synced_at
+    string(50) status
+  }
+
+  TBI_DataQualityIssue_2bi {
+    bigint id PK
+    string(100) subject_type
+    uuid subject_uuid
+    string(20) severity
+    string(20) status
+    text description
+    datetime detected_at
+    datetime resolved_at
+    fk detected_by FK
+    text notes
+  }
+
+  TBI_SdgGoal_2bi ||--|{ TBI_SdgTarget_2bi : "goal_id"
+  TBI_SdgTarget_2bi ||--|{ TBI_SdgIndicator_2bi : "target_id"
+  Indicator ||--|{ TBI_IndicatorSdgLink_2bi : "indicator_id"
+  TBI_SdgTarget_2bi ||--|{ TBI_IndicatorSdgLink_2bi : "sdg_target_id"
+  TBI_MeaConvention_2bi ||--|{ TBI_MeaReportingTemplate_2bi : "convention_id"
+  TBI_ExternalSystem_2bi ||--|{ TBI_ExternalSystemLink_2bi : "external_system_id"
+  User ||--o{ TBI_DataQualityIssue_2bi : "detected_by"

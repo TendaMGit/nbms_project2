@@ -14,4 +14,4 @@ Introduce foundational controlled vocabularies and provenance records for the Re
 
 ## Rollback notes
 - Reverse the migration to drop `License` and `SourceDocument` tables.
-- No dependent data yet, so rollback is safe in Phase 2.1.
+- No dependent data yet, so rollback is safe in Phase 1 P2.1 backlog rollout.

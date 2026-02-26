@@ -137,4 +137,4 @@ NationalIndicator -> IndicatorDataSeries -> IndicatorDataPoint (reporting data l
 
 **Phase 1 specification only**
 - This document defines requirements and data dictionary only.
-- All schema/workflow changes are **Phase 2** implementation tickets.
+- All schema/workflow changes are tracked as **Phase 1 P2 backlog** implementation tickets.
