@@ -160,6 +160,8 @@ jobs:
         run: pip-audit --progress-spinner off
       - name: Secret scan
         uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Container and dependency scan baseline (Trivy FS)
         uses: aquasecurity/trivy-action@0.24.0
         with:
