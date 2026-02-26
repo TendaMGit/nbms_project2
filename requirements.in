@@ -7,7 +7,7 @@ psycopg2-binary==2.9.11
 python-dotenv==1.0.1
 django-environ==0.11.2
 django-cors-headers==4.4.0
-dj-database-url==2.2.0
+dj-database-url==3.1.2
 redis==5.0.8
 sentry-sdk==2.20.0
 gunicorn==22.0.0
