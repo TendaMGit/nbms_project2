@@ -29,7 +29,7 @@ django-phonenumber-field==8.4.0
 django-storages==1.14.3
 django-two-factor-auth==1.17.0
 djangorestframework==3.16.1
-drf-spectacular==0.28.0
+drf-spectacular==0.29.0
 drf-spectacular-sidecar==2024.7.1
 filelock==3.24.3
 freetype-py==2.5.1
@@ -74,7 +74,7 @@ pip-tools==7.5.3
 pluggy==1.6.0
 prometheus-client==0.21.1
 protobuf==5.29.6
-psycopg2-binary==2.9.10
+psycopg2-binary==2.9.11
 py-serializable==1.1.2
 pycairo==1.29.0
 pycparser==3.0
