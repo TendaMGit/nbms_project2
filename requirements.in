@@ -14,7 +14,7 @@ gunicorn==22.0.0
 prometheus-client==0.21.1
 django-storages==1.14.3
 boto3==1.34.162
-django-guardian==2.4.0
+django-guardian==3.3.0
 django-otp==1.3.0
 django-two-factor-auth==1.17.0
 phonenumbers==8.13.40
