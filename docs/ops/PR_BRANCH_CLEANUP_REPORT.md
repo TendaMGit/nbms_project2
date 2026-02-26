@@ -1,7 +1,7 @@
 ﻿# PR & Branch Cleanup Report
 
-- Generated: 2026-02-26 17:50:58 +02:00
-- Branch: feat/ui-makeover-coreui
+- Generated: 2026-02-26 18:09:00 +02:00
+- Branch: main
 - Default branch: main
 
 ## Summary
@@ -77,9 +77,13 @@
 
 ## Branch Deletion Plan
 
-- Pending Step 2 triage of open PRs (merge/close/leave-open decisions).
-- Branches tied to merged or intentionally abandoned PRs will be archived with tags before deletion.
-- Protected branches (main, master, develop, release/*, production, hotfix/*) will be retained.
+- Executed:
+  - Kept all open-PR head branches (Dependabot set) because their PRs are still open.
+  - Deleted only merged/closed PR head branches after creating archive tags.
+  - Excluded protected/default branches (`main`, `master`, `develop`, `release/*`, `production`, `hotfix/*`).
+- Repository setting recommendation:
+  - Enable **Settings → General → Pull Requests → Automatically delete head branches**.
+  - This setting was documented as a recommendation; it was not changed via automation in this run.
 
 ## Actions Taken
 
@@ -89,6 +93,12 @@
   - All are mergeable but currently failing required checks (`FAILURE` present in status rollups).
   - Left open intentionally for dedicated dependency remediation/retest batching.
   - No open PR branches were deleted or closed in this cleanup pass.
+- Remote cleanup completed:
+  - Created `archive/<branch>/<YYYYMMDD>-<shortsha>` tags for each deleted remote branch.
+  - Deleted 27 merged/closed remote branches.
+- Local cleanup completed:
+  - Switched to `main`, fast-forwarded from `origin/main`, pruned tracking refs.
+  - Deleted all local branches already merged into `main` (excluding protected names).
 
 ## Follow-ups
 
@@ -96,12 +106,101 @@
   - Rebase/check each branch against latest `main`.
   - Resolve CI failures.
   - Merge with squash + auto-delete after checks pass.
-- Delete merged/closed branches remotely and locally with archive tags.
+- Optional: after dependency PRs are merged/closed, repeat this cleanup to remove their branches.
+
+## Branches Deleted (Remote, with Archive Tags)
+
+| Branch | Archive Tag |
+|---|---|
+| chore/align-blueprint-2026Q1 | archive/chore/align-blueprint-2026Q1/20260226-6cbe036 |
+| feat/catalog-admin-parity | archive/feat/catalog-admin-parity/20260226-8fef357 |
+| feat/catalog-vocab-provenance | archive/feat/catalog-vocab-provenance/20260226-654ed12 |
+| feat/docs-repo-state-polish | archive/feat/docs-repo-state-polish/20260226-721de31 |
+| feat/hl21-1-gap-analysis | archive/feat/hl21-1-gap-analysis/20260226-8f5d0a1 |
+| feat/hotfix-login-without-redis | archive/feat/hotfix-login-without-redis/20260226-22ef481 |
+| feat/internal-review-dashboard | archive/feat/internal-review-dashboard/20260226-d562834 |
+| feat/ort-export-v1 | archive/feat/ort-export-v1/20260226-a735713 |
+| feat/ort-nr7-export-v2 | archive/feat/ort-nr7-export-v2/20260226-42437ac |
+| feat/phase1-catalog-parity-import-export | archive/feat/phase1-catalog-parity-import-export/20260226-a173a39 |
+| feat/phase1-registry-parity | archive/feat/phase1-registry-parity/20260226-e69f3b6 |
+| feat/phase2-alignment-coverage-kernel | archive/feat/phase2-alignment-coverage-kernel/20260226-bf76787 |
+| feat/phase2-bulk-alignment-and-golden-locking | archive/feat/phase2-bulk-alignment-and-golden-locking/20260226-59a5191 |
+| feat/phase2-coverage-ui-panels | archive/feat/phase2-coverage-ui-panels/20260226-b3964ba |
+| feat/phase4-demo-seed-walkthrough | archive/feat/phase4-demo-seed-walkthrough/20260226-ffcf605 |
+| feat/reporting-snapshots-diff | archive/feat/reporting-snapshots-diff/20260226-d2565ab |
+| feat/review-signoff-decisions | archive/feat/review-signoff-decisions/20260226-2a7a02b |
+| feat/sections-i-v-structured-models | archive/feat/sections-i-v-structured-models/20260226-b0c4084 |
+| feat/sections-i-v-ui | archive/feat/sections-i-v-ui/20260226-d3cd45f |
+| feat/security-governance-integrity-pack | archive/feat/security-governance-integrity-pack/20260226-fc60f97 |
+| feat/windows-infra-doctor | archive/feat/windows-infra-doctor/20260226-adcc18d |
+| feat/windows-infra-doctor-clean | archive/feat/windows-infra-doctor-clean/20260226-9a31405 |
+| pr-1-reference-catalog-inventory | archive/pr-1-reference-catalog-inventory/20260226-904aa7f |
+| pr-4-demo-seed-walkthrough | archive/pr-4-demo-seed-walkthrough/20260226-7a63bc1 |
+| pr-5-readiness-gating-snapshots | archive/pr-5-readiness-gating-snapshots/20260226-c99f6d1 |
+| pr-6-readiness-governance-hardening | archive/pr-6-readiness-governance-hardening/20260226-68dc47f |
+| pr-7-catalog-ui-governance | archive/pr-7-catalog-ui-governance/20260226-ece5afe |
+
+## Branches Deleted (Local)
+
+- chore/align-blueprint-2026Q1
+- feat/alignment-mapping-tables
+- feat/catalog-admin-parity
+- feat/catalog-vocab-provenance
+- feat/docs-repo-state
+- feat/docs-repo-state-polish
+- feat/framework-registry-crud
+- feat/gbf-preload-alignment
+- feat/hl21-1-gap-analysis
+- feat/hl21-1-indicator-metadata
+- feat/hotfix-login-without-redis
+- feat/indicator-and-binary-data-models
+- feat/internal-review-dashboard-clean
+- feat/national-report-collab-signoff-v1
+- feat/nr7-full-conformance-integration
+- feat/one-biodiversity-hardening-v1
+- feat/ort-export-v1-narrative
+- feat/ort-nr7-export-v2
+- feat/phase1-catalog-parity-import-export
+- feat/phase1-registry-parity
+- feat/phase10-registries-programmes
+- feat/phase12-national-report-collab-signoff
+- feat/phase2-alignment-coverage-kernel
+- feat/phase2-bulk-alignment-and-golden-locking
+- feat/phase2-coverage-ui-panels
+- feat/phase4-demo-seed-walkthrough
+- feat/phase6-domain-exports
+- feat/reporting-snapshots-diff
+- feat/review-signoff-decisions
+- feat/section-iii-iv-structured-storage
+- feat/sections-i-v-structured-models
+- feat/sections-i-v-ui
+- feat/security-governance-integrity-pack
+- feat/spatial-programme-overlay-e2e-prready
+- feat/spatial-real-data-programmes-v1
+- feat/ui-spatial-indicators-v1
+- feat/windows-infra-doctor-clean
+- feature/production-hardening
+- pr-1-reference-catalog-inventory
+- pr-2-reference-catalog-registry
+- pr-3-readiness-diagnostics
+- pr-4-demo-seed-walkthrough
+- pr-5-readiness-gating-snapshots
+- pr-6-readiness-governance-hardening
+- pr-7-catalog-ui-governance
+
+## Branches Retained
+
+- Protected/default:
+  - main
+- Open PR heads (Dependabot PRs #31-#54):
+  - `dependabot/*` branches listed in the remote snapshot below.
+- Active non-PR or still-in-progress branches (local and/or remote):
+  - Local examples: `feat/ui-makeover-coreui`, `feat/post-merge-hardening`, `rescue/local-state-20260115`
+  - Remote examples: `feat/phase3-pilot-extraction-strategy`, `feat/section-iii-iv-structured-storage`, `fix/dev-cache-no-redis`
 
 ## Remote Branch Snapshot (git ls-remote --heads origin)
 
 ```text
-6cbe036a0ed892b8ee7db1a803b6b955ecda1354	refs/heads/chore/align-blueprint-2026Q1
 2a71164f1a54852fc432d2ccd76cbfebfc51308c	refs/heads/dependabot/docker/python-3.14-slim
 248f6526965cedf837a702bb82d0795f8bb3e2cd	refs/heads/dependabot/github_actions/actions/checkout-6
 398b0b5ea7e3c910386593f31269c211150a2a5f	refs/heads/dependabot/github_actions/actions/setup-python-6
@@ -127,37 +226,11 @@ d52acc1daa74fa5410a700be5e85ba98ae39a192	refs/heads/dependabot/pip/django-guardi
 8a2306d5c815a74201e7c557d42d6b9d63557597	refs/heads/dependabot/pip/redis-7.2.1
 1673144abea0793e2fed464b29b24cbcec19541b	refs/heads/dependabot/pip/sentry-sdk-2.53.0
 c95957464bf5a8b0e8022a4014f211e9ef345729	refs/heads/feat/alignment-mapping-tables
-8fef357d65c5bee01a25e55c5aad4e03b6163385	refs/heads/feat/catalog-admin-parity
-654ed12596075b1af39e60b98c02f22167c14a4e	refs/heads/feat/catalog-vocab-provenance
-721de313f9c1717a46d9656bca7c7b6c96f68702	refs/heads/feat/docs-repo-state-polish
-8f5d0a1ca7906b02b10ded59b57814236bdaee73	refs/heads/feat/hl21-1-gap-analysis
 6605b3d909a0438e8564448640caae8c203b6543	refs/heads/feat/hl21-1-indicator-metadata
-22ef48125f0a16c9a8434c8570e51a587939def2	refs/heads/feat/hotfix-login-without-redis
 682f281be6ed82298cf8fe2f2404fa814c599873	refs/heads/feat/indicator-and-binary-data-models
-d56283468b501afc4b45ff0a1e320971d62d40d8	refs/heads/feat/internal-review-dashboard
-a7357135fae26c045e066c9bb47aad823e680979	refs/heads/feat/ort-export-v1
-42437acc2992560a2df93be0260d15120fa1e963	refs/heads/feat/ort-nr7-export-v2
-a173a3935807766d83ee11f02bf5cf80715895bb	refs/heads/feat/phase1-catalog-parity-import-export
-e69f3b62b17784ee87616862ed554fd6b3abcd5b	refs/heads/feat/phase1-registry-parity
-bf767871c82d54125a27558cc06a526c6159d03c	refs/heads/feat/phase2-alignment-coverage-kernel
-59a519192be89b4765def81f60b9456f99b69510	refs/heads/feat/phase2-bulk-alignment-and-golden-locking
-b3964baf5d3517ab893126e33e8b164e6f681653	refs/heads/feat/phase2-coverage-ui-panels
 8b943e63a796dc6f8152aabdfd1007a4c3475d99	refs/heads/feat/phase3-pilot-extraction-strategy
-ffcf6055f84fc65be98c41adf9d6667e39b0f296	refs/heads/feat/phase4-demo-seed-walkthrough
 84ed48af9ca7ceae1ea6b2148181ab435f2363e7	refs/heads/feat/phase6-domain-exports
-d2565abc468ad4350275228be12d14303c00d8a8	refs/heads/feat/reporting-snapshots-diff
-2a7a02b7ab4d01858054a3c835a9868c20b817f3	refs/heads/feat/review-signoff-decisions
 4d3f70ee3016d65ab2870544a68cf42be3355a4f	refs/heads/feat/section-iii-iv-structured-storage
-b0c40841786161e695a02e855aec2ec4038a04b8	refs/heads/feat/sections-i-v-structured-models
-d3cd45fbcc53d31eeac327853f22fe8a217c322f	refs/heads/feat/sections-i-v-ui
-fc60f97194678980df4fee269fa1d68a6f2e4c0c	refs/heads/feat/security-governance-integrity-pack
-adcc18d51ad39deb6808baa64929dacea2cfe2a0	refs/heads/feat/windows-infra-doctor
-9a31405632e8364957ae01c16bbfce0a64559743	refs/heads/feat/windows-infra-doctor-clean
 d189115dab2b250831fcb0c8eddda2486bd657e1	refs/heads/fix/dev-cache-no-redis
 4f7ae523b000ccea4643f7151b8d387ed0dd8414	refs/heads/main
-904aa7f63d96be909768a3d484ad9ecb5ccfa6be	refs/heads/pr-1-reference-catalog-inventory
-7a63bc1fe6bc77732984903f96d615ca04cd0627	refs/heads/pr-4-demo-seed-walkthrough
-c99f6d10263447c58b0bbb19d08fe8a2d7ab6122	refs/heads/pr-5-readiness-gating-snapshots
-68dc47f01a2472930ab51daab79b5c18b2a439ee	refs/heads/pr-6-readiness-governance-hardening
-ece5afe68a7fd1e8295c0b61464d31f238a7cf03	refs/heads/pr-7-catalog-ui-governance
 ```
