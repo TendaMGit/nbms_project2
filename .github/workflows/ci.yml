@@ -191,6 +191,7 @@ jobs:
           DJANGO_ALLOWED_HOSTS: example.org
           DJANGO_CSRF_TRUSTED_ORIGINS: https://example.org
         run: |
+          python manage.py migrate --noinput
           python manage.py check --deploy
           make deploy-check --always-make
 
