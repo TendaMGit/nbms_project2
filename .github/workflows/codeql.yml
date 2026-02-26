@@ -44,6 +44,12 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Install backend system dependencies
+        if: matrix.language == 'python'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev pkg-config
+
       - name: Backend dependency install
         if: matrix.language == 'python'
         run: |

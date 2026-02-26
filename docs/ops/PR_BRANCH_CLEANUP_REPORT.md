@@ -99,6 +99,12 @@
 - Local cleanup completed:
   - Switched to `main`, fast-forwarded from `origin/main`, pruned tracking refs.
   - Deleted all local branches already merged into `main` (excluding protected names).
+- CI stabilization on `main`:
+  - Investigated failing `Migration Verification` and `CodeQL` runs after cleanup.
+  - Root cause: Python dependency installation failed on `pycairo` due missing Cairo system libs on runner.
+  - Remediation committed in workflows:
+    - `.github/workflows/migration-verify.yml`: install `libcairo2-dev` and `pkg-config`
+    - `.github/workflows/codeql.yml`: add Python-job system dependency install for `libcairo2-dev` and `pkg-config`
 
 ## Follow-ups
 
@@ -113,8 +119,8 @@
 - `git status`: clean working tree on `main`
 - Local branches: merged-into-main branches removed; only active/unmerged branches remain.
 - Remote branches: merged/closed PR heads removed; open Dependabot PR heads retained.
-- CI on `main` after cleanup commit:
-  - `CI`: queued
+- CI on `main` after cleanup + workflow remediation:
+  - `CI`: in progress
   - `Migration Verification`: in progress
   - `CodeQL`: in progress
 
