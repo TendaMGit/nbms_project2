@@ -22,7 +22,7 @@ django-phonenumber-field==8.4.0
 django-storages==1.14.3
 django-two-factor-auth==1.17.0
 djangorestframework==3.16.1
-drf-spectacular==0.28.0
+drf-spectacular==0.29.0
 drf-spectacular-sidecar==2024.7.1
 freetype-py==2.5.1
 googleapis-common-protos==1.72.0
