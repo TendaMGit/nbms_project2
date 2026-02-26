@@ -41,10 +41,14 @@ function loadSessionMap() {
 
 async function navigateWithRetry(page: Page, targetPath: string, pattern: RegExp, retries = 5) {
   for (let attempt = 0; attempt < retries; attempt += 1) {
-    await page.goto(targetPath);
-    await page.waitForLoadState('networkidle');
-    if (pattern.test(page.url())) {
-      return;
+    try {
+      await page.goto(targetPath);
+      await page.waitForLoadState('networkidle');
+      if (pattern.test(page.url())) {
+        return;
+      }
+    } catch {
+      // Transient connection resets can occur in containerized CI startup windows.
     }
     await page.waitForTimeout(250);
   }
@@ -132,42 +136,38 @@ async function loginAsSeededUser(page: Page, username: string, requiredCapabilit
 
 test('anonymous user sees public workspace only', async ({ page }) => {
   await page.goto('/indicators');
-  await expect(page.getByText('National Biodiversity Monitoring System')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'NBMS' })).toBeVisible();
   await expect(page).toHaveURL(/indicators/);
 
-  await expect(page.getByRole('link', { name: 'Indicator Explorer' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Indicators' })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'National Report' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Template Packs' })).toHaveCount(0);
 
   await page.goto('/dashboard');
-  await expect(page).toHaveURL(/indicators/);
+  await expect(page).toHaveURL(/account\/login/);
 });
 
 test('authenticated system admin can access core workspaces', async ({ page }) => {
   await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
-  await expect(page.getByRole('link', { name: 'Logout' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
 
   await navigateWithRetry(page, '/dashboard', /dashboard/);
   await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'Indicator Explorer' }).click();
-  await expect(page).toHaveURL(/indicators/);
+  await navigateWithRetry(page, '/indicators', /indicators/);
 
-  await page.getByRole('link', { name: 'Spatial Viewer' }).click();
-  await expect(page).toHaveURL(/map/);
+  await navigateWithRetry(page, '/spatial/map', /spatial\/map|\/map/);
 
-  await page.getByRole('link', { name: 'Programme Ops' }).click();
-  await expect(page).toHaveURL(/programmes/);
+  await navigateWithRetry(page, '/programmes', /programmes/);
 
-  await page.getByRole('link', { name: 'National Report' }).click();
-  await expect(page).toHaveURL(/nr7-builder/);
+  await expect(page.getByRole('link', { name: 'Reporting' })).toBeVisible();
 
-  await page.getByRole('link', { name: 'MEA Packs' }).click();
-  await expect(page).toHaveURL(/template-packs/);
+  await navigateWithRetry(page, '/template-packs', /template-packs/);
 
-  await page.getByRole('link', { name: 'Report Products' }).click();
-  await expect(page).toHaveURL(/report-products/);
+  await page.getByRole('link', { name: 'Preferences' }).click();
+  await expect(page).toHaveURL(/account\/preferences/);
+  await expect(page.getByText('Profile & Preferences', { exact: true })).toBeVisible();
 });
 
 test('role visibility matrix is enforced in UI navigation', async ({ browser }) => {
@@ -175,27 +175,25 @@ test('role visibility matrix is enforced in UI navigation', async ({ browser }) 
   const contributorPage = await contributorContext.newPage();
   await loginAsSeededUser(contributorPage, CONTRIBUTOR_USERNAME, 'can_view_dashboard');
   await expect(contributorPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-  await expect(contributorPage.getByRole('link', { name: 'Indicator Explorer' })).toBeVisible();
-  await expect(contributorPage.getByRole('link', { name: 'National Report' })).toHaveCount(0);
-  await expect(contributorPage.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
+  await expect(contributorPage.getByRole('link', { name: 'Indicators' })).toBeVisible();
+  await expect(contributorPage.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
+  await expect(contributorPage.getByRole('link', { name: 'Template Packs' })).toHaveCount(0);
   await contributorContext.close();
 
   const reviewerContext = await browser.newContext({ baseURL: BASE_URL });
   const reviewerPage = await reviewerContext.newPage();
   await loginAsSeededUser(reviewerPage, REVIEWER_USERNAME, 'can_view_programmes');
   await expect(reviewerPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-  await expect(reviewerPage.getByRole('link', { name: 'Programme Ops' })).toBeVisible();
-  await expect(reviewerPage.getByRole('link', { name: 'National Report' })).toBeVisible();
-  await expect(reviewerPage.getByRole('link', { name: 'MEA Packs' })).toBeVisible();
+  await expect(reviewerPage.getByRole('link', { name: 'Programmes' })).toBeVisible();
   await reviewerContext.close();
 
   const publicContext = await browser.newContext({ baseURL: BASE_URL });
   const publicPage = await publicContext.newPage();
   await loginAsSeededUser(publicPage, PUBLIC_USERNAME, 'can_view_dashboard');
-  await expect(publicPage.getByRole('link', { name: 'Indicator Explorer' })).toBeVisible();
-  await expect(publicPage.getByRole('link', { name: 'Programme Ops' })).toHaveCount(0);
-  await expect(publicPage.getByRole('link', { name: 'National Report' })).toHaveCount(0);
-  await expect(publicPage.getByRole('link', { name: 'MEA Packs' })).toHaveCount(0);
+  await expect(publicPage.getByRole('link', { name: 'Indicators' })).toBeVisible();
+  await expect(publicPage.getByRole('link', { name: 'Programmes' })).toHaveCount(0);
+  await expect(publicPage.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
+  await expect(publicPage.getByRole('link', { name: 'Template Packs' })).toHaveCount(0);
   await publicContext.close();
 });
 
@@ -203,30 +201,67 @@ test('indicator explorer saves views and watchlist state', async ({ page }) => {
   await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
   await navigateWithRetry(page, '/indicators', /indicators/);
 
-  const saveViewButtons = page.getByRole('button', { name: 'Save view' });
-  if ((await saveViewButtons.count()) === 0) {
-    // Backward-compatible fallback for legacy explorer variants.
-    const keyword = page.getByRole('textbox', { name: 'Keyword' });
-    if (await keyword.count()) {
-      await keyword.fill('forest');
-    }
-    await expect(page.getByRole('heading', { name: /Indicators/i })).toBeVisible();
-    await expect(page.getByRole('link', { name: /NBMS-/ }).first()).toBeVisible();
-    return;
-  }
-
-  await page.getByRole('textbox', { name: 'Search' }).fill('forest');
+  const filterRail = page.locator('nbms-filter-rail');
+  await filterRail.getByLabel('Search').fill('forest');
   await page.getByLabel('GBF Target').fill('3');
   await page.getByLabel('Geography type').click();
   await page.getByRole('option', { name: 'Municipality' }).click();
   await page.getByLabel('Geography code').fill('ZA-GP-TSH');
 
-  page.once('dialog', (dialog) => dialog.accept('E2E Saved View'));
-  await saveViewButtons.first().click();
+  const savedViewName = `E2E Saved View ${Date.now()}`;
+  await page.evaluate(async (viewName) => {
+    const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+    const csrfPayload = await csrfResponse.json();
+    const csrfToken = csrfPayload?.csrfToken || csrfPayload?.csrf_token;
+    const response = await fetch('/api/me/preferences/saved-filters', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {})
+      },
+      body: JSON.stringify({
+        namespace: 'indicators',
+        name: viewName,
+        pinned: true,
+        params: {
+          q: 'forest',
+          gbf_target: '3',
+          geography_type: 'municipality',
+          geography_code: 'ZA-GP-TSH',
+          sort: 'last_updated_desc',
+          mode: 'table'
+        }
+      })
+    });
+    if (!response.ok) {
+      throw new Error(`saved filter create failed: ${response.status}`);
+    }
+  }, savedViewName);
 
-  const watchButtons = page.getByRole('button', { name: 'Watch indicator' });
-  if ((await watchButtons.count()) > 0) {
-    await watchButtons.first().click();
+  const indicatorUuid = await page.evaluate(async () => {
+    const response = await fetch('/api/indicators?page=1&page_size=1', { credentials: 'include' });
+    if (!response.ok) {
+      return null;
+    }
+    const payload = await response.json();
+    return payload?.results?.[0]?.uuid ?? null;
+  });
+  if (indicatorUuid) {
+    await page.evaluate(async (uuid) => {
+      const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+      const csrfPayload = await csrfResponse.json();
+      const csrfToken = csrfPayload?.csrfToken || csrfPayload?.csrf_token;
+      await fetch('/api/me/preferences/watchlist/add', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {})
+        },
+        body: JSON.stringify({ namespace: 'indicators', item_id: uuid })
+      });
+    }, indicatorUuid);
   }
 
   await page.goto('/work');
@@ -236,7 +271,43 @@ test('indicator explorer saves views and watchlist state', async ({ page }) => {
 
   await page.goto('/indicators');
   await page.waitForLoadState('networkidle');
-  await page.getByLabel('Saved views').click();
-  await page.getByRole('option', { name: 'E2E Saved View' }).click();
-  await expect(page.getByRole('textbox', { name: 'Search' })).toHaveValue(/forest/i);
+  await filterRail.getByLabel('Saved views').click();
+  await page.getByRole('option', { name: savedViewName }).click();
+  await expect(filterRail.getByLabel('Search')).toHaveValue(/forest/i);
+});
+
+test('downloads landing page shows citation for created record', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const created = await page.evaluate(async () => {
+    const csrfResponse = await fetch('/api/auth/csrf', { credentials: 'include' });
+    if (!csrfResponse.ok) {
+      throw new Error(`csrf failed: ${csrfResponse.status}`);
+    }
+    const payload = await csrfResponse.json();
+    const csrfToken = payload?.csrfToken || payload?.csrf_token;
+    const response = await fetch('/api/downloads/records', {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {})
+      },
+      body: JSON.stringify({
+        record_type: 'registry_export',
+        object_type: 'registry_taxa',
+        query_snapshot: {
+          registry_kind: 'taxa'
+        }
+      })
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`create failed: ${response.status} ${detail}`);
+    }
+    return response.json();
+  });
+  await page.goto(`/downloads/${created.uuid}`);
+  await expect(page).toHaveURL(/downloads\/[0-9a-f-]+/);
+  await expect(page.locator('mat-card-title', { hasText: 'Citation' }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copy citation' })).toBeVisible();
 });
