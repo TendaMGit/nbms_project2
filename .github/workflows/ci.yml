@@ -10,7 +10,7 @@ jobs:
   frontend-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -35,7 +35,7 @@ jobs:
       ENABLE_GIS: "false"
       PYTHONPATH: ${{ github.workspace }}/src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -89,7 +89,7 @@ jobs:
       ENABLE_GIS: "true"
       PYTHONPATH: ${{ github.workspace }}/src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -115,7 +115,7 @@ jobs:
       ENABLE_GIS: "false"
       PYTHONPATH: ${{ github.workspace }}\\src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -140,7 +140,7 @@ jobs:
       SECURE_HSTS_PRELOAD: "true"
       PYTHONPATH: ${{ github.workspace }}/src
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: actions/setup-python@v5
@@ -200,7 +200,7 @@ jobs:
       - quality-fast
       - frontend-build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -257,7 +257,7 @@ jobs:
       - quality-fast
       - frontend-build
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Prepare environment
         run: cp .env.example .env
       - name: Build and start spatial profile
