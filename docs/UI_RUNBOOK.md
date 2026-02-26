@@ -68,5 +68,5 @@ npm --prefix frontend run e2e
 
 ## Notes
 
-- UI language reflects periodic release publishing; no near-real-time computation claims.
+- UI language reflects periodic release publishing; no immediate recomputation claims.
 - Governance copy remains aligned: methods approval (ITSC) and conditional steward review only.
