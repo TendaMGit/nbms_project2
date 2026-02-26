@@ -108,6 +108,16 @@
   - Merge with squash + auto-delete after checks pass.
 - Optional: after dependency PRs are merged/closed, repeat this cleanup to remove their branches.
 
+## Post-Cleanup Verification
+
+- `git status`: clean working tree on `main`
+- Local branches: merged-into-main branches removed; only active/unmerged branches remain.
+- Remote branches: merged/closed PR heads removed; open Dependabot PR heads retained.
+- CI on `main` after cleanup commit:
+  - `CI`: queued
+  - `Migration Verification`: in progress
+  - `CodeQL`: in progress
+
 ## Branches Deleted (Remote, with Archive Tags)
 
 | Branch | Archive Tag |
