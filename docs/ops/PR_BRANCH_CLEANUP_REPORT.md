@@ -83,12 +83,20 @@
 
 ## Actions Taken
 
-- Inventory captured. No destructive actions performed yet.
+- Inventory captured and validated against GitHub state.
+- Open PR triage complete:
+  - Reviewed PRs #31-#54 (Dependabot update set).
+  - All are mergeable but currently failing required checks (`FAILURE` present in status rollups).
+  - Left open intentionally for dedicated dependency remediation/retest batching.
+  - No open PR branches were deleted or closed in this cleanup pass.
 
 ## Follow-ups
 
-- Run Step 2 decisions on all open PRs.
-- Then delete merged/closed branches remotely and locally with archive tags.
+- Dependency remediation pass for PRs #31-#54:
+  - Rebase/check each branch against latest `main`.
+  - Resolve CI failures.
+  - Merge with squash + auto-delete after checks pass.
+- Delete merged/closed branches remotely and locally with archive tags.
 
 ## Remote Branch Snapshot (git ls-remote --heads origin)
 
