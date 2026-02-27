@@ -75,6 +75,8 @@ _csp_default = " ".join(
     ]
 )
 CONTENT_SECURITY_POLICY = env("CONTENT_SECURITY_POLICY", default=_csp_default)  # noqa: F405
+if not CONTENT_SECURITY_POLICY.strip():
+    CONTENT_SECURITY_POLICY = _csp_default
 CONTENT_SECURITY_POLICY_REPORT_ONLY = _bool_env("CONTENT_SECURITY_POLICY_REPORT_ONLY", False)
 
 SESSION_COOKIE_NAME = env("SESSION_COOKIE_NAME", default="nbms_sessionid")  # noqa: F405
