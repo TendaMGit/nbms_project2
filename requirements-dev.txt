@@ -102,7 +102,7 @@ rlpycairo==0.4.0
 rpds-py==0.30.0
 ruff==0.9.1
 s3transfer==0.10.4
-sentry-sdk==2.20.0
+sentry-sdk==2.53.0
 six==1.17.0
 sortedcontainers==2.4.0
 sqlparse==0.5.5
