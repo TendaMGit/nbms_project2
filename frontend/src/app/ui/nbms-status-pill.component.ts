@@ -28,27 +28,27 @@ import { NgClass } from '@angular/common';
       }
 
       .tone-success {
-        background: rgb(25 122 67 / 12%);
+        background: color-mix(in srgb, var(--nbms-color-success) 12%, transparent);
         color: var(--nbms-color-success);
-        border-color: rgb(25 122 67 / 35%);
+        border-color: color-mix(in srgb, var(--nbms-color-success) 35%, var(--nbms-surface));
       }
 
       .tone-warn {
-        background: rgb(197 138 0 / 12%);
+        background: color-mix(in srgb, var(--nbms-color-accent-500) 12%, transparent);
         color: var(--nbms-color-accent-700);
-        border-color: rgb(197 138 0 / 35%);
+        border-color: color-mix(in srgb, var(--nbms-color-accent-500) 35%, var(--nbms-surface));
       }
 
       .tone-error {
-        background: rgb(179 38 30 / 12%);
+        background: color-mix(in srgb, var(--nbms-color-error) 12%, transparent);
         color: var(--nbms-color-error);
-        border-color: rgb(179 38 30 / 36%);
+        border-color: color-mix(in srgb, var(--nbms-color-error) 36%, var(--nbms-surface));
       }
 
       .tone-info {
-        background: rgb(22 100 162 / 12%);
+        background: color-mix(in srgb, var(--nbms-color-info) 12%, transparent);
         color: var(--nbms-color-info);
-        border-color: rgb(22 100 162 / 36%);
+        border-color: color-mix(in srgb, var(--nbms-color-info) 36%, var(--nbms-surface));
       }
     `
   ],

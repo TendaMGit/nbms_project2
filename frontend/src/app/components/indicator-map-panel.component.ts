@@ -28,8 +28,8 @@ import { IndicatorMapResponse } from '../models/api.models';
       .map-wrapper {
         position: relative;
         min-height: 320px;
-        border: 1px solid rgba(18, 48, 39, 0.2);
-        border-radius: 12px;
+        border: 1px solid var(--nbms-border);
+        border-radius: var(--nbms-radius-md);
         overflow: hidden;
       }
       .map-host {
@@ -40,9 +40,9 @@ import { IndicatorMapResponse } from '../models/api.models';
         inset: 0;
         display: grid;
         place-items: center;
-        background: rgba(255, 255, 255, 0.72);
-        color: #244;
-        font-size: 0.9rem;
+        background: color-mix(in srgb, var(--nbms-surface) 72%, transparent);
+        color: var(--nbms-text-secondary);
+        font-size: var(--nbms-font-size-base);
       }
     `
   ]
@@ -123,17 +123,17 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
             ['linear'],
             ['coalesce', ['to-number', ['get', 'indicator_value']], 0],
             0,
-            '#edf8e9',
+            this.readToken('--nbms-color-primary-100'),
             10,
-            '#bae4b3',
+            this.readToken('--nbms-color-primary-300'),
             20,
-            '#74c476',
+            this.readToken('--nbms-color-primary-500'),
             30,
-            '#31a354',
+            this.readToken('--nbms-color-primary-700'),
             40,
-            '#006d2c'
+            this.readToken('--nbms-color-primary-900')
           ],
-          'fill-opacity': 0.6
+          'fill-opacity': 0.65
         }
       });
       this.map.addLayer({
@@ -141,7 +141,7 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
         type: 'line',
         source: sourceId,
         paint: {
-          'line-color': '#1b4332',
+          'line-color': this.readToken('--nbms-color-primary-900'),
           'line-width': 1
         }
       });
@@ -175,6 +175,13 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
     for (const child of node) {
       this.extendBounds(bounds, child);
     }
+  }
+
+  private readToken(name: string): string {
+    if (typeof document === 'undefined') {
+      return 'currentColor';
+    }
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'currentColor';
   }
 
   ngOnDestroy(): void {

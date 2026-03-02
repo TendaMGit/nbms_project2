@@ -31,20 +31,20 @@ import { NgClass } from '@angular/common';
 
       .status-ready {
         color: var(--nbms-color-success);
-        border-color: rgb(25 122 67 / 40%);
-        background: rgb(25 122 67 / 10%);
+        border-color: color-mix(in srgb, var(--nbms-color-success) 40%, var(--nbms-surface));
+        background: color-mix(in srgb, var(--nbms-color-success) 10%, transparent);
       }
 
       .status-warning {
         color: var(--nbms-color-accent-700);
-        border-color: rgb(197 138 0 / 40%);
-        background: rgb(197 138 0 / 10%);
+        border-color: color-mix(in srgb, var(--nbms-color-accent-500) 40%, var(--nbms-surface));
+        background: color-mix(in srgb, var(--nbms-color-accent-500) 10%, transparent);
       }
 
       .status-blocked {
         color: var(--nbms-color-error);
-        border-color: rgb(179 38 30 / 40%);
-        background: rgb(179 38 30 / 10%);
+        border-color: color-mix(in srgb, var(--nbms-color-error) 40%, var(--nbms-surface));
+        background: color-mix(in srgb, var(--nbms-color-error) 10%, transparent);
       }
     `
   ],
