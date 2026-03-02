@@ -134,6 +134,25 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
         ></nbms-kpi-card>
       </nbms-stat-strip>
 
+      <section class="framework-tiles">
+        <a
+          class="framework-tile nbms-card-surface"
+          *ngFor="let row of vm.rows; trackBy: trackByFramework"
+          [routerLink]="['/frameworks', row.id]"
+        >
+          <div class="tile-head">
+            <p class="tile-kicker">Framework</p>
+            <strong>{{ row.id }}</strong>
+          </div>
+          <h2>{{ row.title }}</h2>
+          <p>{{ row.narrative }}</p>
+          <div class="tile-stats">
+            <span>{{ row.targetCount }} targets</span>
+            <span>{{ row.indicatorCount }} indicators</span>
+          </div>
+        </a>
+      </section>
+
       <section class="content-grid" [ngSwitch]="vm.context.tab">
         <ng-container *ngSwitchCase="'list'">
           <div class="main-column">
@@ -228,8 +247,57 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
         gap: var(--nbms-space-4);
       }
 
+      .framework-tiles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: var(--nbms-space-3);
+      }
+
+      .framework-tile {
+        display: grid;
+        gap: var(--nbms-space-3);
+        padding: var(--nbms-space-4);
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .tile-head,
+      .tile-stats {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--nbms-space-2);
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .tile-kicker,
+      .tile-stats span {
+        margin: 0;
+        color: var(--nbms-text-muted);
+        font-size: var(--nbms-font-size-label-sm);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .framework-tile h2,
+      .framework-tile p {
+        margin: 0;
+      }
+
+      .framework-tile p {
+        color: var(--nbms-text-secondary);
+        line-height: 1.6;
+      }
+
       .content-grid {
         grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+      }
+
+      .side-column {
+        align-self: start;
+        position: sticky;
+        top: 5.4rem;
       }
 
       .chart-wrap {
@@ -245,6 +313,10 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
       @media (max-width: 1080px) {
         .content-grid {
           grid-template-columns: 1fr;
+        }
+
+        .side-column {
+          position: static;
         }
       }
     `
@@ -303,6 +375,10 @@ export class FrameworkExplorerPageComponent {
 
   trackByStat(_: number, stat: FrameworkStat): string {
     return stat.title;
+  }
+
+  trackByFramework(_: number, row: FrameworkSummaryRow): string {
+    return row.id;
   }
 
   private buildVm(

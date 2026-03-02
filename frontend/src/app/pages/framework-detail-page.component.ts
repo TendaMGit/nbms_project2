@@ -148,6 +148,24 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
         ></nbms-kpi-card>
       </nbms-stat-strip>
 
+      <section class="target-summary-grid">
+        <a
+          class="target-summary nbms-card-surface"
+          *ngFor="let row of vm.targets.slice(0, 4); trackBy: trackByTarget"
+          [routerLink]="['/frameworks', vm.framework.id, 'targets', row.id]"
+        >
+          <div class="target-summary-head">
+            <p class="target-kicker">Target</p>
+            <nbms-readiness-badge [score]="round(row.readinessScore)" [status]="toReadinessStatus(row.readinessScore)"></nbms-readiness-badge>
+          </div>
+          <h2>{{ row.label }}</h2>
+          <div class="target-summary-meta">
+            <span>{{ row.indicatorCount }} indicators</span>
+            <span>{{ row.blockedCount }} blocked</span>
+          </div>
+        </a>
+      </section>
+
       <section class="content-grid" [ngSwitch]="vm.context.tab">
         <ng-container *ngSwitchCase="'overview'">
           <div class="main-column">
@@ -304,8 +322,52 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
         gap: var(--nbms-space-4);
       }
 
+      .target-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--nbms-space-3);
+      }
+
+      .target-summary {
+        display: grid;
+        gap: var(--nbms-space-3);
+        padding: var(--nbms-space-4);
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .target-summary-head,
+      .target-summary-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--nbms-space-2);
+        flex-wrap: wrap;
+        align-items: center;
+      }
+
+      .target-kicker,
+      .target-summary-meta span {
+        margin: 0;
+        color: var(--nbms-text-muted);
+        font-size: var(--nbms-font-size-label-sm);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .target-summary h2 {
+        margin: 0;
+        font-size: var(--nbms-font-size-h3);
+      }
+
       .content-grid {
         grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+      }
+
+      .side-column {
+        align-self: start;
+        position: sticky;
+        top: 5.4rem;
       }
 
       .full-width {
@@ -325,6 +387,10 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
       @media (max-width: 1080px) {
         .content-grid {
           grid-template-columns: 1fr;
+        }
+
+        .side-column {
+          position: static;
         }
       }
     `
@@ -392,6 +458,10 @@ export class FrameworkDetailPageComponent {
 
   trackByStat(_: number, stat: FrameworkDetailVm['stats'][number]): string {
     return stat.title;
+  }
+
+  trackByTarget(_: number, row: FrameworkTargetRow): string {
+    return row.id;
   }
 
   round(value: number): number {

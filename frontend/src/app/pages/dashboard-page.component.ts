@@ -43,12 +43,33 @@ type DashboardRow = {
   targetCode: string;
   trend: string;
   issues: string[];
+  hasSpatial: boolean;
+  accessLevel: string;
 };
 
 type FrameworkTargetRow = {
   frameworkCode: string;
   targetCode: string;
   total: number;
+};
+
+type DashboardBlockerRow = {
+  label: string;
+  count: number;
+};
+
+type DashboardQualityRow = {
+  uuid: string;
+  code: string;
+  targetCode: string;
+  issues: string;
+};
+
+type DashboardSpotlightRow = {
+  frameworkCode: string;
+  targetCode: string;
+  total: number;
+  subtitle: string;
 };
 
 type DashboardVm = {
@@ -59,6 +80,9 @@ type DashboardVm = {
   readinessRows: DashboardRow[];
   changeRows: DashboardRow[];
   frameworkTargetRows: FrameworkTargetRow[];
+  blockerRows: DashboardBlockerRow[];
+  qualityRows: DashboardQualityRow[];
+  spotlightRows: DashboardSpotlightRow[];
   readinessChart: ChartData<'doughnut'>;
   targetChart: ChartData<'bar'>;
   changesChart: ChartData<'line'>;
@@ -146,20 +170,82 @@ type DashboardVm = {
       <section [ngSwitch]="vm.context.tab">
         <section class="content-grid" *ngSwitchCase="'overview'">
           <div class="main-column">
-            <nbms-chart-card title="Readiness distribution" eyebrow="Overview" subtitle="Current readiness split for published indicators">
-              <div class="chart-wrap">
-                <canvas baseChart [data]="vm.readinessChart" [type]="'doughnut'" [options]="doughnutOptions"></canvas>
-              </div>
-            </nbms-chart-card>
+            <section class="split-grid">
+              <nbms-chart-card title="Readiness distribution" eyebrow="Overview" subtitle="Current readiness split for published indicators">
+                <div class="chart-wrap">
+                  <canvas baseChart [data]="vm.readinessChart" [type]="'doughnut'" [options]="doughnutOptions"></canvas>
+                </div>
+              </nbms-chart-card>
 
-            <nbms-chart-card title="Top framework targets" eyebrow="Overview" subtitle="Highest-volume framework target slices">
-              <div class="chart-wrap">
-                <canvas baseChart [data]="vm.targetChart" [type]="'bar'" [options]="barOptions"></canvas>
-              </div>
-            </nbms-chart-card>
+              <article class="summary-panel nbms-card-surface">
+                <div class="summary-panel-head">
+                  <div>
+                    <p class="eyebrow">Blockers</p>
+                    <h2>Top blockers</h2>
+                  </div>
+                  <span class="sub-copy">{{ vm.blockerRows.length }} blocker patterns</span>
+                </div>
+
+                <div class="blocker-list" *ngIf="vm.blockerRows.length; else noBlockers">
+                  <article class="blocker-row" *ngFor="let blocker of vm.blockerRows; trackBy: trackByBlocker">
+                    <span>{{ blocker.label }}</span>
+                    <strong>{{ blocker.count }}</strong>
+                  </article>
+                </div>
+              </article>
+            </section>
+
+            <nbms-map-card
+              title="Coverage map"
+              eyebrow="Overview"
+              subtitle="National coverage surface"
+              helperText="A dashboard-level choropleth endpoint is not yet exposed. Use framework, target, or indicator drilldowns for spatially explicit map layers."
+            ></nbms-map-card>
+
+            <section class="split-grid">
+              <nbms-chart-card title="Progress toward targets" eyebrow="Overview" subtitle="Highest-volume framework target slices">
+                <div class="chart-wrap">
+                  <canvas baseChart [data]="vm.targetChart" [type]="'bar'" [options]="barOptions"></canvas>
+                </div>
+              </nbms-chart-card>
+
+              <article class="summary-panel nbms-card-surface">
+                <div class="summary-panel-head">
+                  <div>
+                    <p class="eyebrow">Target scorecards</p>
+                    <h2>Top target drilldowns</h2>
+                  </div>
+                </div>
+                <div class="spotlight-list">
+                  <a
+                    class="spotlight-row"
+                    *ngFor="let row of vm.spotlightRows; trackBy: trackBySpotlight"
+                    [routerLink]="['/frameworks', row.frameworkCode, 'targets', row.targetCode]"
+                  >
+                    <strong>{{ row.frameworkCode }} / {{ row.targetCode }}</strong>
+                    <span>{{ row.subtitle }}</span>
+                  </a>
+                </div>
+              </article>
+            </section>
+
+            <section class="split-grid">
+              <nbms-chart-card title="What changed since last cycle" eyebrow="Changes" subtitle="Recent update activity across the current slice">
+                <div class="chart-wrap">
+                  <canvas baseChart [data]="vm.changesChart" [type]="'line'" [options]="lineOptions"></canvas>
+                </div>
+              </nbms-chart-card>
+
+              <nbms-data-table
+                title="Data quality issues"
+                [rows]="vm.qualityRows"
+                [columns]="qualityColumns"
+                [cellTemplate]="qualityCell"
+              ></nbms-data-table>
+            </section>
 
             <nbms-data-table
-              title="Recent updates"
+              title="Recently updated indicators"
               [rows]="vm.recentRows"
               [columns]="dashboardColumns"
               [cellTemplate]="dashboardCell"
@@ -167,6 +253,11 @@ type DashboardVm = {
           </div>
 
           <div class="side-column">
+            <nbms-callout
+              title="Pending approvals"
+              tone="warning"
+              [message]="(vm.stats[1]?.value || '0') + ' items are still awaiting workflow review in the current dashboard context.'"
+            ></nbms-callout>
             <nbms-narrative-panel
               eyebrow="Overview"
               title="Key messages"
@@ -289,6 +380,19 @@ type DashboardVm = {
           <ng-container *ngSwitchDefault>{{ row[key] }}</ng-container>
         </ng-container>
       </ng-template>
+
+      <ng-template #qualityCell let-row let-key="key">
+        <ng-container [ngSwitch]="key">
+          <ng-container *ngSwitchCase="'indicator'">
+            <a [routerLink]="['/indicators', row.uuid]">{{ row.code }}</a>
+          </ng-container>
+          <ng-container *ngSwitchDefault>{{ row[key] }}</ng-container>
+        </ng-container>
+      </ng-template>
+
+      <ng-template #noBlockers>
+        <div class="nbms-empty-state">No blocker patterns were found in the current dashboard slice.</div>
+      </ng-template>
     </section>
   `,
   styles: [
@@ -301,12 +405,72 @@ type DashboardVm = {
         gap: var(--nbms-space-4);
       }
 
+      .split-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: var(--nbms-space-4);
+      }
+
       .content-grid {
         grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.9fr);
       }
 
+      .side-column {
+        align-self: start;
+        position: sticky;
+        top: 5.4rem;
+      }
+
       .chart-wrap {
         min-height: 280px;
+      }
+
+      .summary-panel,
+      .spotlight-list,
+      .blocker-list {
+        display: grid;
+        gap: var(--nbms-space-3);
+      }
+
+      .summary-panel {
+        padding: var(--nbms-space-4) var(--nbms-space-5);
+      }
+
+      .summary-panel-head {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--nbms-space-3);
+        align-items: flex-start;
+      }
+
+      .summary-panel-head h2 {
+        margin: var(--nbms-space-1) 0 0;
+      }
+
+      .blocker-row {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--nbms-space-2);
+        align-items: center;
+        border-top: 1px solid var(--nbms-divider);
+        padding-top: var(--nbms-space-3);
+      }
+
+      .blocker-row span {
+        color: var(--nbms-text-secondary);
+      }
+
+      .spotlight-row {
+        display: grid;
+        gap: var(--nbms-space-1);
+        border-top: 1px solid var(--nbms-divider);
+        color: inherit;
+        padding-top: var(--nbms-space-3);
+        text-decoration: none;
+      }
+
+      .spotlight-row span {
+        color: var(--nbms-text-secondary);
       }
 
       .sub-copy {
@@ -316,8 +480,13 @@ type DashboardVm = {
       }
 
       @media (max-width: 1080px) {
+        .split-grid,
         .content-grid {
           grid-template-columns: 1fr;
+        }
+
+        .side-column {
+          position: static;
         }
       }
     `
@@ -344,6 +513,12 @@ export class DashboardPageComponent {
     { key: 'framework', label: 'Framework' },
     { key: 'target', label: 'Target' },
     { key: 'total', label: 'Links' }
+  ];
+
+  readonly qualityColumns = [
+    { key: 'indicator', label: 'Indicator' },
+    { key: 'targetCode', label: 'Target' },
+    { key: 'issues', label: 'Issues' }
   ];
 
   readonly context$ = this.contextState.connect(this.route, {
@@ -380,6 +555,14 @@ export class DashboardPageComponent {
     return stat.title;
   }
 
+  trackByBlocker(_: number, row: DashboardBlockerRow): string {
+    return row.label;
+  }
+
+  trackBySpotlight(_: number, row: DashboardSpotlightRow): string {
+    return `${row.frameworkCode}-${row.targetCode}`;
+  }
+
   private buildVm(summary: DashboardSummary, context: ReturnType<ContextStateService['parseQueryParams']>): DashboardVm {
     const rows = buildDashboardRows(summary, context.q);
     const recentRows = rows.slice(0, 10);
@@ -394,6 +577,22 @@ export class DashboardPageComponent {
       .filter((row) => matchesQuery(`${row.frameworkCode} ${row.targetCode}`, context.q))
       .sort((a, b) => b.total - a.total || a.targetCode.localeCompare(b.targetCode))
       .slice(0, 10);
+    const blockerRows = summarizeBlockers(rows).slice(0, 6);
+    const qualityRows = rows
+      .filter((row) => row.issues.length)
+      .map((row) => ({
+        uuid: row.uuid,
+        code: row.code,
+        targetCode: row.targetCode,
+        issues: row.issues.join(', ')
+      }))
+      .slice(0, 12);
+    const spotlightRows = frameworkTargetRows.slice(0, 6).map((row) => ({
+      frameworkCode: row.frameworkCode,
+      targetCode: row.targetCode,
+      total: row.total,
+      subtitle: `${row.total} linked indicators`
+    }));
 
     const readinessTotals = summary.indicator_readiness.totals;
     const readinessChart = {
@@ -449,11 +648,22 @@ export class DashboardPageComponent {
       ]
     } satisfies ChartData<'line'>;
 
+    const freshnessDays = medianDaysSince(rows.map((row) => row.updatedAt));
+    const spatialCount = rows.filter((row) => row.hasSpatial).length;
+    const accessControlledCount = rows.filter((row) => row.accessLevel.toLowerCase() !== 'public').length;
+    const publishablePercent = rows.length ? Math.round((readinessTotals.ready / rows.length) * 100) : 0;
+    const spatialPercent = rows.length ? Math.round((spatialCount / rows.length) * 100) : 0;
+
     const stats: DashboardStat[] = [
       { title: 'Indicators', value: String(rows.length), hint: 'Indicators in the current dashboard slice', icon: 'insights', tone: 'neutral' },
       { title: 'Pending approvals', value: String(summary.approvals_queue), hint: 'Workflow items awaiting review', icon: 'approval', tone: summary.approvals_queue > 0 ? 'info' : 'neutral' },
       { title: 'Framework targets', value: String(frameworkTargetRows.length), hint: 'Framework → target links visible in this context', icon: 'account_tree', tone: 'neutral' },
-      { title: 'Blocked indicators', value: String(readinessRows.filter((row) => row.readinessStatus === 'blocked').length), hint: 'Indicators still blocked for publication', icon: 'warning', tone: readinessRows.some((row) => row.readinessStatus === 'blocked') ? 'negative' : 'neutral' }
+      { title: 'Blocked indicators', value: String(readinessRows.filter((row) => row.readinessStatus === 'blocked').length), hint: 'Indicators still blocked for publication', icon: 'warning', tone: readinessRows.some((row) => row.readinessStatus === 'blocked') ? 'negative' : 'neutral' },
+      { title: 'Publishable', value: `${readinessTotals.ready} / ${rows.length}`, hint: `${publishablePercent}% ready for publication`, icon: 'verified', tone: readinessTotals.ready ? 'positive' : 'neutral' },
+      { title: 'Freshness', value: freshnessDays !== null ? `${freshnessDays}d` : 'n/a', hint: 'Median days since last update', icon: 'schedule', tone: freshnessDays !== null && freshnessDays > 120 ? 'negative' : 'neutral' },
+      { title: 'Ready', value: String(readinessTotals.ready), hint: 'Ready indicators in the current slice', icon: 'task_alt', tone: 'positive' },
+      { title: 'Spatial coverage', value: `${spatialPercent}%`, hint: `${spatialCount} indicators have spatial outputs`, icon: 'map', tone: 'neutral' },
+      { title: 'Access controlled', value: String(accessControlledCount), hint: 'Indicators not marked public in this slice', icon: 'shield', tone: accessControlledCount ? 'info' : 'neutral' }
     ];
 
     return {
@@ -469,6 +679,9 @@ export class DashboardPageComponent {
       readinessRows,
       changeRows,
       frameworkTargetRows,
+      blockerRows,
+      qualityRows,
+      spotlightRows,
       readinessChart,
       targetChart,
       changesChart,
@@ -529,10 +742,48 @@ function buildDashboardRows(summary: DashboardSummary, query: string): Dashboard
       frameworkCode: firstFrameworkFromTags(row.tags),
       targetCode: row.national_target.code || 'UNMAPPED',
       trend: trendByCode.get(row.code) || 'unknown',
-      issues: issueByCode.get(row.code) || []
+      issues: issueByCode.get(row.code) || [],
+      hasSpatial: row.tags.includes('spatial') || row.coverage.geography.toLowerCase() !== 'national',
+      accessLevel: row.sensitivity || 'public'
     }))
     .filter((row) => matchesQuery(`${row.code} ${row.title} ${row.targetCode}`, query))
     .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '') || a.code.localeCompare(b.code));
+}
+
+function summarizeBlockers(rows: DashboardRow[]): DashboardBlockerRow[] {
+  const counts = new Map<string, number>();
+  for (const row of rows) {
+    for (const issue of row.issues) {
+      counts.set(issue, (counts.get(issue) || 0) + 1);
+    }
+  }
+  return Array.from(counts.entries())
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+function medianDaysSince(values: Array<string | null>): number | null {
+  const days = values
+    .map((value) => {
+      if (!value) {
+        return null;
+      }
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return null;
+      }
+      const elapsed = Date.now() - parsed.getTime();
+      return Math.max(0, Math.round(elapsed / (1000 * 60 * 60 * 24)));
+    })
+    .filter((value): value is number => value !== null)
+    .sort((a, b) => a - b);
+
+  if (!days.length) {
+    return null;
+  }
+
+  const middle = Math.floor(days.length / 2);
+  return days.length % 2 ? days[middle] : Math.round((days[middle - 1] + days[middle]) / 2);
 }
 
 function firstFrameworkFromTags(tags: string[]): string {

@@ -150,6 +150,25 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
         ></nbms-kpi-card>
       </nbms-stat-strip>
 
+      <section class="indicator-summary-grid">
+        <a
+          class="indicator-summary nbms-card-surface"
+          *ngFor="let row of vm.indicators.slice(0, 4); trackBy: trackByIndicatorRow"
+          [routerLink]="['/indicators', row.uuid]"
+        >
+          <div class="indicator-summary-head">
+            <p class="indicator-kicker">Indicator</p>
+            <nbms-readiness-badge [score]="row.readinessScore" [status]="toReadinessStatus(row.readinessScore, row.readinessStatus)"></nbms-readiness-badge>
+          </div>
+          <h2>{{ row.code }}</h2>
+          <p>{{ row.title }}</p>
+          <div class="indicator-summary-meta">
+            <span>{{ row.status }}</span>
+            <span>{{ row.hasSpatial ? 'Spatial output' : 'Tabular only' }}</span>
+          </div>
+        </a>
+      </section>
+
       <section class="content-grid" [ngSwitch]="vm.context.tab">
         <ng-container *ngSwitchCase="'overview'">
           <div class="main-column">
@@ -290,8 +309,57 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
         gap: var(--nbms-space-4);
       }
 
+      .indicator-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: var(--nbms-space-3);
+      }
+
+      .indicator-summary {
+        display: grid;
+        gap: var(--nbms-space-3);
+        padding: var(--nbms-space-4);
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .indicator-summary-head,
+      .indicator-summary-meta {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--nbms-space-2);
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .indicator-kicker,
+      .indicator-summary-meta span {
+        margin: 0;
+        color: var(--nbms-text-muted);
+        font-size: var(--nbms-font-size-label-sm);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .indicator-summary h2,
+      .indicator-summary p {
+        margin: 0;
+      }
+
+      .indicator-summary p {
+        color: var(--nbms-text-secondary);
+        line-height: 1.6;
+      }
+
       .content-grid {
         grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+      }
+
+      .side-column {
+        align-self: start;
+        position: sticky;
+        top: 5.4rem;
       }
 
       .full-width {
@@ -311,6 +379,10 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
       @media (max-width: 1080px) {
         .content-grid {
           grid-template-columns: 1fr;
+        }
+
+        .side-column {
+          position: static;
         }
       }
     `
@@ -375,6 +447,10 @@ export class TargetDetailPageComponent {
 
   trackByStat(_: number, stat: TargetDetailVm['stats'][number]): string {
     return stat.title;
+  }
+
+  trackByIndicatorRow(_: number, row: FrameworkIndicatorRow): string {
+    return row.uuid;
   }
 
   toReadinessStatus(score: number, explicit?: string): 'ready' | 'warning' | 'blocked' {
