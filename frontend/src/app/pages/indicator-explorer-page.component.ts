@@ -1,4 +1,4 @@
-import { AsyncPipe, NgFor, NgIf, NgSwitch, NgSwitchCase, NgSwitchDefault } from '@angular/common';
+import { AsyncPipe, NgFor, NgIf, NgSwitch, NgSwitchCase, NgSwitchDefault, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, TemplateRef, ViewChild, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -72,6 +72,7 @@ export function buildIndicatorNarrative(input: {
     NgSwitch,
     NgSwitchCase,
     NgSwitchDefault,
+    TitleCasePipe,
     RouterLink,
     ReactiveFormsModule,
     MatButtonModule,
@@ -91,15 +92,26 @@ export function buildIndicatorNarrative(input: {
     NbmsStatusPillComponent
   ],
   template: `
-    <nbms-page-header
-      title="Indicator Explorer"
-      subtitle="Periodic releases and approved publications; no on-demand recomputation."
-      [breadcrumbs]="['Dashboard', 'Indicators']"
-      statusLabel="Phase 1"
-      statusTone="info"
-    ></nbms-page-header>
+    <section class="explorer-page" *ngIf="vm$ | async as vm">
+      <nbms-page-header
+        title="Indicator Database"
+        subtitle="Interactive explorer for narratives, aggregations, map-backed availability, and auditable indicator drilldowns."
+        [breadcrumbs]="[
+          { label: 'Dashboard', route: ['/dashboard'] },
+          { label: 'Indicators', route: ['/indicators'] }
+        ]"
+        [badges]="[
+          { label: vm.filters.geography_type || 'national', tone: 'neutral' },
+          { label: vm.filters.mode === 'map' ? 'Map mode' : (vm.filters.mode | titlecase), tone: 'info' }
+        ]"
+        [actions]="[
+          { id: 'frameworks', label: 'Frameworks', route: ['/frameworks'], icon: 'account_tree', variant: 'stroked' },
+          { id: 'reset', label: 'Reset filters', icon: 'restart_alt', variant: 'text' }
+        ]"
+        (actionSelected)="onHeaderAction($event)"
+      ></nbms-page-header>
 
-    <section class="layout" [class.layout--insights]="insightsOpen" *ngIf="vm$ | async as vm">
+      <section class="layout" [class.layout--insights]="insightsOpen">
       <nbms-filter-rail class="rail" title="Filters">
         <mat-form-field appearance="outline">
           <mat-label>Search</mat-label>
@@ -301,6 +313,7 @@ export function buildIndicatorNarrative(input: {
         [reportingQueryParams]="{ narrative: vm.narrative }"
         (copyNarrative)="copyNarrative(vm.narrative)"
       ></app-indicator-explorer-insights>
+      </section>
     </section>
 
     <ng-template #tableCell let-item let-key="key">
@@ -341,31 +354,36 @@ export function buildIndicatorNarrative(input: {
     `
       .layout {
         display: grid;
-        grid-template-columns: 320px minmax(0, 1fr);
+        grid-template-columns: minmax(280px, 308px) minmax(0, 1fr);
         gap: var(--nbms-space-4);
       }
 
       .layout.layout--insights {
-        grid-template-columns: 320px minmax(0, 1fr) 320px;
+        grid-template-columns: minmax(280px, 308px) minmax(0, 1fr) minmax(296px, 332px);
       }
 
-      .rail { position: sticky; top: 5.3rem; align-self: start; }
-      .main { display: grid; gap: var(--nbms-space-3); }
+      .explorer-page {
+        display: grid;
+        gap: var(--nbms-space-4);
+      }
+
+      .rail { position: sticky; top: 5.4rem; align-self: start; }
+      .main { display: grid; gap: var(--nbms-space-4); }
       .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--nbms-space-2); }
       .rail-actions { display: flex; gap: var(--nbms-space-2); }
-      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--nbms-space-3); }
-      .indicator-card { display: grid; gap: var(--nbms-space-3); padding: var(--nbms-space-4); }
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--nbms-space-3); }
+      .indicator-card { display: grid; gap: var(--nbms-space-3); padding: var(--nbms-space-4); min-height: 100%; }
       .card-head { display: flex; justify-content: space-between; gap: var(--nbms-space-2); align-items: flex-start; }
       .card-title { display: grid; gap: var(--nbms-space-1); }
       .card-caption { color: var(--nbms-text-muted); font-size: var(--nbms-font-size-label-sm); }
       .indicator-card p { margin: 0; color: var(--nbms-text-secondary); line-height: 1.6; }
       .card-meta { display: flex; flex-wrap: wrap; gap: var(--nbms-space-2); align-items: center; }
-      .changed { color: var(--nbms-color-info); font-size: var(--nbms-font-size-label-sm); font-weight: 700; }
-      .insights { align-self: start; position: sticky; top: 5.3rem; }
+      .changed { color: var(--nbms-info); font-size: var(--nbms-font-size-label-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+      .insights { align-self: start; position: sticky; top: 5.4rem; }
       .map-summary { padding: var(--nbms-space-4); display: grid; gap: var(--nbms-space-3); }
       .map-summary p { margin: 0; color: var(--nbms-text-secondary); }
       .map-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--nbms-space-2); }
-      .map-stat { padding: var(--nbms-space-3); display: grid; gap: var(--nbms-space-1); }
+      .map-stat { padding: var(--nbms-space-3); display: grid; gap: var(--nbms-space-1); min-height: 100%; }
       .map-stat strong { font-size: var(--nbms-font-size-h3); color: var(--nbms-text-primary); }
       .map-stat span { color: var(--nbms-text-muted); font-size: var(--nbms-font-size-label-sm); text-transform: uppercase; letter-spacing: 0.04em; }
       @media (max-width: 1400px) { .layout.layout--insights { grid-template-columns: 300px minmax(0, 1fr); } .insights { grid-column: 1 / -1; position: static; } }
@@ -595,6 +613,12 @@ export class IndicatorExplorerPageComponent {
 
   toggleInsights(): void {
     this.insightsOpen = !this.insightsOpen;
+  }
+
+  onHeaderAction(actionId: string): void {
+    if (actionId === 'reset') {
+      this.clearFilters();
+    }
   }
 
   extractGbfTargets(item: IndicatorListItem): string[] {

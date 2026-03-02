@@ -44,7 +44,7 @@ import { NbmsStatusPillComponent } from '../ui/nbms-status-pill.component';
       .compare {
         display: grid;
         gap: var(--nbms-space-3);
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
       }
 
       .head,

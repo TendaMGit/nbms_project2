@@ -70,7 +70,7 @@ type BlockerRow = {
       .insights {
         display: grid;
         gap: var(--nbms-space-4);
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
       }
 
       .head,
@@ -99,8 +99,8 @@ type BlockerRow = {
 
       .due-soon {
         border-radius: var(--nbms-radius-pill);
-        background: color-mix(in srgb, var(--nbms-color-accent-500) 10%, transparent);
-        color: var(--nbms-color-accent-700);
+        background: var(--nbms-warn-subtle);
+        color: var(--nbms-warn);
         padding: var(--nbms-space-1) var(--nbms-space-2);
         font-size: var(--nbms-font-size-label-sm);
         font-weight: 700;

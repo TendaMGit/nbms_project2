@@ -46,6 +46,7 @@ import { IndicatorService } from '../services/indicator.service';
 import { NbmsCalloutComponent } from '../ui/nbms-callout.component';
 import { NbmsDataTableComponent } from '../ui/nbms-data-table.component';
 import { NbmsKpiCardComponent } from '../ui/nbms-kpi-card.component';
+import { NbmsMapCardComponent } from '../ui/nbms-map-card.component';
 import { NbmsReadinessBadgeComponent } from '../ui/nbms-readiness-badge.component';
 import { NbmsStatusPillComponent } from '../ui/nbms-status-pill.component';
 import { NbmsToastService } from '../ui/nbms-toast.service';
@@ -74,6 +75,7 @@ import { NbmsToastService } from '../ui/nbms-toast.service';
     NbmsCalloutComponent,
     NbmsDataTableComponent,
     NbmsKpiCardComponent,
+    NbmsMapCardComponent,
     NbmsReadinessBadgeComponent,
     NbmsStatusPillComponent
   ],

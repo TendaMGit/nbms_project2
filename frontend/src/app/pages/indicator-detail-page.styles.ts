@@ -17,10 +17,10 @@ export const indicatorDetailPageStyles = `
     gap: var(--nbms-space-4);
     background:
       linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--nbms-color-primary-100) 36%, var(--nbms-surface)) 0%,
-        var(--nbms-surface) 62%,
-        color-mix(in srgb, var(--nbms-color-secondary-100) 24%, var(--nbms-surface)) 100%
+        135deg,
+        color-mix(in srgb, var(--nbms-accent-100) 52%, var(--nbms-surface)) 0%,
+        var(--nbms-surface) 46%,
+        color-mix(in srgb, var(--nbms-surface-2) 84%, var(--nbms-surface)) 100%
       );
   }
 
@@ -108,14 +108,16 @@ export const indicatorDetailPageStyles = `
   }
 
   .request-action {
-    background: var(--nbms-color-primary-500);
-    color: var(--nbms-surface);
+    background: var(--nbms-accent-500);
+    color: var(--nbms-neutral-0);
   }
 
   .tab-strip {
-    display: inline-flex;
+    display: flex;
     gap: var(--nbms-space-2);
     align-items: center;
+    width: 100%;
+    overflow-x: auto;
   }
 
   .tab {
@@ -136,9 +138,9 @@ export const indicatorDetailPageStyles = `
   }
 
   .tab--active {
-    background: color-mix(in srgb, var(--nbms-color-primary-500) 10%, transparent);
-    border-color: color-mix(in srgb, var(--nbms-color-primary-500) 30%, var(--nbms-surface));
-    color: var(--nbms-color-primary-700);
+    background: color-mix(in srgb, var(--nbms-accent-100) 68%, var(--nbms-surface));
+    border-color: color-mix(in srgb, var(--nbms-accent-500) 30%, var(--nbms-border-strong));
+    color: var(--nbms-text-primary);
   }
 
   .filter-bar {
@@ -189,11 +191,7 @@ export const indicatorDetailPageStyles = `
     gap: var(--nbms-space-2);
     border: 1px solid var(--nbms-border);
     border-radius: var(--nbms-radius-lg);
-    background: linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--nbms-surface) 92%, var(--nbms-color-secondary-100)) 0%,
-      var(--nbms-surface) 100%
-    );
+    background: color-mix(in srgb, var(--nbms-surface) 92%, var(--nbms-surface-2));
     color: var(--nbms-text-primary);
     cursor: pointer;
     font: inherit;
@@ -206,8 +204,8 @@ export const indicatorDetailPageStyles = `
   }
 
   .distribution-card--active {
-    border-color: color-mix(in srgb, var(--nbms-color-primary-500) 36%, var(--nbms-surface));
-    background: color-mix(in srgb, var(--nbms-color-primary-100) 20%, var(--nbms-surface));
+    border-color: color-mix(in srgb, var(--nbms-accent-500) 36%, var(--nbms-border-strong));
+    background: color-mix(in srgb, var(--nbms-accent-100) 58%, var(--nbms-surface));
   }
 
   .distribution-card strong {
@@ -230,7 +228,7 @@ export const indicatorDetailPageStyles = `
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--nbms-color-primary-500);
+    background: var(--nbms-accent-500);
   }
 
   .detail-card,
@@ -286,8 +284,8 @@ export const indicatorDetailPageStyles = `
   }
 
   .stack-item--active {
-    border-color: color-mix(in srgb, var(--nbms-color-primary-500) 26%, var(--nbms-surface));
-    background: color-mix(in srgb, var(--nbms-color-primary-100) 18%, var(--nbms-surface));
+    border-color: color-mix(in srgb, var(--nbms-accent-500) 26%, var(--nbms-border-strong));
+    background: color-mix(in srgb, var(--nbms-accent-100) 44%, var(--nbms-surface));
   }
 
   .stack-item strong,

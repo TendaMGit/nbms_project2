@@ -256,6 +256,13 @@ export const indicatorDetailPageTemplate = `
               </ng-template>
             </article>
 
+            <nbms-map-card
+              title="Spatial context"
+              eyebrow="Map"
+              subtitle="Map-backed indicator drilldown"
+              helperText="The shared indicator workspace is ready for a spatial layer, but the indicator detail API still needs a map payload filtered by report cycle, release, and method. Until then, use the distribution cards and the Spatial Viewer."
+            ></nbms-map-card>
+
             <article class="panel nbms-card-surface">
               <div class="panel-head">
                 <div>
@@ -300,6 +307,19 @@ export const indicatorDetailPageTemplate = `
                   [title]="note.title"
                   [message]="note.body"
                 ></nbms-callout>
+              </div>
+            </section>
+
+            <section class="panel nbms-card-surface">
+              <p class="eyebrow">What changed</p>
+              <h2>Refresh and provenance</h2>
+              <div class="stack-list">
+                <article class="stack-item" *ngFor="let row of vm.pipelineRows.slice(0, 3); trackBy: trackByText">
+                  <div>
+                    <strong>{{ row.label }}</strong>
+                    <p>{{ row.value }}</p>
+                  </div>
+                </article>
               </div>
             </section>
           </aside>

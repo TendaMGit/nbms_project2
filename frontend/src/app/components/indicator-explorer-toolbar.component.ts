@@ -62,7 +62,7 @@ import { MatSelectModule } from '@angular/material/select';
         grid-template-columns: auto minmax(180px, 220px) minmax(0, 1fr);
         gap: var(--nbms-space-3);
         align-items: center;
-        padding: var(--nbms-space-3) var(--nbms-space-4);
+        padding: var(--nbms-space-3) var(--nbms-space-5);
       }
 
       .control-group {
