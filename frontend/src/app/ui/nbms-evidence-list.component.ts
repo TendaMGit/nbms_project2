@@ -48,7 +48,8 @@ type EvidenceRow = {
         align-items: flex-start;
         border: 1px solid var(--nbms-divider);
         border-radius: var(--nbms-radius-md);
-        padding: var(--nbms-space-3);
+        background: color-mix(in srgb, var(--nbms-surface-2) 52%, var(--nbms-surface));
+        padding: var(--nbms-space-3) var(--nbms-space-4);
       }
 
       strong,

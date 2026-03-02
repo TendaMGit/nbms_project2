@@ -26,7 +26,7 @@ import { NgIf } from '@angular/common';
       .chart-card {
         display: grid;
         gap: var(--nbms-space-3);
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
       }
 
       .head {
@@ -52,10 +52,16 @@ import { NgIf } from '@angular/common';
 
       h2 {
         margin: var(--nbms-space-1) 0 0;
+        line-height: 1.15;
       }
 
       .body {
         min-height: 220px;
+      }
+
+      .footer {
+        border-top: 1px solid var(--nbms-divider);
+        padding-top: var(--nbms-space-3);
       }
     `
   ],

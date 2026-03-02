@@ -24,7 +24,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: var(--nbms-space-3) var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5) var(--nbms-space-3);
         border-bottom: 1px solid var(--nbms-divider);
       }
 
@@ -35,6 +35,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
       .map-body {
         min-height: 320px;
+        padding: 0 var(--nbms-space-5) var(--nbms-space-5);
       }
     `
   ],

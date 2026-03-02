@@ -32,20 +32,29 @@ import { MatIconModule } from '@angular/material/icon';
   styles: [
     `
       .kpi {
-        --kpi-accent-color: var(--nbms-color-primary-500);
+        --kpi-accent-color: var(--nbms-accent-500);
         padding: var(--nbms-space-4);
         display: grid;
         gap: var(--nbms-space-2);
-        border: 1px solid color-mix(in srgb, var(--nbms-border) 88%, var(--nbms-surface));
+        position: relative;
+        overflow: hidden;
+        border: 1px solid var(--nbms-border);
+      }
+
+      .kpi::before {
+        content: '';
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 4px;
+        background: color-mix(in srgb, var(--kpi-accent-color) 86%, var(--nbms-surface));
       }
 
       .kpi.kpi-accent {
-        background:
-          linear-gradient(
-            180deg,
-            color-mix(in srgb, var(--nbms-color-primary-100) 40%, var(--nbms-surface)) 0%,
-            var(--nbms-surface) 100%
-          );
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--nbms-accent-100) 46%, var(--nbms-surface)) 0%,
+          var(--nbms-surface) 100%
+        );
       }
 
       .kpi header {
@@ -130,30 +139,30 @@ import { MatIconModule } from '@angular/material/icon';
       }
 
       .kpi[data-tone='positive'] {
-        --kpi-accent-color: var(--nbms-color-success);
+        --kpi-accent-color: var(--nbms-success);
       }
 
       .kpi[data-tone='negative'] {
-        --kpi-accent-color: var(--nbms-color-error);
+        --kpi-accent-color: var(--nbms-danger);
       }
 
       .kpi[data-tone='info'] {
-        --kpi-accent-color: var(--nbms-color-info);
+        --kpi-accent-color: var(--nbms-info);
       }
 
       .kpi[data-tone='positive'] .value,
       .kpi[data-tone='positive'] .delta {
-        color: var(--nbms-color-success);
+        color: var(--nbms-success);
       }
 
       .kpi[data-tone='negative'] .value,
       .kpi[data-tone='negative'] .delta {
-        color: var(--nbms-color-error);
+        color: var(--nbms-danger);
       }
 
       .kpi[data-tone='info'] .value,
       .kpi[data-tone='info'] .delta {
-        color: var(--nbms-color-info);
+        color: var(--nbms-info);
       }
     `
   ],

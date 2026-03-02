@@ -82,14 +82,30 @@ type PageHeaderAction = {
       .page-header {
         display: flex;
         justify-content: space-between;
-        gap: var(--nbms-space-4);
+        gap: var(--nbms-space-5);
         align-items: flex-start;
         margin-bottom: var(--nbms-space-4);
+        padding: var(--nbms-space-5);
+        border: 1px solid var(--nbms-border);
+        border-radius: var(--nbms-radius-lg);
+        background:
+          linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--nbms-accent-100) 62%, var(--nbms-surface)) 0%,
+            var(--nbms-surface) 48%,
+            color-mix(in srgb, var(--nbms-surface-2) 86%, var(--nbms-surface)) 100%
+          );
+        box-shadow: var(--nbms-shadow-sm);
+      }
+
+      .header-main {
+        display: grid;
+        gap: var(--nbms-space-2);
       }
 
       .header-main h1 {
         font-size: var(--nbms-font-size-h2);
-        margin-bottom: var(--nbms-space-1);
+        line-height: 1.1;
       }
 
       .header-main p {
@@ -100,7 +116,9 @@ type PageHeaderAction = {
       .breadcrumbs {
         color: var(--nbms-text-muted);
         font-size: var(--nbms-font-size-label-sm);
-        margin-bottom: var(--nbms-space-1);
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
       }
 
       .breadcrumbs a {
@@ -127,24 +145,25 @@ type PageHeaderAction = {
         align-items: center;
         gap: var(--nbms-space-1);
         border-radius: var(--nbms-radius-pill);
-        border: 1px solid var(--nbms-border);
-        background: var(--nbms-surface);
+        border: 1px solid var(--nbms-border-strong);
+        background: color-mix(in srgb, var(--nbms-surface) 82%, var(--nbms-surface-2));
         color: var(--nbms-text-primary);
         cursor: pointer;
         font: inherit;
         font-weight: 700;
-        padding: var(--nbms-space-2) var(--nbms-space-3);
+        min-height: 2.5rem;
+        padding: 0 var(--nbms-space-3);
         text-decoration: none;
       }
 
       .header-action.button-flat {
-        background: var(--nbms-color-primary-500);
-        border-color: var(--nbms-color-primary-500);
-        color: var(--nbms-surface);
+        background: var(--nbms-accent-500);
+        border-color: var(--nbms-accent-500);
+        color: var(--nbms-neutral-0);
       }
 
       .header-action:not(.button-flat):hover {
-        background: var(--nbms-surface-muted);
+        background: color-mix(in srgb, var(--nbms-accent-100) 72%, var(--nbms-surface));
       }
 
       @media (max-width: 900px) {

@@ -30,7 +30,7 @@ import { NbmsLegendComponent } from './nbms-legend.component';
       .map-card {
         display: grid;
         gap: var(--nbms-space-3);
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
       }
 
       .eyebrow,
@@ -49,6 +49,11 @@ import { NbmsLegendComponent } from './nbms-legend.component';
 
       h2 {
         margin: var(--nbms-space-1) 0 0;
+      }
+
+      .helper {
+        border-top: 1px solid var(--nbms-divider);
+        padding-top: var(--nbms-space-3);
       }
     `
   ],

@@ -13,6 +13,16 @@ import { type NbmsContextOption, type NbmsContextQueryParams } from '../models/c
   imports: [NgFor, NgIf, MatFormFieldModule, MatInputModule, MatSelectModule, MatSlideToggleModule],
   template: `
     <section class="context-bar nbms-card-surface">
+      <header class="context-head">
+        <div>
+          <p class="eyebrow">Context</p>
+          <h2>Filter the current slice</h2>
+        </div>
+        <mat-slide-toggle [checked]="state.published_only === 1" (change)="emitPatch('published_only', $event.checked ? 1 : 0)">
+          Published only
+        </mat-slide-toggle>
+      </header>
+
       <div class="context-grid">
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Report cycle</mat-label>
@@ -81,9 +91,6 @@ import { type NbmsContextOption, type NbmsContextQueryParams } from '../models/c
       </div>
 
       <div class="context-actions">
-        <mat-slide-toggle [checked]="state.published_only === 1" (change)="emitPatch('published_only', $event.checked ? 1 : 0)">
-          Published only
-        </mat-slide-toggle>
         <p class="helper-text" *ngIf="helperText">{{ helperText }}</p>
       </div>
     </section>
@@ -93,7 +100,27 @@ import { type NbmsContextOption, type NbmsContextQueryParams } from '../models/c
       .context-bar {
         display: grid;
         gap: var(--nbms-space-3);
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
+      }
+
+      .context-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--nbms-space-3);
+      }
+
+      .eyebrow,
+      h2 {
+        margin: 0;
+      }
+
+      .eyebrow {
+        color: var(--nbms-text-muted);
+        font-size: var(--nbms-font-size-label-sm);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .context-grid {
@@ -104,10 +131,7 @@ import { type NbmsContextOption, type NbmsContextQueryParams } from '../models/c
 
       .context-actions {
         display: flex;
-        justify-content: space-between;
-        gap: var(--nbms-space-2);
-        align-items: center;
-        flex-wrap: wrap;
+        justify-content: flex-end;
       }
 
       .helper-text {
@@ -125,6 +149,11 @@ import { type NbmsContextOption, type NbmsContextQueryParams } from '../models/c
       @media (max-width: 860px) {
         .context-grid {
           grid-template-columns: 1fr;
+        }
+
+        .context-head {
+          flex-direction: column;
+          align-items: flex-start;
         }
       }
     `

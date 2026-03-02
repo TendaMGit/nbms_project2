@@ -23,7 +23,7 @@ import { MatIconModule } from '@angular/material/icon';
         gap: var(--nbms-space-3);
         border-radius: var(--nbms-radius-md);
         border: 1px solid var(--nbms-border);
-        background: var(--nbms-surface-muted);
+        background: var(--nbms-surface-2);
         padding: var(--nbms-space-3);
       }
 
@@ -46,21 +46,21 @@ import { MatIconModule } from '@angular/material/icon';
       }
 
       .callout[data-tone='info'] {
-        color: var(--nbms-color-info);
-        border-color: color-mix(in srgb, var(--nbms-color-info) 28%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-info) 10%, transparent);
+        color: var(--nbms-info);
+        border-color: color-mix(in srgb, var(--nbms-info) 28%, var(--nbms-border));
+        background: var(--nbms-info-subtle);
       }
 
       .callout[data-tone='warning'] {
-        color: var(--nbms-color-accent-700);
-        border-color: color-mix(in srgb, var(--nbms-color-accent-500) 28%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-accent-500) 10%, transparent);
+        color: var(--nbms-warn);
+        border-color: color-mix(in srgb, var(--nbms-warn) 28%, var(--nbms-border));
+        background: var(--nbms-warn-subtle);
       }
 
       .callout[data-tone='error'] {
-        color: var(--nbms-color-error);
-        border-color: color-mix(in srgb, var(--nbms-color-error) 28%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-error) 10%, transparent);
+        color: var(--nbms-danger);
+        border-color: color-mix(in srgb, var(--nbms-danger) 28%, var(--nbms-border));
+        background: var(--nbms-danger-subtle);
       }
     `
   ],

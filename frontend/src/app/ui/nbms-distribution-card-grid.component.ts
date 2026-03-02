@@ -43,7 +43,7 @@ type DistributionCard = {
         gap: var(--nbms-space-2);
         border: 1px solid var(--nbms-border);
         border-radius: var(--nbms-radius-md);
-        background: var(--nbms-surface);
+        background: color-mix(in srgb, var(--nbms-surface) 90%, var(--nbms-surface-2));
         color: var(--nbms-text-primary);
         cursor: pointer;
         font: inherit;
@@ -52,8 +52,8 @@ type DistributionCard = {
       }
 
       .card--active {
-        border-color: color-mix(in srgb, var(--nbms-color-primary-500) 30%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-primary-100) 18%, var(--nbms-surface));
+        border-color: color-mix(in srgb, var(--nbms-accent-500) 28%, var(--nbms-border-strong));
+        background: color-mix(in srgb, var(--nbms-accent-100) 58%, var(--nbms-surface));
       }
 
       .card span,
@@ -71,7 +71,7 @@ type DistributionCard = {
       .bar b {
         display: block;
         height: 100%;
-        background: var(--nbms-color-primary-500);
+        background: var(--nbms-accent-500);
       }
     `
   ],

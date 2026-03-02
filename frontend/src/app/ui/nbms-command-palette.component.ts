@@ -45,7 +45,7 @@ export type NbmsCommand = {
       .palette-backdrop {
         position: absolute;
         inset: 0;
-        background: rgb(15 23 32 / 42%);
+        background: color-mix(in srgb, var(--nbms-neutral-1000) 42%, transparent);
       }
 
       .palette {

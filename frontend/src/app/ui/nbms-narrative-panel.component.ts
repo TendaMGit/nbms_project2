@@ -49,7 +49,7 @@ type NarrativeSection = {
       }
 
       .narrative {
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
       }
 
       .head {
@@ -85,6 +85,11 @@ type NarrativeSection = {
         display: flex;
         gap: var(--nbms-space-2);
         flex-wrap: wrap;
+      }
+
+      .section {
+        padding-top: var(--nbms-space-3);
+        border-top: 1px solid var(--nbms-divider);
       }
     `
   ],

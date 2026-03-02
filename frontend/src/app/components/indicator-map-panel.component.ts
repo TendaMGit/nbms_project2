@@ -34,6 +34,7 @@ import { IndicatorMapResponse } from '../models/api.models';
       }
       .map-host {
         min-height: 320px;
+        filter: grayscale(1) saturate(0.35) contrast(1.02);
       }
       .empty {
         position: absolute;

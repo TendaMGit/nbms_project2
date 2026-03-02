@@ -19,10 +19,12 @@ import { NgClass } from '@angular/common';
         align-items: center;
         border-radius: var(--nbms-radius-pill);
         border: 1px solid var(--nbms-border);
-        background: var(--nbms-surface-muted);
+        background: var(--nbms-surface-2);
         color: var(--nbms-text-secondary);
-        padding: 0.15rem 0.55rem;
+        min-height: 1.8rem;
+        padding: 0.1rem 0.65rem;
         font-size: var(--nbms-font-size-label-sm);
+        letter-spacing: 0.03em;
       }
 
       .badge strong {
@@ -30,21 +32,21 @@ import { NgClass } from '@angular/common';
       }
 
       .status-ready {
-        color: var(--nbms-color-success);
-        border-color: color-mix(in srgb, var(--nbms-color-success) 40%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-success) 10%, transparent);
+        color: var(--nbms-success);
+        border-color: color-mix(in srgb, var(--nbms-success) 38%, var(--nbms-border));
+        background: var(--nbms-success-subtle);
       }
 
       .status-warning {
-        color: var(--nbms-color-accent-700);
-        border-color: color-mix(in srgb, var(--nbms-color-accent-500) 40%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-accent-500) 10%, transparent);
+        color: var(--nbms-warn);
+        border-color: color-mix(in srgb, var(--nbms-warn) 38%, var(--nbms-border));
+        background: var(--nbms-warn-subtle);
       }
 
       .status-blocked {
-        color: var(--nbms-color-error);
-        border-color: color-mix(in srgb, var(--nbms-color-error) 40%, var(--nbms-surface));
-        background: color-mix(in srgb, var(--nbms-color-error) 10%, transparent);
+        color: var(--nbms-danger);
+        border-color: color-mix(in srgb, var(--nbms-danger) 38%, var(--nbms-border));
+        background: var(--nbms-danger-subtle);
       }
     `
   ],
