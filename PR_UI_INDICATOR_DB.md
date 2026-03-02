@@ -2,6 +2,19 @@
 
 ## What Changed
 
+### Mono redesign layer
+- Added a new `mono_clean` theme pack and made it the default frontend theme.
+- Reworked the global shell into a grayscale, compact database UI with a reduced navigation model:
+  - `Home`
+  - `Frameworks`
+  - `Indicators`
+- Added global search suggestions and direct drilldown navigation across frameworks, targets, and indicators.
+- Applied a consistent visual system across the four main database surfaces:
+  - `Dashboard`
+  - `Framework detail`
+  - `Target detail`
+  - `Indicator explorer/detail`
+
 ### Shared context model
 - Added a shared analytics query-param model in `frontend/src/app/models/context.models.ts`.
 - Added `ContextStateService` in `frontend/src/app/services/context-state.service.ts` to parse, default, and write URL-synced context state with `replaceUrl: true`.
@@ -34,9 +47,23 @@
   - `tab=indicator|details|evidence|audit`
   - context filters for cycle, method, release, geography, and year range
   - KPI strip, charts, distribution cards, detailed table, and narrative rail
+- Added a mono map placeholder card and a "What changed" rail section to the indicator analytics tab.
 - Kept `/indicators` and `/indicators/:uuid` route compatibility intact.
 - Modularized the explorer toolbar, insights rail, and compare panel into separate components.
 - Added canonical `geo_type` / `geo_code` compatibility in the explorer while preserving legacy `geography_type` / `geography_code`.
+
+### Dashboard / framework / target experience
+- Expanded `/dashboard` into a database home surface with:
+  - KPI strip
+  - readiness and blocker summary
+  - map-first placeholder
+  - target spotlight drilldowns
+  - recent updates, data quality, and approvals sections
+- Added higher-signal framework and target layouts with:
+  - summary card grids
+  - explicit drilldowns
+  - narrative side rails
+  - denser analytics/table presentation
 
 ## How To Navigate
 
@@ -89,6 +116,9 @@
 ```bash
 npm --prefix frontend run build
 npm --prefix frontend run test -- --watch=false
-npm --prefix frontend run e2e
+COMPOSE_PROJECT_NAME=nbms_dev npm --prefix frontend run e2e
 ```
 
+### Local e2e note
+- On this machine, the repo-local compose stack conflicts on port `5432` with an existing `nbms_dev` PostGIS container.
+- E2E was therefore validated against the existing healthy `nbms_dev` stack via `COMPOSE_PROJECT_NAME=nbms_dev`.
