@@ -14,7 +14,7 @@ export interface AuthCapabilitiesResponse {
   capabilities: Record<string, boolean>;
 }
 
-export type ThemePackId = 'fynbos' | 'gbif_clean' | 'high_contrast' | 'dark_pro';
+export type ThemePackId = 'mono_clean' | 'fynbos' | 'gbif_clean' | 'high_contrast' | 'dark_pro';
 export type ThemeMode = 'light' | 'dark';
 export type DensityMode = 'comfortable' | 'compact';
 export type GeographyType = 'national' | 'province' | 'district' | 'municipality';

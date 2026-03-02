@@ -169,20 +169,40 @@ import { UserPreferencesService } from '../services/user-preferences.service';
         border-radius: 999px;
       }
 
+      .theme-mono_clean {
+        background: linear-gradient(90deg, var(--nbms-neutral-900), var(--nbms-accent-500));
+      }
+
       .theme-fynbos {
-        background: linear-gradient(90deg, #1e8b64, #318cc2);
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--nbms-success) 80%, var(--nbms-surface-1)),
+          color-mix(in srgb, var(--nbms-info) 88%, var(--nbms-surface-1))
+        );
       }
 
       .theme-gbif_clean {
-        background: linear-gradient(90deg, #2e5f84, #a8bbc8);
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--nbms-accent-600) 88%, var(--nbms-surface-1)),
+          color-mix(in srgb, var(--nbms-neutral-400) 82%, var(--nbms-surface-0))
+        );
       }
 
       .theme-high_contrast {
-        background: linear-gradient(90deg, #000000, #ffd000);
+        background: linear-gradient(
+          90deg,
+          var(--nbms-text-strong),
+          color-mix(in srgb, var(--nbms-warn) 92%, var(--nbms-surface-0))
+        );
       }
 
       .theme-dark_pro {
-        background: linear-gradient(90deg, #0f1720, #1d6fd0);
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--nbms-neutral-1000) 92%, var(--nbms-surface-0)),
+          color-mix(in srgb, var(--nbms-accent-500) 92%, var(--nbms-surface-1))
+        );
       }
 
       .form-grid {
@@ -234,7 +254,7 @@ export class AccountPreferencesPageComponent {
   readonly watchlistNamespaces: WatchlistNamespace[] = ['indicators', 'registries', 'reports'];
 
   readonly form = new FormGroup({
-    theme_id: new FormControl<ThemePackId>('fynbos', { nonNullable: true }),
+    theme_id: new FormControl<ThemePackId>('mono_clean', { nonNullable: true }),
     theme_mode: new FormControl<ThemeMode>('light', { nonNullable: true }),
     density: new FormControl<'comfortable' | 'compact'>('comfortable', { nonNullable: true }),
     default_geography_type: new FormControl<GeographyType>('national', { nonNullable: true }),
