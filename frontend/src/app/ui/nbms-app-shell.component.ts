@@ -19,7 +19,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { NbmsHelpDrawerComponent } from './nbms-help-drawer.component';
-import { NbmsSearchBarComponent } from './nbms-search-bar.component';
+import { NbmsSearchBarComponent, type NbmsSearchResult } from './nbms-search-bar.component';
 import { NbmsCommand, NbmsCommandPaletteComponent } from './nbms-command-palette.component';
 import { NbmsNavGroup, NbmsNavItem, NbmsPinnedView } from './nbms-app-shell.types';
 import { UserPreferencesService } from '../services/user-preferences.service';
@@ -55,32 +55,12 @@ import { UserPreferencesService } from '../services/user-preferences.service';
         [fixedInViewport]="isMobile"
       >
         <div class="brand">
+          <p class="brand-kicker">National Biodiversity Monitoring System</p>
           <div class="brand-head">
             <h1>NBMS</h1>
             <span class="env-badge">{{ environment }}</span>
           </div>
-          <p>One Biodiversity Workspace</p>
-        </div>
-
-        <div class="quick-create">
-          <button mat-flat-button color="primary" [matMenuTriggerFor]="createMenu">
-            <mat-icon>add</mat-icon>
-            Create
-          </button>
-          <mat-menu #createMenu="matMenu">
-            <button mat-menu-item [routerLink]="'/reporting'">
-              <mat-icon>description</mat-icon>
-              Open reporting instance
-            </button>
-            <button mat-menu-item [routerLink]="'/programmes'">
-              <mat-icon>play_circle</mat-icon>
-              Run programme
-            </button>
-            <button mat-menu-item [routerLink]="'/spatial/layers'">
-              <mat-icon>upload_file</mat-icon>
-              Upload spatial layer
-            </button>
-          </mat-menu>
+          <p>Indicator database, narratives, and auditable reporting drilldowns.</p>
         </div>
 
         <mat-divider></mat-divider>
@@ -141,7 +121,12 @@ import { UserPreferencesService } from '../services/user-preferences.service';
           </div>
 
           <div class="topbar-search">
-            <nbms-search-bar (queryChange)="search.emit($event)"></nbms-search-bar>
+            <nbms-search-bar
+              [results]="searchResults"
+              (queryChange)="search.emit($event)"
+              (submitted)="searchSubmitted.emit($event)"
+              (resultSelected)="searchResultSelected.emit($event)"
+            ></nbms-search-bar>
           </div>
 
           <div class="topbar-actions">
@@ -216,15 +201,32 @@ import { UserPreferencesService } from '../services/user-preferences.service';
       }
 
       .side-nav {
-        width: 290px;
+        width: var(--nbms-sidebar-width);
         border-right: 1px solid var(--nbms-border);
-        background: linear-gradient(180deg, #0f3d2f 0%, #1b5d45 54%, #164b39 100%);
-        color: #f4fbf8;
+        background:
+          linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--nbms-surface-2) 84%, var(--nbms-surface-1)) 0%,
+            var(--nbms-surface-1) 38%,
+            color-mix(in srgb, var(--nbms-accent-100) 20%, var(--nbms-surface-1)) 100%
+          );
+        color: var(--nbms-text-primary);
         padding-bottom: var(--nbms-space-4);
       }
 
       .brand {
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-5) var(--nbms-space-4) var(--nbms-space-4);
+        display: grid;
+        gap: var(--nbms-space-2);
+      }
+
+      .brand-kicker {
+        margin: 0;
+        color: var(--nbms-text-muted);
+        font-size: var(--nbms-font-size-label-sm);
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .brand-head {
@@ -235,30 +237,23 @@ import { UserPreferencesService } from '../services/user-preferences.service';
 
       .brand h1 {
         margin: 0;
-        font-size: 1.3rem;
-        color: #f7fffb;
+        font-size: 1.45rem;
+        color: var(--nbms-text-primary);
       }
 
       .brand p {
-        margin: var(--nbms-space-1) 0 0;
+        margin: 0;
         font-size: var(--nbms-font-size-label);
-        color: rgb(242 253 247 / 85%);
+        color: var(--nbms-text-secondary);
       }
 
       .env-badge {
         font-size: var(--nbms-font-size-label-sm);
         border-radius: var(--nbms-radius-pill);
-        border: 1px solid rgb(255 255 255 / 36%);
-        background: rgb(255 255 255 / 14%);
-        padding: 0.05rem 0.45rem;
-      }
-
-      .quick-create {
-        padding: var(--nbms-space-3) var(--nbms-space-4);
-      }
-
-      .quick-create button {
-        width: 100%;
+        border: 1px solid var(--nbms-border-strong);
+        background: color-mix(in srgb, var(--nbms-accent-100) 72%, var(--nbms-surface));
+        color: var(--nbms-text-primary);
+        padding: 0.1rem 0.55rem;
       }
 
       .nav-group {
@@ -267,19 +262,43 @@ import { UserPreferencesService } from '../services/user-preferences.service';
 
       .nav-group h3 {
         margin: 0;
-        color: rgb(231 249 240 / 86%);
+        color: var(--nbms-text-muted);
         font-size: var(--nbms-font-size-label-sm);
         text-transform: uppercase;
         letter-spacing: 0.07em;
-        padding: var(--nbms-space-2) var(--nbms-space-2);
+        padding: var(--nbms-space-2) var(--nbms-space-3);
       }
 
       .active-link {
-        background: rgb(255 255 255 / 18%);
+        background: color-mix(in srgb, var(--nbms-accent-100) 76%, var(--nbms-surface));
+        color: var(--nbms-text-primary);
+        position: relative;
+      }
+
+      .active-link::before {
+        content: '';
+        position: absolute;
+        left: 0.35rem;
+        top: 50%;
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 50%;
+        background: var(--nbms-accent-500);
+        transform: translateY(-50%);
+      }
+
+      .side-nav .mdc-list-item {
+        margin: 0.15rem 0;
+        border-radius: var(--nbms-radius-md);
+      }
+
+      .side-nav .mdc-list-item__primary-text,
+      .side-nav mat-icon {
+        color: inherit;
       }
 
       .item-badge {
-        color: rgb(255 255 255 / 85%);
+        color: var(--nbms-text-muted);
         font-size: var(--nbms-font-size-label-sm);
       }
 
@@ -288,18 +307,14 @@ import { UserPreferencesService } from '../services/user-preferences.service';
         top: 0;
         z-index: 50;
         height: auto;
-        min-height: 4.4rem;
-        padding: var(--nbms-space-2) var(--nbms-space-4);
+        min-height: 4.6rem;
+        padding: var(--nbms-space-3) var(--nbms-space-5);
         border-bottom: 1px solid var(--nbms-divider);
-        background: rgb(255 255 255 / 84%);
-        backdrop-filter: blur(12px);
+        background: color-mix(in srgb, var(--nbms-surface) 94%, transparent);
         display: grid;
         grid-template-columns: auto 1fr auto;
         gap: var(--nbms-space-3);
-      }
-
-      :root[data-theme='dark'] .topbar {
-        background: rgb(20 31 41 / 88%);
+        backdrop-filter: blur(14px);
       }
 
       .topbar-start {
@@ -334,10 +349,17 @@ import { UserPreferencesService } from '../services/user-preferences.service';
       .topbar-actions {
         display: flex;
         align-items: center;
+        gap: var(--nbms-space-1);
       }
 
       .content {
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-5);
+      }
+
+      .content > * {
+        max-width: var(--nbms-app-max-width);
+        margin: 0 auto;
+        width: 100%;
       }
 
       .help-nav {
@@ -384,14 +406,17 @@ export class NbmsAppShellComponent {
   @Input() notificationsCount = 0;
   @Input() username = '';
   @Input() orgName = '';
-  @Input() themeId: 'fynbos' | 'gbif_clean' | 'high_contrast' | 'dark_pro' = 'fynbos';
+  @Input() themeId: 'mono_clean' | 'fynbos' | 'gbif_clean' | 'high_contrast' | 'dark_pro' = 'mono_clean';
   @Input() themeMode: 'light' | 'dark' = 'light';
   @Input() density: 'comfortable' | 'compact' = 'comfortable';
   @Input() loginUrl = '/account/login/';
   @Input() logoutUrl = '/accounts/logout/';
   @Input() helpEntries: Record<string, string> | null = null;
   @Input() commandItems: NbmsCommand[] = [];
+  @Input() searchResults: NbmsSearchResult[] = [];
   @Output() search = new EventEmitter<string>();
+  @Output() searchSubmitted = new EventEmitter<string>();
+  @Output() searchResultSelected = new EventEmitter<NbmsSearchResult>();
 
   navOpen = true;
   helpOpen = false;
