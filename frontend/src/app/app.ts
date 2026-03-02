@@ -37,6 +37,7 @@ export class App {
       items: [
         { route: '/dashboard', label: 'Dashboard', icon: 'dashboard', capability: 'can_view_dashboard' },
         { route: '/work', label: 'My Work', icon: 'task', public: true },
+        { route: '/frameworks', label: 'Frameworks', icon: 'account_tree', public: true },
         { route: '/indicators', label: 'Indicators', icon: 'insights', public: true },
         { route: '/account/preferences', label: 'Preferences', icon: 'tune', capability: 'can_view_dashboard' }
       ]
@@ -152,6 +153,7 @@ export class App {
 
   readonly environmentBadge =
     typeof window !== 'undefined' && window.location.hostname.includes('localhost') ? 'DEV' : 'PROD';
+  readonly uiBuildMarker = this.detectUiBuildMarker();
 
   onGlobalSearch(search: string): void {
     if (!search.trim()) {
@@ -171,5 +173,16 @@ export class App {
       return true;
     }
     return Boolean(me.capabilities?.[item.capability]);
+  }
+
+  private detectUiBuildMarker(): string {
+    if (typeof document === 'undefined') {
+      return 'unknown';
+    }
+    const marker = document.querySelector('meta[name="nbms-ui-build"]')?.getAttribute('content')?.trim() ?? '';
+    if (!marker || marker.includes('__NBMS_UI_BUILD__')) {
+      return 'dev-local';
+    }
+    return marker;
   }
 }
