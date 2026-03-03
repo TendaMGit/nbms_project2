@@ -8,7 +8,7 @@ import type {
   IndicatorSeriesResponse
 } from '../models/api.models';
 
-export type IndicatorTab = 'indicator' | 'details' | 'evidence' | 'audit';
+export type IndicatorTab = 'indicator' | 'details' | 'evidence' | 'narrative' | 'audit';
 export type GeographyFocus = 'national' | 'province' | 'biome';
 export type PillTone = 'neutral' | 'success' | 'warn' | 'error' | 'info';
 export type KpiTone = 'neutral' | 'positive' | 'negative' | 'info';
@@ -823,7 +823,7 @@ function toneForSensitivity(value: string | null | undefined): PillTone {
 }
 
 export function toTab(value: string | null | undefined): IndicatorTab {
-  if (value === 'details' || value === 'evidence' || value === 'audit') {
+  if (value === 'details' || value === 'evidence' || value === 'narrative' || value === 'audit') {
     return value;
   }
   return 'indicator';

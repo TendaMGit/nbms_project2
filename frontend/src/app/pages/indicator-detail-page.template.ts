@@ -34,10 +34,7 @@ export const indicatorDetailPageTemplate = `
           <mat-icon>download</mat-icon>
           Export series
         </button>
-        <button mat-button type="button" (click)="copyPageLink()">
-          <mat-icon>share</mat-icon>
-          Share
-        </button>
+        <nbms-share-menu [title]="vm.detail.indicator.code + ' - ' + vm.detail.indicator.title"></nbms-share-menu>
         <button mat-flat-button type="button" class="request-action" (click)="requestApproval()">
           <mat-icon>approval</mat-icon>
           Request approval
@@ -90,252 +87,55 @@ export const indicatorDetailPageTemplate = `
       >
         Audit
       </button>
+      <button
+        type="button"
+        class="tab"
+        role="tab"
+        [class.tab--active]="vm.context.tab === 'narrative'"
+        [attr.aria-selected]="vm.context.tab === 'narrative'"
+        [attr.tabindex]="vm.context.tab === 'narrative' ? 0 : -1"
+        (click)="setTab('narrative')"
+      >
+        Narrative
+      </button>
     </nav>
 
     <section [ngSwitch]="vm.context.tab">
       <ng-container *ngSwitchCase="'indicator'">
-        <section class="filter-bar nbms-card-surface">
-          <div class="filter-grid">
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Report cycle</mat-label>
-              <mat-select [formControl]="contextForm.controls.report_cycle">
-                <mat-option *ngFor="let option of vm.reportCycleOptions; trackBy: trackByValue" [value]="option.value">
-                  {{ option.label }}
-                </mat-option>
-              </mat-select>
-              <mat-hint>(not yet wired)</mat-hint>
-            </mat-form-field>
+        <ng-container *ngIf="indicatorSurface$ | async as surface">
+          <nbms-context-bar
+            [state]="surface.state"
+            [reportCycleOptions]="surface.reportCycleOptions"
+            [releaseOptions]="surface.releaseOptions"
+            [methodOptions]="surface.methodOptions"
+            [geoTypeOptions]="surface.geoTypeOptions"
+            [yearOptions]="surface.yearOptions"
+            helperText="Indicator views share the canonical URL context model. View-specific drilldown parameters stay in sync with the current indicator route."
+            (stateChange)="patchViewState($event)"
+          ></nbms-context-bar>
 
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Methodology</mat-label>
-              <mat-select [formControl]="contextForm.controls.method">
-                <mat-option value="">Current published method</mat-option>
-                <mat-option *ngFor="let option of vm.methodOptions; trackBy: trackByValue" [value]="option.value">
-                  {{ option.label }}
-                </mat-option>
-              </mat-select>
-              <mat-hint>(not yet wired)</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Dataset release</mat-label>
-              <mat-select [formControl]="contextForm.controls.dataset_release">
-                <mat-option value="">Current published release</mat-option>
-                <mat-option *ngFor="let option of vm.datasetOptions; trackBy: trackByValue" [value]="option.value">
-                  {{ option.label }}
-                </mat-option>
-              </mat-select>
-              <mat-hint>(not yet wired)</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Geography</mat-label>
-              <mat-select [formControl]="contextForm.controls.geography">
-                <mat-option value="national">National</mat-option>
-                <mat-option value="province">Province</mat-option>
-                <mat-option value="biome">Biome</mat-option>
-              </mat-select>
-              <mat-hint *ngIf="vm.context.geography === 'biome'">(not yet wired)</mat-hint>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>Start year</mat-label>
-              <mat-select [formControl]="contextForm.controls.start_year" [disabled]="!vm.yearOptions.length">
-                <mat-option *ngFor="let year of vm.yearOptions; trackBy: trackByYear" [value]="year">{{ year }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>End year</mat-label>
-              <mat-select [formControl]="contextForm.controls.end_year" [disabled]="!vm.yearOptions.length">
-                <mat-option *ngFor="let year of vm.yearOptions; trackBy: trackByYear" [value]="year">{{ year }}</mat-option>
-              </mat-select>
-            </mat-form-field>
+          <div class="filter-actions nbms-card-surface">
+            <p class="filter-note">
+              Current slice:
+              {{ surface.state.report_cycle || 'Current cycle' }}
+              /
+              {{ surface.state.geo_type }}
+              <span *ngIf="surface.state.geo_code"> / {{ surface.state.geo_code }}</span>
+              /
+              {{ surface.state.metric }}
+            </p>
+            <button mat-stroked-button type="button" (click)="resetIndicatorContext()">Reset filters</button>
           </div>
 
-          <div class="filter-actions">
-            <p class="filter-note">{{ vm.activeRegion ? 'Focused on ' + vm.activeRegion : 'No region focus applied.' }}</p>
-            <button
-              mat-stroked-button
-              type="button"
-              (click)="resetAnalyticsFilters(vm)"
-              [disabled]="!vm.yearOptions.length"
-            >
-              Reset filters
-            </button>
-          </div>
-        </section>
-
-        <section class="kpi-strip">
-          <nbms-kpi-card
-            *ngFor="let kpi of vm.kpis; trackBy: trackByText"
-            [title]="kpi.title"
-            [value]="kpi.value"
-            [unit]="kpi.unit"
-            [hint]="kpi.hint"
-            [icon]="kpi.icon"
-            [tone]="kpi.tone"
-            [accent]="kpi.accent ?? false"
-            [deltaLabel]="kpi.deltaLabel || ''"
-            [progressValue]="kpi.progressValue ?? null"
-            [progressMax]="kpi.progressMax ?? 100"
-            [progressLabel]="kpi.progressLabel || ''"
-          ></nbms-kpi-card>
-        </section>
-
-        <section class="analytics-layout">
-          <div class="analytics-main">
-            <section class="chart-grid">
-              <article class="panel nbms-card-surface">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Trend</p>
-                    <h2>{{ vm.trendTitle }}</h2>
-                  </div>
-                  <span class="panel-hint">{{ vm.trendHint }}</span>
-                </div>
-
-                <div class="chart-wrap" *ngIf="vm.trendChart; else noTrend">
-                  <canvas baseChart [type]="'line'" [data]="vm.trendChart" [options]="lineOptions"></canvas>
-                </div>
-              </article>
-
-              <article class="panel nbms-card-surface">
-                <div class="panel-head">
-                  <div>
-                    <p class="eyebrow">Breakdown</p>
-                    <h2>{{ vm.breakdownTitle }}</h2>
-                  </div>
-                  <span class="panel-hint">{{ vm.breakdownHint }}</span>
-                </div>
-
-                <div class="chart-wrap" *ngIf="vm.breakdownChart; else noBreakdown">
-                  <canvas
-                    baseChart
-                    [type]="'bar'"
-                    [data]="vm.breakdownChart"
-                    [options]="barOptions"
-                    (chartClick)="onBreakdownChartClick($event, vm)"
-                  ></canvas>
-                </div>
-              </article>
-            </section>
-
-            <article class="panel nbms-card-surface">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Distribution</p>
-                  <h2>{{ vm.distributionTitle }}</h2>
-                </div>
-                <button *ngIf="vm.activeRegion" mat-button type="button" class="clear-focus" (click)="clearRegionFocus()">
-                  Clear focus
-                </button>
-              </div>
-
-              <p class="panel-copy">{{ vm.distributionHelper }}</p>
-
-              <div class="distribution-grid" *ngIf="vm.distributionCards.length; else noDistribution">
-                <button
-                  *ngFor="let card of vm.distributionCards; trackBy: trackByText"
-                  type="button"
-                  class="distribution-card"
-                  [class.distribution-card--active]="card.active"
-                  [disabled]="vm.context.geography === 'national'"
-                  (click)="toggleRegionFocus(card.region)"
-                >
-                  <span class="distribution-label">{{ card.geographyType }}</span>
-                  <strong>{{ card.region }}</strong>
-                  <span class="distribution-value">{{ card.valueLabel }}</span>
-                  <div class="distribution-bar" aria-hidden="true"><b [style.width.%]="card.progress"></b></div>
-                  <span class="distribution-note">{{ card.note }}</span>
-                </button>
-              </div>
-
-              <ng-template #noDistribution>
-                <div class="empty-state">{{ vm.distributionEmptyMessage }}</div>
-              </ng-template>
-            </article>
-
-            <nbms-map-card
-              title="Spatial context"
-              eyebrow="Map"
-              subtitle="Map-backed indicator drilldown"
-              helperText="The shared indicator workspace is ready for a spatial layer, but the indicator detail API still needs a map payload filtered by report cycle, release, and method. Until then, use the distribution cards and the Spatial Viewer."
-            ></nbms-map-card>
-
-            <article class="panel nbms-card-surface">
-              <div class="panel-head">
-                <div>
-                  <p class="eyebrow">Detailed data</p>
-                  <h2>Detailed data table</h2>
-                </div>
-                <span class="panel-hint">{{ vm.tableRows.length }} rows</span>
-              </div>
-
-              <nbms-data-table
-                title="Indicator data points"
-                [rows]="vm.tableRows"
-                [columns]="tableColumns"
-                [cellTemplate]="detailTableCellTemplate"
-                [itemSize]="48"
-              >
-                <span table-actions class="table-actions-count">{{ vm.tableRows.length }} rows</span>
-              </nbms-data-table>
-            </article>
-          </div>
-
-          <aside class="narrative-rail">
-            <section class="panel nbms-card-surface">
-              <p class="eyebrow">Interpretation</p>
-              <h2>What the indicator is showing</h2>
-              <p class="rail-copy">{{ vm.interpretation }}</p>
-            </section>
-
-            <section class="panel nbms-card-surface">
-              <p class="eyebrow">Description</p>
-              <h2>Indicator description</h2>
-              <p class="rail-copy">{{ vm.description }}</p>
-            </section>
-
-            <section class="panel nbms-card-surface">
-              <p class="eyebrow">Data quality notes</p>
-              <h2>Quality and readiness</h2>
-              <div class="callout-stack" *ngIf="vm.dataQualityNotes.length; else noNotes">
-                <nbms-callout
-                  *ngFor="let note of vm.dataQualityNotes; trackBy: trackByText"
-                  [tone]="note.tone"
-                  [title]="note.title"
-                  [message]="note.body"
-                ></nbms-callout>
-              </div>
-            </section>
-
-            <section class="panel nbms-card-surface">
-              <p class="eyebrow">What changed</p>
-              <h2>Refresh and provenance</h2>
-              <div class="stack-list">
-                <article class="stack-item" *ngFor="let row of vm.pipelineRows.slice(0, 3); trackBy: trackByText">
-                  <div>
-                    <strong>{{ row.label }}</strong>
-                    <p>{{ row.value }}</p>
-                  </div>
-                </article>
-              </div>
-            </section>
-          </aside>
-        </section>
-
-        <ng-template #noTrend>
-          <div class="empty-state">No time-series values are available for the selected geography and year range.</div>
-        </ng-template>
-
-        <ng-template #noBreakdown>
-          <div class="empty-state">No provincial breakdown is available for the selected year.</div>
-        </ng-template>
-
-        <ng-template #noNotes>
-          <div class="empty-state">No quality notes have been published for this indicator.</div>
-        </ng-template>
+          <nbms-indicator-view-host
+            [indicatorUuid]="vm.detail.indicator.uuid"
+            [indicatorDetail]="vm.detail"
+            [visualProfile]="surface.visualProfile"
+            [dimensions]="surface.dimensions"
+            [state]="surface.state"
+            (stateChange)="patchViewState($event)"
+          ></nbms-indicator-view-host>
+        </ng-container>
       </ng-container>
 
       <ng-container *ngSwitchCase="'details'">
@@ -624,6 +424,32 @@ export const indicatorDetailPageTemplate = `
         </ng-template>
       </ng-container>
 
+      <ng-container *ngSwitchCase="'narrative'">
+        <section class="details-grid">
+          <article class="detail-card detail-card--wide nbms-card-surface">
+            <nbms-interpretation-editor
+              eyebrow="Narrative"
+              cardTitle="Indicator narrative blocks"
+              entityType="indicator"
+              [entityId]="vm.detail.indicator.uuid"
+              [entityLabel]="vm.detail.indicator.title"
+              [title]="vm.detail.indicator.code + ' narrative'"
+              [provenanceUrl]="'/indicators/' + vm.detail.indicator.uuid"
+              [seedSections]="narrativeSeed(vm)"
+              [reportingQueryParamsInput]="{
+                tab: vm.context.tab,
+                report_cycle: vm.context.report_cycle,
+                release: vm.context.dataset_release,
+                method: vm.context.method,
+                geo_type: vm.context.geography,
+                start_year: vm.context.start_year,
+                end_year: vm.context.end_year
+              }"
+            ></nbms-interpretation-editor>
+          </article>
+        </section>
+      </ng-container>
+
       <ng-container *ngSwitchCase="'audit'">
         <section class="details-grid">
           <article class="detail-card nbms-card-surface">
@@ -676,21 +502,26 @@ export const indicatorDetailPageTemplate = `
                 <h2>Approval workflow timeline</h2>
               </div>
             </div>
-            <div class="stack-list">
-              <article class="stack-item" *ngFor="let row of vm.pipelineRows; trackBy: trackByText">
+            <div class="stack-list" *ngIf="audit$ | async as audit; else loadingAudit">
+              <article class="stack-item" *ngFor="let row of audit.events; trackBy: trackByAuditEvent">
                 <div>
-                  <strong>{{ row.label }}</strong>
-                  <p>{{ row.value }}</p>
+                  <strong>{{ row.action }}</strong>
+                  <p>
+                    {{ row.timestamp || 'No timestamp' }}
+                    <span *ngIf="row.actor"> · {{ row.actor }}</span>
+                    <span *ngIf="row.from_state || row.to_state"> · {{ row.from_state || 'n/a' }} → {{ row.to_state || 'n/a' }}</span>
+                  </p>
+                  <p *ngIf="row.notes">{{ row.notes }}</p>
                 </div>
               </article>
+              <div class="empty-state" *ngIf="!audit.events.length">No audit events have been published for this indicator yet.</div>
             </div>
-            <nbms-callout
-              tone="info"
-              title="Audit trail availability"
-              message="A dedicated audit-log endpoint is still needed for a full event timeline. This tab currently reflects the auditable workflow and pipeline fields already published on the indicator detail payload."
-            ></nbms-callout>
           </article>
         </section>
+
+        <ng-template #loadingAudit>
+          <div class="empty-state">Loading audit events.</div>
+        </ng-template>
       </ng-container>
     </section>
 

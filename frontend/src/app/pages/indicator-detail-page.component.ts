@@ -1,25 +1,10 @@
 import { AsyncPipe, NgFor, NgIf, NgSwitch, NgSwitchCase, NgSwitchDefault } from '@angular/common';
 import { ChangeDetectionStrategy, Component, DestroyRef, TemplateRef, ViewChild, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { BaseChartDirective } from 'ng2-charts';
-import {
-  BehaviorSubject,
-  catchError,
-  combineLatest,
-  distinctUntilChanged,
-  map,
-  of,
-  shareReplay,
-  startWith,
-  switchMap,
-  tap
-} from 'rxjs';
+import { catchError, combineLatest, map, of, shareReplay, startWith, switchMap } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 
 import { indicatorDetailPageStyles } from './indicator-detail-page.styles';
 import { indicatorDetailPageTemplate } from './indicator-detail-page.template';
@@ -28,32 +13,28 @@ import {
   type DetailVm,
   type IndicatorDetailContext,
   type IndicatorTab,
-  type GeographyFocus,
   DEFAULT_REPORT_CYCLE,
-  buildBarOptions,
   buildIndicatorDetailVm,
-  buildLineOptions,
-  emptySeries,
   emptyDatasets,
   emptyMethods,
-  normalizeContext,
-  toGeography,
-  toNullableNumber,
-  toTab
+  emptySeries,
+  toTab,
 } from './indicator-detail-page.helpers';
+import { type NbmsContextOption, DEFAULT_NBMS_CONTEXT } from '../models/context.models';
+import type { IndicatorDimension, IndicatorVisualProfile } from '../models/api.models';
+import type { IndicatorViewRoutePatch, IndicatorViewRouteState } from '../models/indicator-visual.models';
 import { DownloadRecordService } from '../services/download-record.service';
 import { IndicatorService } from '../services/indicator.service';
+import { IndicatorViewStateService } from '../services/indicator-view-state.service';
+import { IndicatorVisualProfileService } from '../services/indicator-visual-profile.service';
 import { NbmsCalloutComponent } from '../ui/nbms-callout.component';
-import { NbmsDataTableComponent } from '../ui/nbms-data-table.component';
-import { NbmsKpiCardComponent } from '../ui/nbms-kpi-card.component';
-import { NbmsMapCardComponent } from '../ui/nbms-map-card.component';
+import { NbmsContextBarComponent } from '../ui/nbms-context-bar.component';
+import { NbmsIndicatorViewHostComponent } from '../ui/nbms-indicator-view-host.component';
+import { NbmsInterpretationEditorComponent } from '../ui/nbms-interpretation-editor.component';
+import { NbmsShareMenuComponent } from '../ui/nbms-share-menu.component';
 import { NbmsReadinessBadgeComponent } from '../ui/nbms-readiness-badge.component';
 import { NbmsStatusPillComponent } from '../ui/nbms-status-pill.component';
 import { NbmsToastService } from '../ui/nbms-toast.service';
-
-// TODO(nbms-backend): Support report_cycle, method, and dataset_release filters on
-// GET /api/indicators/:uuid/series and GET /api/indicators/:uuid/map, and add
-// GET /api/indicators/:uuid/series?agg=biome for biome analytics and distribution cards.
 
 @Component({
   selector: 'app-indicator-detail-page',
@@ -66,22 +47,19 @@ import { NbmsToastService } from '../ui/nbms-toast.service';
     NgSwitchCase,
     NgSwitchDefault,
     RouterLink,
-    ReactiveFormsModule,
-    BaseChartDirective,
     MatButtonModule,
-    MatFormFieldModule,
     MatIconModule,
-    MatSelectModule,
     NbmsCalloutComponent,
-    NbmsDataTableComponent,
-    NbmsKpiCardComponent,
-    NbmsMapCardComponent,
+    NbmsContextBarComponent,
+    NbmsIndicatorViewHostComponent,
+    NbmsInterpretationEditorComponent,
     NbmsReadinessBadgeComponent,
-    NbmsStatusPillComponent
+    NbmsShareMenuComponent,
+    NbmsStatusPillComponent,
   ],
   template: indicatorDetailPageTemplate,
   styles: [indicatorDetailPageStyles],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class IndicatorDetailPageComponent {
   @ViewChild('detailTableCell', { static: true })
@@ -90,19 +68,11 @@ export class IndicatorDetailPageComponent {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-  private readonly indicatorService = inject(IndicatorService);
-  private readonly downloadRecords = inject(DownloadRecordService);
+  private readonly indicators = inject(IndicatorService);
+  private readonly downloads = inject(DownloadRecordService);
   private readonly toast = inject(NbmsToastService);
-
-  readonly contextForm = new FormGroup({
-    tab: new FormControl<IndicatorTab>('indicator', { nonNullable: true }),
-    report_cycle: new FormControl<string>(DEFAULT_REPORT_CYCLE, { nonNullable: true }),
-    method: new FormControl<string>('', { nonNullable: true }),
-    dataset_release: new FormControl<string>('', { nonNullable: true }),
-    geography: new FormControl<GeographyFocus>('national', { nonNullable: true }),
-    start_year: new FormControl<number | null>(null),
-    end_year: new FormControl<number | null>(null)
-  });
+  private readonly viewState = inject(IndicatorViewStateService);
+  private readonly profiles = inject(IndicatorVisualProfileService);
 
   readonly tableColumns: Array<{ key: keyof DetailTableRow | 'value' | 'status'; label: string }> = [
     { key: 'year', label: 'Year' },
@@ -110,79 +80,127 @@ export class IndicatorDetailPageComponent {
     { key: 'geographyType', label: 'Geography type' },
     { key: 'value', label: 'Value' },
     { key: 'status', label: 'Status' },
-    { key: 'notes', label: 'Notes' }
+    { key: 'notes', label: 'Notes' },
   ];
-
-  private readonly activeRegionSubject = new BehaviorSubject<string | null>(null);
 
   private readonly indicatorUuid$ = this.route.paramMap.pipe(
     map((params) => params.get('uuid') ?? ''),
-    shareReplay(1)
+    shareReplay(1),
   );
 
+  readonly state$ = this.viewState.connect(this.route, {
+    defaults: this.viewState.defaultState({
+      ...DEFAULT_NBMS_CONTEXT,
+      tab: 'indicator',
+      report_cycle: 'NR7-2024',
+      release: 'latest_approved',
+      method: 'current',
+      agg: 'province',
+      metric: 'value',
+      top_n: 20,
+    }),
+  });
+
   readonly detail$ = this.indicatorUuid$.pipe(
-    switchMap((uuid) => this.indicatorService.detail(uuid)),
-    shareReplay(1)
+    switchMap((uuid) => this.indicators.detail(uuid)),
+    shareReplay(1),
   );
 
   readonly datasets$ = this.indicatorUuid$.pipe(
-    switchMap((uuid) => this.indicatorService.datasets(uuid).pipe(catchError(() => of(emptyDatasets(uuid))))),
-    shareReplay(1)
+    switchMap((uuid) => this.indicators.datasets(uuid).pipe(catchError(() => of(emptyDatasets(uuid))))),
+    shareReplay(1),
   );
 
   readonly methods$ = this.indicatorUuid$.pipe(
-    switchMap((uuid) => this.indicatorService.methods(uuid).pipe(catchError(() => of(emptyMethods(uuid))))),
-    shareReplay(1)
+    switchMap((uuid) => this.indicators.methods(uuid).pipe(catchError(() => of(emptyMethods(uuid))))),
+    shareReplay(1),
   );
 
-  readonly yearSeries$ = this.indicatorUuid$.pipe(
-    switchMap((uuid) => this.indicatorService.series(uuid, { agg: 'year' }).pipe(catchError(() => of(emptySeries(uuid, 'year'))))),
-    shareReplay(1)
+  readonly visualProfile$ = this.indicatorUuid$.pipe(
+    switchMap((uuid) => this.profiles.getProfile(uuid).pipe(catchError(() => of(null)))),
+    shareReplay(1),
   );
 
-  readonly provinceHistory$ = this.indicatorUuid$.pipe(
+  readonly dimensions$ = this.indicatorUuid$.pipe(
     switchMap((uuid) =>
-      this.indicatorService.series(uuid, { agg: 'province' }).pipe(catchError(() => of(emptySeries(uuid, 'province'))))
+      this.profiles.getDimensions(uuid).pipe(
+        map((payload) => payload.dimensions),
+        catchError(() => of([] as IndicatorDimension[])),
+      ),
     ),
-    shareReplay(1)
+    shareReplay(1),
   );
 
-  readonly yearOptions$ = this.yearSeries$.pipe(
-    map((series) =>
-      series.results
+  readonly yearSeries$ = combineLatest([this.indicatorUuid$, this.state$]).pipe(
+    switchMap(([uuid, state]) =>
+      this.indicators
+        .series(uuid, {
+          agg: 'year',
+          report_cycle: state.report_cycle,
+          release: state.release,
+          method: state.method,
+          geo_type: state.geo_type,
+          geo_code: state.geo_code || undefined,
+          start_year: state.start_year ?? undefined,
+          end_year: state.end_year ?? undefined,
+          metric: state.metric,
+        })
+        .pipe(catchError(() => of(emptySeries(uuid, 'year')))),
+    ),
+    shareReplay(1),
+  );
+
+  readonly provinceHistory$ = combineLatest([this.indicatorUuid$, this.state$]).pipe(
+    switchMap(([uuid, state]) =>
+      this.indicators
+        .series(uuid, {
+          agg: 'province',
+          report_cycle: state.report_cycle,
+          release: state.release,
+          method: state.method,
+          start_year: state.start_year ?? undefined,
+          end_year: state.end_year ?? undefined,
+          metric: state.metric,
+        })
+        .pipe(catchError(() => of(emptySeries(uuid, 'province')))),
+    ),
+    shareReplay(1),
+  );
+
+  readonly yearOptions$ = combineLatest([this.yearSeries$, this.visualProfile$]).pipe(
+    map(([series, profile]) => {
+      const fromSeries = series.results
         .map((row) => Number(row.bucket))
         .filter((year) => Number.isFinite(year))
-        .sort((a, b) => a - b)
-    ),
-    shareReplay(1)
-  );
-
-  readonly context$ = combineLatest([
-    this.contextForm.valueChanges.pipe(startWith(this.contextForm.getRawValue())),
-    this.yearOptions$
-  ]).pipe(
-    map(([value, years]) => normalizeContext(value, years)),
-    distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-    tap((context) => {
-      this.patchContext(context);
-      this.syncUrl(context);
+        .sort((a, b) => a - b);
+      if (fromSeries.length) {
+        return fromSeries;
+      }
+      return profile?.meta?.time_range?.available_years || [];
     }),
-    shareReplay(1)
+    shareReplay(1),
   );
 
-  private readonly selectedYear$ = this.context$.pipe(
-    map((context) => context.end_year),
-    distinctUntilChanged(),
-    shareReplay(1)
-  );
-
-  readonly provinceSnapshot$ = combineLatest([this.indicatorUuid$, this.selectedYear$]).pipe(
-    switchMap(([uuid, year]) =>
-      this.indicatorService
-        .series(uuid, { agg: 'province', year: year ?? undefined })
-        .pipe(catchError(() => of(emptySeries(uuid, 'province'))))
+  readonly provinceSnapshot$ = combineLatest([this.indicatorUuid$, this.state$]).pipe(
+    switchMap(([uuid, state]) =>
+      this.indicators
+        .series(uuid, {
+          agg: 'province',
+          report_cycle: state.report_cycle,
+          release: state.release,
+          method: state.method,
+          start_year: state.end_year ?? state.start_year ?? undefined,
+          end_year: state.end_year ?? state.start_year ?? undefined,
+          metric: state.metric,
+        })
+        .pipe(catchError(() => of(emptySeries(uuid, 'province')))),
     ),
-    shareReplay(1)
+    shareReplay(1),
+  );
+
+  readonly detailContext$ = this.state$.pipe(
+    map((state) => toDetailContext(state)),
+    shareReplay(1),
   );
 
   readonly vm$ = combineLatest([
@@ -193,95 +211,82 @@ export class IndicatorDetailPageComponent {
     this.provinceHistory$,
     this.provinceSnapshot$,
     this.yearOptions$,
-    this.context$,
-    this.activeRegionSubject.asObservable()
+    this.detailContext$,
   ]).pipe(
-    map(([detail, datasets, methods, yearSeries, provinceHistory, provinceSnapshot, yearOptions, context, activeRegion]) =>
-      buildIndicatorDetailVm(detail, datasets, methods, yearSeries, provinceHistory, provinceSnapshot, yearOptions, context, activeRegion)
+    map(([detail, datasets, methods, yearSeries, provinceHistory, provinceSnapshot, yearOptions, context]) =>
+      buildIndicatorDetailVm(detail, datasets, methods, yearSeries, provinceHistory, provinceSnapshot, yearOptions, context, null),
     ),
-    shareReplay(1)
+    shareReplay(1),
   );
 
-  readonly lineOptions = buildLineOptions();
-  readonly barOptions = buildBarOptions();
+  readonly audit$ = this.indicatorUuid$.pipe(
+    switchMap((uuid) =>
+      this.indicators.audit(uuid).pipe(
+        catchError(() =>
+          of({
+            indicator_uuid: uuid,
+            events: [],
+          }),
+        ),
+      ),
+    ),
+    shareReplay(1),
+  );
+
+  readonly indicatorSurface$ = combineLatest([this.state$, this.visualProfile$, this.dimensions$, this.yearOptions$]).pipe(
+    map(([state, visualProfile, dimensions, years]) => ({
+      state,
+      visualProfile,
+      dimensions,
+      reportCycleOptions: buildReportCycleOptions(),
+      releaseOptions: [{ value: 'latest_approved', label: 'Latest approved release' }] satisfies NbmsContextOption[],
+      methodOptions: [{ value: 'current', label: 'Current method' }] satisfies NbmsContextOption[],
+      geoTypeOptions: buildGeoTypeOptions(dimensions),
+      yearOptions: years,
+    })),
+    shareReplay(1),
+  );
 
   constructor() {
-    const params = this.route.snapshot.queryParamMap;
-    this.contextForm.patchValue(
-      {
-        tab: toTab(params.get('tab')),
-        report_cycle: params.get('report_cycle') ?? DEFAULT_REPORT_CYCLE,
-        method: params.get('method') ?? '',
-        dataset_release: params.get('dataset_release') ?? params.get('release') ?? '',
-        geography: toGeography(params.get('geography') ?? params.get('geo_type')),
-        start_year: toNullableNumber(params.get('start_year')),
-        end_year: toNullableNumber(params.get('end_year'))
-      },
-      { emitEvent: false }
-    );
-
-    this.contextForm.controls.geography.valueChanges
-      .pipe(startWith(this.contextForm.controls.geography.value), takeUntilDestroyed(this.destroyRef))
-      .subscribe((geography) => {
-        if (geography !== 'province') {
-          this.activeRegionSubject.next(null);
+    this.visualProfile$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((profile) => {
+        const current = this.viewState.parseQueryParams(this.route.snapshot.queryParamMap);
+        if (profile && !current.view) {
+          this.patchViewState({ view: profile.defaultView || 'timeseries' });
         }
       });
   }
 
   setTab(tab: IndicatorTab): void {
-    this.contextForm.controls.tab.setValue(tab);
+    this.patchViewState({ tab });
   }
 
-  toggleRegionFocus(region: string): void {
-    if (this.contextForm.controls.geography.value !== 'province') {
-      this.contextForm.controls.geography.setValue('province');
-    }
-    this.activeRegionSubject.next(this.activeRegionSubject.value === region ? null : region);
+  patchViewState(patch: IndicatorViewRoutePatch): void {
+    this.viewState.update(this.route, patch);
   }
 
-  clearRegionFocus(): void {
-    this.activeRegionSubject.next(null);
-  }
-
-  onBreakdownChartClick(event: { active?: Array<{ index?: number }> }, vm: DetailVm): void {
-    const index = event.active?.[0]?.index;
-    if (typeof index !== 'number' || index < 0 || index >= vm.breakdownRows.length) {
-      return;
-    }
-    this.toggleRegionFocus(vm.breakdownRows[index].region);
-  }
-
-  resetAnalyticsFilters(vm: DetailVm): void {
-    this.activeRegionSubject.next(null);
-    this.contextForm.patchValue({
-      report_cycle: DEFAULT_REPORT_CYCLE,
-      method: '',
-      dataset_release: '',
-      geography: 'national',
-      start_year: vm.defaultStartYear,
-      end_year: vm.defaultEndYear
+  resetIndicatorContext(): void {
+    this.patchViewState({
+      report_cycle: 'NR7-2024',
+      release: 'latest_approved',
+      method: 'current',
+      geo_type: 'national',
+      geo_code: '',
+      start_year: null,
+      end_year: null,
+      agg: 'province',
+      metric: 'value',
+      dim: '',
+      dim_value: '',
+      tax_level: '',
+      tax_code: '',
+      top_n: 20,
     });
   }
 
-  async copyPageLink(): Promise<void> {
-    const href = globalThis.location?.href;
-    if (!href || !globalThis.navigator?.clipboard) {
-      this.toast.warn('Clipboard access is not available.');
-      return;
-    }
-    try {
-      await globalThis.navigator.clipboard.writeText(href);
-      this.toast.success('Indicator link copied.');
-    } catch {
-      this.toast.error('Could not copy the indicator link.');
-    }
-  }
-
   requestApproval(): void {
-    // TODO(nbms-backend): Expose the selected series UUID so the detail page can call
-    // POST /api/indicator-series/:seriesUuid/workflow for a request-approval action.
-    this.toast.warn('Request approval is not yet wired. Backend support is needed for the release workflow action.');
+    this.toast.warn('Request approval is not yet wired. Backend support is still needed for the release workflow action.');
   }
 
   createSeriesDownload(): void {
@@ -290,24 +295,20 @@ export class IndicatorDetailPageComponent {
       this.toast.warn('Indicator identifier is missing.');
       return;
     }
-    this.downloadRecords
+    this.downloads
       .create({
         record_type: 'indicator_series',
         object_type: 'indicator',
         object_uuid: indicatorUuid,
-        query_snapshot: { aggregation: 'year' }
+        query_snapshot: this.viewState.serialize(this.viewState.parseQueryParams(this.route.snapshot.queryParamMap)),
       })
       .subscribe({
         next: (payload) => {
           this.toast.success('Series download record created.');
           void this.router.navigate(['/downloads', payload.uuid]);
         },
-        error: () => this.toast.error('Could not queue the series download record.')
+        error: () => this.toast.error('Could not queue the series download record.'),
       });
-  }
-
-  trackByLabel(_: number, row: { label: string }): string {
-    return row.label;
   }
 
   trackByValue(_: number, row: { value: string }): string {
@@ -329,31 +330,51 @@ export class IndicatorDetailPageComponent {
     return row.key;
   }
 
-  private patchContext(context: IndicatorDetailContext): void {
-    const current = this.contextForm.getRawValue();
-    if (JSON.stringify(current) === JSON.stringify(context)) {
-      return;
-    }
-    this.contextForm.patchValue(context, { emitEvent: false });
+  trackByAuditEvent(_: number, row: { event_id: number }): number {
+    return row.event_id;
   }
 
-  private syncUrl(context: IndicatorDetailContext): void {
-    const queryParams: Record<string, string | null> = {
-      tab: context.tab,
-      report_cycle: context.report_cycle || null,
-      method: context.method || null,
-      release: context.dataset_release || null,
-      dataset_release: context.dataset_release || null,
-      geo_type: context.geography || null,
-      geography: context.geography || null,
-      start_year: context.start_year ? String(context.start_year) : null,
-      end_year: context.end_year ? String(context.end_year) : null
-    };
-    void this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams,
-      queryParamsHandling: '',
-      replaceUrl: true
-    });
+  narrativeSeed(vm: DetailVm): Array<{ id: string; title: string; body: string }> {
+    return [
+      { id: 'interpretation', title: 'Interpretation', body: vm.interpretation },
+      { id: 'key-messages', title: 'Key messages', body: vm.leadSummary },
+      {
+        id: 'data-limitations',
+        title: 'Data limitations',
+        body: vm.dataQualityNotes.map((note) => `${note.title}: ${note.body}`).join('\n\n') || 'No limitations have been published.',
+      },
+      {
+        id: 'what-changed',
+        title: 'What changed',
+        body: vm.pipelineRows.map((row) => `${row.label}: ${row.value}`).join('\n'),
+      },
+    ];
   }
+}
+
+function toDetailContext(state: IndicatorViewRouteState): IndicatorDetailContext {
+  return {
+    tab: toTab(state.tab),
+    report_cycle: state.report_cycle || DEFAULT_REPORT_CYCLE,
+    method: state.method || 'current',
+    dataset_release: state.release || 'latest_approved',
+    geography: state.geo_type === 'province' || state.geo_type === 'biome' ? state.geo_type : 'national',
+    start_year: state.start_year,
+    end_year: state.end_year,
+  };
+}
+
+function buildReportCycleOptions(): NbmsContextOption[] {
+  return [
+    { value: 'NR7-2024', label: 'NR7 2024' },
+    { value: 'NR7-2022', label: 'NR7 2022' },
+    { value: DEFAULT_REPORT_CYCLE, label: 'NR7 current' },
+  ];
+}
+
+function buildGeoTypeOptions(dimensions: IndicatorDimension[]): NbmsContextOption[] {
+  const geoOptions = dimensions
+    .filter((row) => row.type === 'geo')
+    .map((row) => ({ value: row.id, label: row.label }));
+  return [{ value: 'national', label: 'National' }, ...geoOptions];
 }
