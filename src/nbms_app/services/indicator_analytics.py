@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
+from uuid import UUID
 
 from django.core.exceptions import ValidationError
 from django.db.models import Q
@@ -19,6 +20,12 @@ from nbms_app.models import (
     SpatialLayer,
 )
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
+from nbms_app.services.indicator_packs import (
+    build_pack_dimensions,
+    build_pack_profile,
+    list_pack_dimensions,
+    resolve_indicator_pack,
+)
 from nbms_app.services.spatial_access import filter_spatial_layers_for_user, spatial_feature_collection
 
 
@@ -394,76 +401,51 @@ def list_indicator_dimensions(*, indicator: Indicator | None = None, user=None, 
             "sort_order": 50,
         }
 
-    return sorted(observed.values(), key=lambda row: (row["sort_order"], row["label"]))
+    observed_rows = sorted(observed.values(), key=lambda row: (row["sort_order"], row["label"]))
+    if indicator is None:
+        return observed_rows
+    pack = resolve_indicator_pack(indicator)
+    return build_pack_dimensions(pack, observed_rows)
 
 
 def build_indicator_visual_profile(indicator: Indicator, user) -> dict:
-    context = resolve_indicator_analytics_context(indicator, user, {}, default_agg="year")
-    dimension_ids = [row["id"] for row in context.available_dimensions]
-    categorical_dimensions = [
-        row["id"]
-        for row in context.available_dimensions
-        if row.get("type") == "categorical" and row.get("id") not in {"release"}
-    ]
-    available_views: list[str] = []
-
-    if any(series.value_type in {IndicatorValueType.NUMERIC, IndicatorValueType.PERCENT, IndicatorValueType.INDEX} for series in context.series):
-        available_views.append("timeseries")
-    if any(item.startswith("taxonomy_") for item in dimension_ids):
-        available_views.append("taxonomy")
-    if categorical_dimensions:
-        available_views.append("distribution")
-    if {"threat_category", "protection_category"}.issubset(set(dimension_ids)):
-        available_views.append("matrix")
-    if indicator.indicator_type == "binary":
-        available_views.append("binary")
-    if not available_views:
-        available_views.append("timeseries")
-
-    default_view = "taxonomy" if "taxonomy" in available_views else available_views[0]
-    default_group_by = "year" if "timeseries" in available_views else "taxonomy_family" if "taxonomy" in available_views else "category"
-
-    hierarchy_levels = [
-        {"id": key.replace("taxonomy_", ""), "label": _dimension_label(key)}
-        for key in _TAXONOMY_DIMENSIONS.keys()
-        if key in dimension_ids
-    ]
-    input_requirement = getattr(indicator, "input_requirement", None)
-    map_layers = []
-    if input_requirement:
-        layers = filter_spatial_layers_for_user(
-            input_requirement.required_map_layers.all().order_by("layer_code", "id"),
-            user,
-        )
-        for layer in layers:
-            map_layers.append(
-                {
-                    "layerCode": layer.layer_code,
-                    "title": layer.title or layer.name,
-                    "joinKey": "province_code" if "province" in dimension_ids else "feature_key",
-                    "availableMetrics": ["value", "change", "coverage", "uncertainty"],
-                }
-            )
-
-    return {
-        "indicator_uuid": str(indicator.uuid),
-        "defaultView": default_view,
-        "availableViews": available_views,
-        "supportedDimensions": dimension_ids,
-        "hierarchyDefinitions": (
-            [{"id": "taxonomy", "label": "Taxonomy", "levels": hierarchy_levels}] if hierarchy_levels else []
-        ),
-        "defaultGroupBy": default_group_by,
-        "defaultAgg": "year",
-        "mapLayers": map_layers,
-        "meta": _context_meta(context),
-    }
+    pack = resolve_indicator_pack(indicator)
+    context = resolve_indicator_analytics_context(indicator, user, {}, default_agg=pack.get("default_agg") or "year")
+    map_layers = _profile_map_layers(indicator, user, context.available_dimensions, pack)
+    profile = build_pack_profile(pack, dimensions=context.available_dimensions, map_layers=map_layers, meta=_context_meta(context))
+    supported_dimensions = {row["id"] for row in context.available_dimensions}
+    numeric_series = any(
+        series.value_type in {IndicatorValueType.NUMERIC, IndicatorValueType.PERCENT, IndicatorValueType.INDEX}
+        for series in context.series
+    )
+    available_views = []
+    for view in profile["availableViews"]:
+        if view == "timeseries" and numeric_series:
+            available_views.append(view)
+        elif view == "taxonomy" and any(row.startswith("taxonomy_") for row in supported_dimensions):
+            available_views.append(view)
+        elif view == "distribution" and any(row.get("type") == "categorical" for row in context.available_dimensions):
+            available_views.append(view)
+        elif view == "matrix" and any(
+            definition["xDimension"] in supported_dimensions and definition["yDimension"] in supported_dimensions
+            for definition in profile.get("matrixDefinitions", [])
+        ):
+            available_views.append(view)
+        elif view == "binary" and indicator.indicator_type == "binary":
+            available_views.append(view)
+    profile["availableViews"] = available_views or ["timeseries"]
+    if profile["defaultView"] not in profile["availableViews"]:
+        profile["defaultView"] = profile["availableViews"][0]
+    profile["indicator_uuid"] = str(indicator.uuid)
+    return profile
 
 
 def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_code: str = "", bbox=None, limit: int = 5000) -> dict:
-    layer = _resolve_map_layer(context, layer_code)
+    layer, layer_spec = _resolve_map_layer(context, layer_code)
     if layer is None:
         raise ValidationError("No accessible map layer found for this indicator.")
+    available_metrics = list(layer_spec.get("availableMetrics") or ["value", "change", "coverage", "uncertainty"])
+    selected_metric = context.metric if context.metric in available_metrics else (layer_spec.get("defaultMetric") or available_metrics[0])
 
     selected_year = context.selected_year
     if selected_year is None:
@@ -472,7 +454,12 @@ def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_cod
             "indicator_code": context.indicator.code,
             "year": None,
             "layer_code": layer.layer_code,
-            "meta": {**_context_meta(context), "available_metrics": ["value", "change", "coverage", "uncertainty"]},
+            "meta": {
+                **_context_meta(context),
+                "available_metrics": available_metrics,
+                "selected_metric": selected_metric,
+                "join_dimension": layer_spec.get("dimensionId") or _map_join_dimension(context, layer, layer_spec),
+            },
             "type": "FeatureCollection",
             "features": [],
         }
@@ -495,7 +482,7 @@ def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_cod
         offset=0,
     )
 
-    join_dimension = _map_join_dimension(context, layer)
+    join_dimension = layer_spec.get("dimensionId") or _map_join_dimension(context, layer, layer_spec)
     min_value = None
     max_value = None
     for feature in payload.get("features", []):
@@ -521,8 +508,8 @@ def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_cod
             "change": change,
             "coverage": coverage,
             "uncertainty": uncertainty,
-        }.get(context.metric, value)
-        properties["indicator_metric"] = context.metric
+        }.get(selected_metric, value)
+        properties["indicator_metric"] = selected_metric
         properties["indicator_selected"] = bool(
             context.geo_code and str(bucket or "").strip().lower() == context.geo_code.strip().lower()
         )
@@ -533,10 +520,10 @@ def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_cod
     payload["layer_code"] = layer.layer_code
     payload["meta"] = {
         **_context_meta(context),
-        "available_metrics": ["value", "change", "coverage", "uncertainty"],
-        "selected_metric": context.metric,
+        "available_metrics": available_metrics,
+        "selected_metric": selected_metric,
         "legend": {
-            "metric": context.metric,
+            "metric": selected_metric,
             "min": min_value,
             "max": max_value,
         },
@@ -583,19 +570,7 @@ def build_indicator_audit_payload(indicator: Indicator, user) -> dict:
 
 
 def list_global_dimensions() -> list[dict]:
-    return [
-        {"id": "year", "label": "Year", "type": "time", "allowed_levels": ["year"], "join_key": "year", "sort_order": 10},
-        {"id": "province", "label": "Province", "type": "geo", "allowed_levels": ["province"], "join_key": "province_code", "sort_order": 20},
-        {"id": "municipality", "label": "Municipality", "type": "geo", "allowed_levels": ["municipality"], "join_key": "municipality_code", "sort_order": 22},
-        {"id": "biome", "label": "Biome", "type": "geo", "allowed_levels": ["biome"], "join_key": "biome_code", "sort_order": 24},
-        {"id": "ecoregion", "label": "Ecoregion", "type": "geo", "allowed_levels": ["ecoregion"], "join_key": "ecoregion_code", "sort_order": 26},
-        {"id": "threat_category", "label": "Threat category", "type": "categorical", "allowed_levels": [], "join_key": "threat_category", "sort_order": 30},
-        {"id": "protection_category", "label": "Protection category", "type": "categorical", "allowed_levels": [], "join_key": "protection_category", "sort_order": 32},
-        {"id": "taxonomy", "label": "Taxonomy", "type": "hierarchy", "allowed_levels": ["kingdom", "phylum", "class", "order", "family", "genus", "species"], "join_key": "taxonomy", "sort_order": 35},
-        {"id": "taxonomy_family", "label": "Family", "type": "hierarchy", "allowed_levels": ["kingdom", "phylum", "class", "order", "family", "genus", "species"], "join_key": "taxonomy_family", "sort_order": 40},
-        {"id": "taxonomy_genus", "label": "Genus", "type": "hierarchy", "allowed_levels": ["kingdom", "phylum", "class", "order", "family", "genus", "species"], "join_key": "taxonomy_genus", "sort_order": 42},
-        {"id": "taxonomy_species", "label": "Species", "type": "hierarchy", "allowed_levels": ["kingdom", "phylum", "class", "order", "family", "genus", "species"], "join_key": "taxonomy_species", "sort_order": 44},
-    ]
+    return list_pack_dimensions()
 
 
 def _resolve_report_cycle(value) -> ReportingCycle | None:
@@ -604,8 +579,9 @@ def _resolve_report_cycle(value) -> ReportingCycle | None:
         return None
     query = Q(code__iexact=raw)
     try:
+        UUID(raw)
         query |= Q(uuid=raw)
-    except Exception:  # noqa: BLE001
+    except (TypeError, ValueError):
         pass
     return ReportingCycle.objects.filter(query).order_by("-is_active", "code").first()
 
@@ -619,8 +595,9 @@ def _resolve_release(points_qs, release_param: str) -> DatasetRelease | None:
         return release_candidates.filter(status__in=[LifecycleStatus.APPROVED, LifecycleStatus.PUBLISHED]).first()
     query = Q(version__iexact=release_param)
     try:
+        UUID(release_param)
         query |= Q(uuid=release_param)
-    except Exception:  # noqa: BLE001
+    except (TypeError, ValueError):
         pass
     release = release_candidates.filter(query).first()
     if release:
@@ -876,33 +853,116 @@ def _collect_schema_keys(value) -> set[str]:
     return keys
 
 
-def _resolve_map_layer(context: IndicatorAnalyticsContext, layer_code: str) -> SpatialLayer | None:
+def _profile_map_layers(indicator: Indicator, user, dimensions: list[dict], pack: dict) -> list[dict]:
+    visible_codes = []
+    specs_by_code = {}
+    for spec in _pack_layer_specs(pack):
+        for code in spec["layerCodes"]:
+            specs_by_code[code] = spec
+            visible_codes.append(code)
+    input_requirement = getattr(indicator, "input_requirement", None)
+    if input_requirement:
+        visible_codes.extend(input_requirement.required_map_layers.values_list("layer_code", flat=True))
+    visible_codes = [item for item in dict.fromkeys(visible_codes) if item]
+    if not visible_codes:
+        return []
+    visible_layers = filter_spatial_layers_for_user(
+        SpatialLayer.objects.filter(layer_code__in=visible_codes),
+        user,
+    )
+    layer_map = {layer.layer_code: layer for layer in visible_layers}
+    resolved = []
+    for code in visible_codes:
+        layer = layer_map.get(code)
+        if layer is None:
+            continue
+        spec = specs_by_code.get(layer.layer_code) or {
+            "title": layer.title or layer.name,
+            "joinKey": "province_code",
+            "dimensionId": "province",
+            "availableMetrics": ["value", "change", "coverage", "uncertainty"],
+            "defaultMetric": "value",
+        }
+        resolved.append(
+            {
+                "layerCode": layer.layer_code,
+                "title": spec.get("title") or layer.title or layer.name,
+                "joinKey": spec.get("joinKey") or "province_code",
+                "dimensionId": spec.get("dimensionId") or _join_key_dimension(spec.get("joinKey") or "province_code"),
+                "availableMetrics": list(spec.get("availableMetrics") or ["value", "change", "coverage", "uncertainty"]),
+                "defaultMetric": spec.get("defaultMetric") or "value",
+            }
+        )
+    return resolved
+
+
+def _pack_layer_specs(pack: dict) -> list[dict]:
+    specs = []
+    for spec in pack.get("map_layers", []):
+        candidate_codes = [item for item in dict.fromkeys(spec.get("layerCodes") or []) if item]
+        if not candidate_codes:
+            continue
+        join_key = spec.get("joinKey") or "province_code"
+        specs.append(
+            {
+                "layerCodes": candidate_codes,
+                "title": spec.get("title") or "Indicator map",
+                "joinKey": join_key,
+                "dimensionId": _join_key_dimension(join_key),
+                "availableMetrics": list(spec.get("availableMetrics") or ["value", "change", "coverage", "uncertainty"]),
+                "defaultMetric": spec.get("defaultMetric") or "value",
+            }
+        )
+    return specs
+
+
+def _join_key_dimension(join_key: str) -> str:
+    if join_key == "municipality_code":
+        return "municipality"
+    if join_key == "biome_code":
+        return "biome"
+    if join_key == "ecoregion_code":
+        return "ecoregion"
+    return "province"
+
+
+def _resolve_map_layer(context: IndicatorAnalyticsContext, layer_code: str) -> tuple[SpatialLayer | None, dict]:
+    pack = resolve_indicator_pack(context.indicator)
+    specs = _pack_layer_specs(pack)
     input_requirement = getattr(context.indicator, "input_requirement", None)
     candidate_codes: list[str] = []
+    specs_by_code: dict[str, dict] = {}
+    for spec in specs:
+        for code in spec["layerCodes"]:
+            specs_by_code[code] = spec
+            candidate_codes.append(code)
     if layer_code:
-        candidate_codes.append(layer_code)
+        candidate_codes.insert(0, layer_code)
     if input_requirement:
         candidate_codes.extend(input_requirement.required_map_layers.order_by("layer_code", "id").values_list("layer_code", flat=True))
     if context.geo_type == "province" or _points_have_geo(context.points, "province"):
         candidate_codes.extend(["ZA_PROVINCES_NE", "ZA_PROVINCES"])
     candidate_codes = [item for item in dict.fromkeys(candidate_codes) if item]
     if not candidate_codes:
-        return None
-    return (
-        filter_spatial_layers_for_user(
-            SpatialLayer.objects.filter(layer_code__in=candidate_codes),
-            context.user,
-        )
-        .order_by("layer_code", "id")
-        .first()
+        return None, {}
+    visible_layers = filter_spatial_layers_for_user(
+        SpatialLayer.objects.filter(layer_code__in=candidate_codes),
+        context.user,
     )
+    layer_map = {layer.layer_code: layer for layer in visible_layers}
+    layer = next((layer_map.get(code) for code in candidate_codes if layer_map.get(code) is not None), None)
+    if layer is None:
+        return None, {}
+    return layer, specs_by_code.get(layer.layer_code) or {}
 
 
 def _points_have_geo(points: list[IndicatorDataPoint], dimension: str) -> bool:
     return any(_dimension_bucket(point, dimension)[0] for point in points)
 
 
-def _map_join_dimension(context: IndicatorAnalyticsContext, layer: SpatialLayer) -> str:
+def _map_join_dimension(context: IndicatorAnalyticsContext, layer: SpatialLayer, layer_spec: dict | None = None) -> str:
+    if layer_spec and layer_spec.get("dimensionId"):
+        return str(layer_spec["dimensionId"])
     if context.geo_type in {"province", "municipality"}:
         return context.geo_type
     if _points_have_geo(context.points, "province"):
@@ -965,6 +1025,13 @@ def _resolve_dimension_filters(params, available_dimensions: list[dict]) -> tupl
     dimension_value = str(params.get("dim_value") or "").strip()
     if dimension and dimension_value:
         filters[dimension] = dimension_value
+    compare_dimension = str(params.get("compare") or "").strip().lower()
+    left_value = str(params.get("left") or "").strip()
+    right_value = str(params.get("right") or "").strip()
+    if compare_dimension and right_value:
+        filters[compare_dimension] = right_value
+    if dimension and left_value and dimension not in filters:
+        filters[dimension] = left_value
 
     taxonomy_level = str(params.get("tax_level") or "").strip().lower()
     taxonomy_code = str(params.get("tax_code") or "").strip()

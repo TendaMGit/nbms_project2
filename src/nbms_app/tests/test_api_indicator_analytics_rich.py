@@ -21,6 +21,7 @@ from nbms_app.models import (
     NationalIndicatorType,
     NationalTarget,
     Organisation,
+    ReportingCycle,
     SensitivityLevel,
     SpatialFeature,
     SpatialLayer,
@@ -232,8 +233,10 @@ def test_indicator_cube_dimensions_and_visual_profile_expose_taxonomy_and_catego
 
     dimensions_response = client.get(reverse("api_indicator_dimensions", args=[stack["indicator"].uuid]))
     assert dimensions_response.status_code == 200
-    dimension_ids = {row["id"] for row in dimensions_response.json()["dimensions"]}
+    dimensions_payload = dimensions_response.json()["dimensions"]
+    dimension_ids = {row["id"] for row in dimensions_payload}
     assert {"province", "threat_category", "taxonomy_family"} <= dimension_ids
+    assert any(row["id"] == "threat_category" and row["legend_id"] == "threat_category" for row in dimensions_payload)
 
     global_dimensions = client.get(reverse("api_dimensions"))
     assert global_dimensions.status_code == 200
@@ -243,16 +246,28 @@ def test_indicator_cube_dimensions_and_visual_profile_expose_taxonomy_and_catego
     assert profile_response.status_code == 200
     profile_payload = profile_response.json()
     assert {"timeseries", "taxonomy", "distribution"} <= set(profile_payload["availableViews"])
-    assert profile_payload["defaultView"] in {"taxonomy", "timeseries"}
+    assert profile_payload["defaultView"] == "taxonomy"
+    assert profile_payload["packId"] == "species_threat_status"
+    assert any(legend["dimensionId"] == "threat_category" for legend in profile_payload["legends"])
+    assert any(section["id"] == "interpretation" for section in profile_payload["narrativeTemplates"])
 
 
 def test_indicator_cube_honors_dimension_and_taxonomy_path_filters(client):
     stack = _seed_rich_indicator_stack()
+    ReportingCycle.objects.create(
+        code="NR7-2024",
+        title="NR7 2024",
+        start_date=date(2024, 1, 1),
+        end_date=date(2024, 12, 31),
+        due_date=date(2025, 3, 31),
+        is_active=True,
+    )
 
     filtered_distribution = client.get(
         reverse("api_indicator_cube", args=[stack["indicator"].uuid]),
         {
             "group_by": "threat_category",
+            "report_cycle": "NR7-2024",
             "dim": "province",
             "dim_value": "WC",
         },
