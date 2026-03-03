@@ -1,6 +1,7 @@
 import type { ChartData } from 'chart.js';
 
 import type { IndicatorDetailResponse, IndicatorDimension, IndicatorMapResponse } from '../models/api.models';
+import type { IndicatorPackLegend } from '../models/indicator-pack.models';
 import type {
   IndicatorDimensionGroup,
   IndicatorViewCallout,
@@ -225,4 +226,15 @@ export function formatDate(value: string | null | undefined): string {
     month: 'short',
     day: 'numeric',
   }).format(parsed);
+}
+
+export function legendForDimension(dimensionId: string, legends: IndicatorPackLegend[] = []): IndicatorPackLegend | null {
+  return legends.find((legend) => legend.dimensionId === dimensionId || legend.id === dimensionId) || null;
+}
+
+export function legendColorMap(dimensionId: string, legends: IndicatorPackLegend[] = []): Map<string, string> {
+  const legend = legendForDimension(dimensionId, legends);
+  return new Map(
+    (legend?.items || []).map((item) => [item.value, readCssVar(item.colorToken)]),
+  );
 }

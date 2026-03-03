@@ -17,9 +17,12 @@ import {
   formatMetric,
   formatWholeNumber,
   groupIndicatorDimensions,
+  legendColorMap,
+  legendForDimension,
   percentOf,
   pickDistributionDimension,
 } from './indicator-view.helpers';
+import { NbmsLegendComponent } from './nbms-legend.component';
 
 type DistributionRow = {
   category: string;
@@ -36,6 +39,7 @@ type DistributionVm = {
   error: string | null;
   summary: IndicatorViewSummary;
   dimensionOptions: IndicatorDimension[];
+  legendItems: Array<{ label: string; color: string; value?: string }>;
   chart: ChartData<'bar'> | null;
   rows: DistributionRow[];
   activeDimension: string;
@@ -56,6 +60,7 @@ type DistributionVm = {
     MatFormFieldModule,
     MatSelectModule,
     NbmsDataTableComponent,
+    NbmsLegendComponent,
   ],
   template: `
     <section class="view-shell" *ngIf="vm$ | async as vm">
@@ -77,6 +82,7 @@ type DistributionVm = {
             </div>
             <span>Total {{ formatWholeNumber(vm.totalValue) }}</span>
           </header>
+          <nbms-legend *ngIf="vm.legendItems.length" [items]="vm.legendItems"></nbms-legend>
           <div class="chart-wrap" *ngIf="vm.chart; else noChart">
             <canvas baseChart [type]="'bar'" [data]="vm.chart" [options]="barOptions" (chartClick)="onChartClick($event, vm)"></canvas>
           </div>
@@ -285,6 +291,7 @@ export class NbmsViewDistributionComponent {
             buildDistributionVm(
               input.indicatorDetail as IndicatorDetailResponse,
               input.dimensions,
+              input.visualProfile,
               input.state as IndicatorViewRouteState,
               payload,
               activeDimension,
@@ -367,6 +374,7 @@ export class NbmsViewDistributionComponent {
       error: null,
       summary: { kpis: [], callouts: [] },
       dimensionOptions: [],
+      legendItems: [],
       chart: null,
       rows: [],
       activeDimension: '',
@@ -378,6 +386,7 @@ export class NbmsViewDistributionComponent {
 function buildDistributionVm(
   detail: IndicatorDetailResponse,
   dimensions: IndicatorDimension[],
+  visualProfile: IndicatorVisualProfile | null,
   state: IndicatorViewRouteState,
   payload: {
     rows: IndicatorCubeRow[];
@@ -409,6 +418,8 @@ function buildDistributionVm(
   const releaseLabel = String(metaRecord['release_used']?.version || 'Latest approved');
   const methodLabel = String(metaRecord['method_used']?.version || 'Current');
   const selectedValue = state.dim === activeDimension ? state.dim_value : '';
+  const colorMap = legendColorMap(activeDimension, visualProfile?.legends || []);
+  const legend = legendForDimension(activeDimension, visualProfile?.legends || []);
   const tableRows: DistributionRow[] = rows
     .filter((row) => !selectedValue || row.categoryCode === selectedValue)
     .map((row) => ({
@@ -428,8 +439,8 @@ function buildDistributionVm(
             data: rows.map((row) => percentOf(row.numericValue, totalValue)),
             backgroundColor: rows.map((row) =>
               row.categoryCode === selectedValue
-                ? readCssVar('--nbms-color-primary-500')
-                : withAlpha(readCssVar('--nbms-color-primary-500'), 0.62),
+                ? colorMap.get(row.categoryCode) || readCssVar('--nbms-color-primary-500')
+                : withAlpha(colorMap.get(row.categoryCode) || readCssVar('--nbms-color-primary-500'), 0.72),
             ),
             borderRadius: 10,
             maxBarThickness: 28,
@@ -473,6 +484,11 @@ function buildDistributionVm(
     error: null,
     summary,
     dimensionOptions: groupIndicatorDimensions(dimensions).categorical,
+    legendItems: (legend?.items || []).map((item) => ({
+      label: item.label,
+      value: item.value,
+      color: readCssVar(item.colorToken),
+    })),
     chart,
     rows: tableRows,
     activeDimension,

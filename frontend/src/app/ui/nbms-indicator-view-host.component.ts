@@ -96,6 +96,7 @@ import { NbmsViewTimeseriesComponent } from './nbms-view-timeseries.component';
               *ngSwitchCase="'matrix'"
               [indicatorUuid]="indicatorUuid"
               [indicatorDetail]="indicatorDetail"
+              [visualProfile]="visualProfile"
               [dimensions]="dimensions"
               [state]="state"
               (stateChange)="stateChange.emit($event)"
@@ -302,6 +303,13 @@ export class NbmsIndicatorViewHostComponent {
   }
 
   get seedSections(): Array<{ id: string; title: string; body: string }> {
+    if (this.visualProfile?.narrativeTemplates?.length) {
+      return this.visualProfile.narrativeTemplates.map((section) => ({
+        id: section.id,
+        title: section.title,
+        body: section.body,
+      }));
+    }
     if (!this.indicatorDetail) {
       return [];
     }

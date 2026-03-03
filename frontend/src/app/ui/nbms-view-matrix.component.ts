@@ -2,7 +2,7 @@ import { AsyncPipe, NgFor, NgIf } from '@angular/common';
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output, inject } from '@angular/core';
 import { ReplaySubject, catchError, map, of, shareReplay, startWith, switchMap } from 'rxjs';
 
-import type { IndicatorDetailResponse, IndicatorDimension } from '../models/api.models';
+import type { IndicatorDetailResponse, IndicatorDimension, IndicatorVisualProfile } from '../models/api.models';
 import type { IndicatorCubeRow, IndicatorViewRoutePatch, IndicatorViewRouteState, IndicatorViewSummary } from '../models/indicator-visual.models';
 import { IndicatorAnalyticsService } from '../services/indicator-analytics.service';
 import { buildGovernanceCallouts, formatWholeNumber, groupIndicatorDimensions, percentOf } from './indicator-view.helpers';
@@ -43,8 +43,9 @@ type MatrixVm = {
                 *ngFor="let x of vm.xLabels"
                 type="button"
                 class="cell"
+                [class.cell--active]="isSelected(vm, x, y)"
                 [style.opacity]="cellOpacity(vm, x, y)"
-                (click)="selectCell(x, y)"
+                (click)="selectCell(vm, x, y)"
               >
                 {{ formatWholeNumber(vm.cells.get(key(x, y))?.value || 0) }}
               </button>
@@ -106,6 +107,11 @@ type MatrixVm = {
         font-weight: 700;
       }
 
+      .cell--active {
+        border-color: var(--nbms-accent-500);
+        box-shadow: inset 0 0 0 1px var(--nbms-accent-500);
+      }
+
       .empty-state,
       .skeleton-block {
         border-radius: var(--nbms-radius-lg);
@@ -147,6 +153,10 @@ export class NbmsViewMatrixComponent {
     this.patchInput({ indicatorDetail: value });
   }
 
+  @Input() set visualProfile(value: IndicatorVisualProfile | null) {
+    this.patchInput({ visualProfile: value });
+  }
+
   @Input() set dimensions(value: IndicatorDimension[]) {
     this.patchInput({ dimensions: value });
   }
@@ -162,6 +172,7 @@ export class NbmsViewMatrixComponent {
   private readonly inputs$ = new ReplaySubject<{
     indicatorUuid: string;
     indicatorDetail: IndicatorDetailResponse | null;
+    visualProfile: IndicatorVisualProfile | null;
     dimensions: IndicatorDimension[];
     state: IndicatorViewRouteState | null;
   }>(1);
@@ -169,6 +180,7 @@ export class NbmsViewMatrixComponent {
   private currentInput = {
     indicatorUuid: '',
     indicatorDetail: null as IndicatorDetailResponse | null,
+    visualProfile: null as IndicatorVisualProfile | null,
     dimensions: [] as IndicatorDimension[],
     state: null as IndicatorViewRouteState | null,
   };
@@ -179,8 +191,9 @@ export class NbmsViewMatrixComponent {
         return of(this.loadingVm());
       }
       const categorical = groupIndicatorDimensions(input.dimensions).categorical;
-      const dimX = categorical.find((row) => row.id === 'threat_category')?.id || categorical[0]?.id || '';
-      const dimY = categorical.find((row) => row.id === 'protection_category')?.id || categorical[1]?.id || '';
+      const matrixDefinition = input.visualProfile?.matrixDefinitions?.[0];
+      const dimX = matrixDefinition?.xDimension || categorical.find((row) => row.id === 'threat_category')?.id || categorical[0]?.id || '';
+      const dimY = matrixDefinition?.yDimension || categorical.find((row) => row.id === 'protection_category')?.id || categorical[1]?.id || '';
       if (!dimX || !dimY) {
         const summary = { kpis: [], callouts: buildGovernanceCallouts(input.indicatorDetail, input.state) };
         this.summaryChange.emit(summary);
@@ -234,14 +247,28 @@ export class NbmsViewMatrixComponent {
     return 0.35 + percentOf(vm.cells.get(this.key(x, y))?.value || 0, max) / 100;
   }
 
-  selectCell(x: string, y: string): void {
-    this.stateChange.emit({ left: x, right: y });
+  isSelected(vm: MatrixVm, x: string, y: string): boolean {
+    return (
+      this.currentInput.state?.dim === vm.dimX &&
+      this.currentInput.state?.compare === vm.dimY &&
+      this.currentInput.state?.left === x &&
+      this.currentInput.state?.right === y
+    );
+  }
+
+  selectCell(vm: MatrixVm, x: string, y: string): void {
+    if (this.isSelected(vm, x, y)) {
+      this.stateChange.emit({ dim: '', dim_value: '', compare: '', left: '', right: '' });
+      return;
+    }
+    this.stateChange.emit({ dim: vm.dimX, dim_value: x, compare: vm.dimY, left: x, right: y });
   }
 
   private patchInput(
     patch: Partial<{
       indicatorUuid: string;
       indicatorDetail: IndicatorDetailResponse | null;
+      visualProfile: IndicatorVisualProfile | null;
       dimensions: IndicatorDimension[];
       state: IndicatorViewRouteState | null;
     }>,
