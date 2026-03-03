@@ -67,6 +67,12 @@
 - Added `GET /api/indicators/:uuid/cube` for grouped indicator drilldowns across geography, taxonomy, and categorical dimensions.
 - Added `GET /api/indicators/:uuid/dimensions` and `GET /api/dimensions` for dimension metadata.
 - Added `GET /api/indicators/:uuid/visual-profile` for rule-based view/profile metadata.
+- Added an indicator pack registry in `src/nbms_app/services/indicator_packs.py` so each pack authoritatively defines:
+  - available/default views
+  - supported dimensions and taxonomy levels
+  - legends for category-based views
+  - map layer candidates, join keys, and metric options
+  - governed narrative prompts
 - Added `GET /api/indicators/:uuid/audit` for workflow/audit event timelines.
 - Added governed narrative endpoints for `dashboard`, `framework`, `target`, and `indicator` entities:
   - `GET /api/narratives/:entityType/:entityId`
@@ -137,6 +143,7 @@
 - visual-profile-driven `view=timeseries|distribution|taxonomy|matrix|binary` rendering inside `tab=indicator`
 - synchronized KPI strip, visuals, map interactions, auditable table, and governed narrative rail
 - map click-to-filter and drilldown URL state for geography/category/taxonomy slices
+- pack-driven legends, matrix definitions, and narrative prompts now flow through the same indicator host without breaking `/indicators` or `/indicators/:uuid`
 - Replaced the detail-page share button with the reusable share menu.
 - Added governed narrative authoring to the indicator right rail and the dedicated narrative tab.
 - Wired the indicator audit tab to the new backend audit endpoint.
@@ -169,6 +176,18 @@
 - `GET /api/indicators/:uuid/dimensions`
 - `GET /api/indicators/:uuid/visual-profile`
 - `GET /api/indicators/:uuid/audit`
+
+### Indicator pack response shape
+- `GET /api/indicators/:uuid/visual-profile` now includes:
+  - `packId`
+  - `packLabel`
+  - `availableViews`
+  - `defaultView`
+  - `mapLayers[{ layerCode, title, joinKey, dimensionId, availableMetrics, defaultMetric }]`
+  - `legends[{ id, title, dimensionId, items[{ value, label, colorToken }] }]`
+  - `matrixDefinitions[{ id, label, xDimension, yDimension }]`
+  - `narrativeTemplates[{ id, title, body }]`
+- `GET /api/indicators/:uuid/dimensions` now returns pack-authored dimensions even when the current point slice does not expose every field observed in the pack.
 
 ### Governed narratives
 - `GET /api/narratives/framework/GBF`
@@ -220,9 +239,10 @@
 ## Example URLs
 
 ### Indicator view switching
-- `/indicators/2a8d3b64-b3d9-4152-9d42-2ac1960d9cc3?tab=indicator&view=timeseries&report_cycle=NR7-2024&release=latest_approved&method=current`
-- `/indicators/2a8d3b64-b3d9-4152-9d42-2ac1960d9cc3?tab=indicator&view=distribution&dim=type`
-- `/indicators/2a8d3b64-b3d9-4152-9d42-2ac1960d9cc3?tab=indicator&view=timeseries&agg=province&geo_type=province&geo_code=WC`
+- `/indicators/<ecosystem-threat-uuid>?tab=indicator`
+  - pack default redirects to `view=distribution`
+- `/indicators/<species-threat-uuid>?tab=indicator&view=taxonomy&tax_level=family`
+- `/indicators/<ecosystem-protection-uuid>?tab=indicator&view=matrix&dim=protection_category&dim_value=WELL_PROTECTED&compare=threat_category&right=EN`
 
 ### Cube / profile endpoints
 - `/api/indicators/2a8d3b64-b3d9-4152-9d42-2ac1960d9cc3/visual-profile`
@@ -233,13 +253,26 @@
 ## Runtime Examples
 
 ### Current seed indicators in `nbms_dev`
-- `NBMS-GBF-PA-COVERAGE` demonstrates `timeseries` and `distribution`.
-- `NBMS-GBF-ECOSYSTEM-THREAT` demonstrates `timeseries` and `distribution`.
-- `NBMS-GBF-IAS-PRESSURE` currently remains `timeseries` only.
-
-### Taxonomy note
-- No runtime seed indicator in the current `nbms_dev` stack exposes a taxonomy profile yet.
-- Taxonomy drilldown is covered by the deterministic backend fixture `IND-RICH` in `src/nbms_app/tests/test_api_indicator_analytics_rich.py`.
+- `NBMS-GBF-ECOSYSTEM-THREAT`
+  - default `distribution`
+  - also supports `matrix` for `threat_category x protection_category`
+- `NBMS-GBF-ECOSYSTEM-PROTECTION`
+  - default `distribution`
+  - also supports `matrix`
+- `NBMS-GBF-SPECIES-THREAT`
+  - default `taxonomy`
+  - runtime taxonomy drilldown is now discoverable without relying on test fixtures
+- `NBMS-GBF-SPECIES-PROTECTION`
+  - default `taxonomy`
+- `NBMS-GBF-PA-COVERAGE`
+  - `timeseries` + province map + target-progress distribution
+- `NBMS-GBF-IAS-PRESSURE`
+  - pathway distribution + province spatial slice
+- Additional seeded pack examples:
+  - `NBMS-GBF-ECOSYSTEM-EXTENT`
+  - `NBMS-GBF-RESTORATION-PROGRESS`
+  - `NBMS-GBF-SPECIES-HABITAT-INDEX`
+  - `NBMS-GBF-GENETIC-DIVERSITY`
 
 ## Known Placeholders / TODOs
 
@@ -250,7 +283,7 @@
 - Framework and target map tabs are placeholders until aggregate map endpoints exist:
   - `GET /api/frameworks/:frameworkId/map`
   - `GET /api/frameworks/:frameworkId/targets/:targetId/map`
-- Runtime seed data still needs at least one published taxonomy-heavy indicator if we want the full taxonomy view to be discoverable in the shared demo stack without using the test fixture data.
+- Pack configs also exist for pollution and climate-biodiversity pressure archetypes, but runtime seed data currently stops at the first 10 priority packs.
 - Responsive Playwright coverage now validates desktop/tablet/mobile navigation and overflow behavior, but framework/target routes are feature-detected in e2e because the current served environment does not expose direct deep-link handling for every SPA route.
 - Angular still emits a non-blocking style budget warning for `frontend/src/app/pages/indicator-detail-page.component.ts`.
 
