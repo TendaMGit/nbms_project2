@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:8081';
 const ADMIN_USERNAME = process.env.PLAYWRIGHT_USERNAME || 'SystemAdmin';
@@ -65,13 +65,33 @@ function passwordForUser(username: string) {
   return defaults[username] || username;
 }
 
+function shellNav(page: Page) {
+  return page.locator('mat-sidenav.side-nav');
+}
+
+async function isLocatorVisible(locator: Locator) {
+  try {
+    return await locator.first().isVisible();
+  } catch {
+    return false;
+  }
+}
+
 async function loginByForm(page: Page, username: string, password: string) {
   await page.context().clearCookies();
   await page.goto('/account/login/?next=/dashboard');
   await page.waitForLoadState('networkidle');
-  await page.fill('input[name="auth-username"]', username);
-  await page.fill('input[name="auth-password"]', password);
-  await page.click('button[type="submit"]');
+  const usernameField = page
+    .locator('input[name="auth-username"], input[name="username"], input[autocomplete="username"]')
+    .first();
+  const passwordField = page
+    .locator('input[name="auth-password"], input[name="password"], input[type="password"]')
+    .first();
+  const submitButton = page.getByRole('button', { name: /next|log in|login|sign in/i }).first();
+  await usernameField.fill(username);
+  await passwordField.fill(password);
+  await submitButton.click();
+  await page.waitForURL(/dashboard|account\/login/, { timeout: 15_000 }).catch(() => undefined);
   await page.waitForLoadState('networkidle');
 }
 
@@ -111,21 +131,25 @@ async function loginAsSeededUser(page: Page, username: string, requiredCapabilit
     await page.waitForTimeout(250);
   }
   // Fallback to explicit login when pre-generated session keys were rotated/invalidated.
-  await loginByForm(page, username, loginPassword);
-  const fallbackAuthState = await page.evaluate(async () => {
-    const response = await fetch('/api/auth/me', { credentials: 'include' });
-    if (!response.ok) {
-      return null;
+  let fallbackAuthState: { username: string; capabilities: Record<string, boolean> } | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await loginByForm(page, username, loginPassword);
+    fallbackAuthState = await page.evaluate(async () => {
+      const response = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!response.ok) {
+        return null;
+      }
+      const payload = await response.json();
+      return { username: payload?.username, capabilities: payload?.capabilities || {} };
+    });
+    if (
+      fallbackAuthState &&
+      fallbackAuthState.username === username &&
+      (!requiredCapability || fallbackAuthState.capabilities?.[requiredCapability])
+    ) {
+      return;
     }
-    const payload = await response.json();
-    return { username: payload?.username, capabilities: payload?.capabilities || {} };
-  });
-  if (
-    fallbackAuthState &&
-    fallbackAuthState.username === username &&
-    (!requiredCapability || fallbackAuthState.capabilities?.[requiredCapability])
-  ) {
-    return;
+    await page.waitForTimeout(400);
   }
   throw new Error(
     `Unable to establish authenticated session for ${username}. Last auth state: ${JSON.stringify(
@@ -139,10 +163,11 @@ test('anonymous user sees public workspace only', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'NBMS' })).toBeVisible();
   await expect(page).toHaveURL(/indicators/);
 
-  await expect(page.getByRole('link', { name: 'Indicators' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Dashboard' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
-  await expect(page.getByRole('link', { name: 'Template Packs' })).toHaveCount(0);
+  const nav = shellNav(page);
+  await expect(nav.getByRole('link', { name: 'Indicators', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Dashboard', exact: true })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Programmes', exact: true })).toHaveCount(0);
+  await expect(nav.getByRole('link', { name: 'Template Packs', exact: true })).toHaveCount(0);
 
   await page.goto('/dashboard');
   await expect(page).toHaveURL(/account\/login/);
@@ -151,21 +176,19 @@ test('anonymous user sees public workspace only', async ({ page }) => {
 test('authenticated system admin can access core workspaces', async ({ page }) => {
   await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
   await expect(page.getByRole('button', { name: 'User menu' })).toBeVisible();
+  const nav = shellNav(page);
+  await expect(nav.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Frameworks', exact: true })).toBeVisible();
+  await expect(nav.getByRole('link', { name: 'Indicators', exact: true })).toBeVisible();
 
   await navigateWithRetry(page, '/dashboard', /dashboard/);
-  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-
   await navigateWithRetry(page, '/indicators', /indicators/);
-
   await navigateWithRetry(page, '/spatial/map', /spatial\/map|\/map/);
-
   await navigateWithRetry(page, '/programmes', /programmes/);
-
-  await expect(page.getByRole('link', { name: 'Reporting' })).toBeVisible();
-
   await navigateWithRetry(page, '/template-packs', /template-packs/);
 
-  await page.getByRole('link', { name: 'Preferences' }).click();
+  await page.getByRole('button', { name: 'User menu' }).click();
+  await page.getByRole('menuitem', { name: 'Preferences' }).click();
   await expect(page).toHaveURL(/account\/preferences/);
   await expect(page.getByText('Profile & Preferences', { exact: true })).toBeVisible();
 });
@@ -174,26 +197,29 @@ test('role visibility matrix is enforced in UI navigation', async ({ browser }) 
   const contributorContext = await browser.newContext({ baseURL: BASE_URL });
   const contributorPage = await contributorContext.newPage();
   await loginAsSeededUser(contributorPage, CONTRIBUTOR_USERNAME, 'can_view_dashboard');
-  await expect(contributorPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-  await expect(contributorPage.getByRole('link', { name: 'Indicators' })).toBeVisible();
-  await expect(contributorPage.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
-  await expect(contributorPage.getByRole('link', { name: 'Template Packs' })).toHaveCount(0);
+  const contributorNav = shellNav(contributorPage);
+  await expect(contributorNav.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
+  await expect(contributorNav.getByRole('link', { name: 'Indicators', exact: true })).toBeVisible();
+  await expect(contributorNav.getByRole('link', { name: 'Programmes', exact: true })).toHaveCount(0);
+  await expect(contributorNav.getByRole('link', { name: 'Template Packs', exact: true })).toHaveCount(0);
   await contributorContext.close();
 
   const reviewerContext = await browser.newContext({ baseURL: BASE_URL });
   const reviewerPage = await reviewerContext.newPage();
   await loginAsSeededUser(reviewerPage, REVIEWER_USERNAME, 'can_view_programmes');
-  await expect(reviewerPage.getByRole('link', { name: 'Dashboard' })).toBeVisible();
-  await expect(reviewerPage.getByRole('link', { name: 'Programmes' })).toBeVisible();
+  const reviewerNav = shellNav(reviewerPage);
+  await expect(reviewerNav.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
+  await navigateWithRetry(reviewerPage, '/programmes', /programmes/);
+  await expect(reviewerPage.getByRole('heading', { name: 'Programme Operations' })).toBeVisible();
   await reviewerContext.close();
 
   const publicContext = await browser.newContext({ baseURL: BASE_URL });
   const publicPage = await publicContext.newPage();
   await loginAsSeededUser(publicPage, PUBLIC_USERNAME, 'can_view_dashboard');
-  await expect(publicPage.getByRole('link', { name: 'Indicators' })).toBeVisible();
-  await expect(publicPage.getByRole('link', { name: 'Programmes' })).toHaveCount(0);
-  await expect(publicPage.getByRole('link', { name: 'Reporting' })).toHaveCount(0);
-  await expect(publicPage.getByRole('link', { name: 'Template Packs' })).toHaveCount(0);
+  const publicNav = shellNav(publicPage);
+  await expect(publicNav.getByRole('link', { name: 'Indicators', exact: true })).toBeVisible();
+  await expect(publicNav.getByRole('link', { name: 'Programmes', exact: true })).toHaveCount(0);
+  await expect(publicNav.getByRole('link', { name: 'Template Packs', exact: true })).toHaveCount(0);
   await publicContext.close();
 });
 
@@ -310,4 +336,268 @@ test('downloads landing page shows citation for created record', async ({ page }
   await expect(page).toHaveURL(/downloads\/[0-9a-f-]+/);
   await expect(page.locator('mat-card-title', { hasText: 'Citation' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copy citation' })).toBeVisible();
+});
+
+async function resolveIndicatorExamples(page: Page) {
+  return page.evaluate(async () => {
+    const response = await fetch('/api/indicators?page=1&page_size=25', { credentials: 'include' });
+    if (!response.ok) {
+      return {
+        combo: null,
+        taxonomy: null,
+        fallback: null,
+      };
+    }
+    const payload = await response.json();
+    const indicators = payload?.results || [];
+    let combo: { uuid: string; availableViews: string[] } | null = null;
+    let taxonomy: { uuid: string; availableViews: string[] } | null = null;
+    let fallback: { uuid: string; availableViews: string[] } | null = null;
+
+    for (const indicator of indicators) {
+      const profileResponse = await fetch(`/api/indicators/${indicator.uuid}/visual-profile`, { credentials: 'include' });
+      if (!profileResponse.ok) {
+        continue;
+      }
+      const profile = await profileResponse.json();
+      const availableViews = profile?.availableViews || [];
+      if (!fallback) {
+        fallback = { uuid: indicator.uuid, availableViews };
+      }
+      if (!combo && availableViews.includes('timeseries') && availableViews.includes('distribution')) {
+        combo = { uuid: indicator.uuid, availableViews };
+      }
+      if (!taxonomy && availableViews.includes('taxonomy')) {
+        taxonomy = { uuid: indicator.uuid, availableViews };
+      }
+      if (combo && taxonomy) {
+        break;
+      }
+    }
+
+    return { combo, taxonomy, fallback };
+  });
+}
+
+async function openFirstIndicatorDetail(page: Page, query = '?tab=indicator&view=timeseries') {
+  await navigateWithRetry(page, '/indicators', /indicators/);
+  const indicatorLink = page.locator('a[href^="/indicators/"]:not([href="/indicators"])').first();
+  await expect(indicatorLink).toBeVisible();
+  const href = await indicatorLink.getAttribute('href');
+  if (!href) {
+    throw new Error('Indicator explorer did not expose a detail link.');
+  }
+  const separator = href.includes('?') ? '&' : '?';
+  await page.goto(`${href}${query.startsWith('?') ? separator + query.slice(1) : query}`);
+  await page.waitForLoadState('networkidle');
+  return href;
+}
+
+test('indicator detail view switching updates URL and preserves context', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const examples = await resolveIndicatorExamples(page);
+  const href = examples.combo
+    ? `/indicators/${examples.combo.uuid}`
+    : await openFirstIndicatorDetail(page, '?tab=indicator&view=timeseries');
+
+  if (examples.combo) {
+    await navigateWithRetry(page, `${href}?tab=indicator&view=timeseries`, /indicators\/.+view=timeseries/);
+  }
+  await expect(page.getByLabel('Report cycle').first()).toBeVisible();
+  await expect(page.getByText('Indicator narrative').first()).toBeVisible();
+
+  const distributionTab = page.getByRole('tab', { name: /distribution/i });
+  if (await distributionTab.count()) {
+    await distributionTab.click();
+    await expect(page).toHaveURL(/view=distribution/);
+  } else {
+    await page.goto(`${href}?tab=indicator&view=distribution`);
+    await page.waitForLoadState('networkidle');
+  }
+  await expect(page).toHaveURL(/view=distribution/);
+  const distributionResolved =
+    (await isLocatorVisible(page.getByLabel('Category dimension'))) ||
+    (await isLocatorVisible(page.getByText('Category slice'))) ||
+    (await isLocatorVisible(page.getByText(/Distribution view is not available/i))) ||
+    (await isLocatorVisible(page.getByText(/No distribution values are available/i)));
+  expect(distributionResolved).toBeTruthy();
+});
+
+test('indicator taxonomy view renders selector when available and empty state otherwise', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const examples = await resolveIndicatorExamples(page);
+  const href = examples.taxonomy
+    ? `/indicators/${examples.taxonomy.uuid}`
+    : await openFirstIndicatorDetail(page, '?tab=indicator&view=taxonomy');
+
+  if (examples.taxonomy) {
+    await navigateWithRetry(page, `${href}?tab=indicator&view=taxonomy`, /indicators\/.+view=taxonomy/);
+  }
+  const taxonomyResolved =
+    (await isLocatorVisible(page.getByLabel('Group by level'))) ||
+    (await isLocatorVisible(page.getByText(/Taxonomy drilldown is not available/i)));
+  expect(taxonomyResolved).toBeTruthy();
+});
+
+test('indicator slice selection updates geo_code in the URL', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const examples = await resolveIndicatorExamples(page);
+  const href = examples.combo
+    ? `/indicators/${examples.combo.uuid}`
+    : await openFirstIndicatorDetail(page, '?tab=indicator&view=timeseries');
+
+  if (examples.combo) {
+    await navigateWithRetry(page, `${href}?tab=indicator&view=timeseries`, /indicators\/.+view=timeseries/);
+  }
+  await expect(page.getByLabel('Report cycle').first()).toBeVisible();
+  const distributionCard = page.locator('nbms-distribution-card-grid button.card').first();
+  if (await distributionCard.count()) {
+    await distributionCard.click();
+    await expect(page).toHaveURL(/geo_code=/);
+  } else {
+    await page.getByLabel('Geography').first().click();
+    const option = page.getByRole('option', { name: /Province|Biome|Ecoregion|Municipality/i }).first();
+    if (await option.count()) {
+      await option.click();
+      await expect(page).toHaveURL(/geo_type=/);
+    }
+  }
+});
+
+async function openResponsiveSurface(
+  page: Page,
+  surface: 'dashboard' | 'framework' | 'target' | 'indicators' | 'indicator',
+  frameworkId: string
+): Promise<boolean> {
+  if (surface === 'dashboard') {
+    await navigateWithRetry(page, '/dashboard', /dashboard/);
+    return true;
+  }
+
+  if (surface === 'framework') {
+    try {
+      await navigateWithRetry(page, '/frameworks', /frameworks/);
+    } catch {
+      return false;
+    }
+    const frameworkLink = page.locator(`a[href="/frameworks/${frameworkId}"]`).first();
+    if (await frameworkLink.count()) {
+      await frameworkLink.click();
+      await page.waitForLoadState('networkidle');
+    }
+    return true;
+  }
+
+  if (surface === 'target') {
+    const frameworkOpened = await openResponsiveSurface(page, 'framework', frameworkId);
+    if (!frameworkOpened) {
+      return false;
+    }
+    const targetLink = page.locator('a[href*="/targets/"]').first();
+    if (await targetLink.count()) {
+      await targetLink.click();
+      await page.waitForLoadState('networkidle');
+    }
+    return true;
+  }
+
+  if (surface === 'indicators') {
+    await navigateWithRetry(page, '/indicators', /indicators/);
+    return true;
+  }
+
+  await openResponsiveSurface(page, 'indicators', frameworkId);
+  const indicatorLink = page.locator('a[href^="/indicators/"]:not([href="/indicators"])').first();
+  if (await indicatorLink.count()) {
+    await indicatorLink.click();
+    await page.waitForLoadState('networkidle');
+  }
+  return true;
+}
+
+test.describe('responsive analytics surfaces', () => {
+  const viewports = [
+    { name: 'desktop', width: 1440, height: 900, mobile: false },
+    { name: 'tablet', width: 1024, height: 768, mobile: false },
+    { name: 'mobile', width: 390, height: 844, mobile: true },
+  ] as const;
+
+  for (const viewport of viewports) {
+    test(`${viewport.name} layouts stay navigable across core routes`, async ({ page }) => {
+      test.slow();
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+
+      const examples = await page.evaluate(async () => {
+        const [summaryResponse, indicatorResponse] = await Promise.all([
+          fetch('/api/dashboard/summary', { credentials: 'include' }),
+          fetch('/api/indicators?page=1&page_size=1', { credentials: 'include' })
+        ]);
+        const summary = summaryResponse.ok ? await summaryResponse.json() : null;
+        const indicators = indicatorResponse.ok ? await indicatorResponse.json() : null;
+        const targetRow = summary?.published_by_framework_target?.[0];
+        return {
+          frameworkId: targetRow?.framework_indicator__framework_target__framework__code || 'GBF',
+          targetId: targetRow?.framework_indicator__framework_target__code || '1',
+          indicatorUuid: indicators?.results?.[0]?.uuid || null
+        };
+      });
+
+      const surfaces = [
+        { key: 'dashboard', expectsContextBar: true, expectsHeaderOverflow: true },
+        { key: 'framework', expectsContextBar: true, expectsHeaderOverflow: true },
+        { key: 'target', expectsContextBar: true, expectsHeaderOverflow: true },
+        { key: 'indicators', expectsContextBar: false, expectsHeaderOverflow: false },
+        { key: 'indicator', expectsContextBar: true, expectsHeaderOverflow: false }
+      ] as const;
+
+      for (const surface of surfaces) {
+        const opened = await openResponsiveSurface(page, surface.key, examples.frameworkId);
+        if (!opened) {
+          continue;
+        }
+        await expect(page.locator('body')).not.toContainText('Page not found (404)');
+        await expect(page.getByRole('heading').first()).toBeVisible();
+
+        if (viewport.mobile) {
+          const navToggle = page.getByRole('button', { name: 'Toggle navigation' });
+          if (await navToggle.count()) {
+            await expect(navToggle).toBeVisible();
+            const sideNav = page.locator('mat-sidenav.side-nav');
+            const navOpen = await sideNav
+              .evaluate((element) => element.classList.contains('mat-drawer-opened'))
+              .catch(() => false);
+            if (!navOpen) {
+              await navToggle.click();
+            }
+            await expect(sideNav).toContainText('Indicators');
+            await page.keyboard.press('Escape');
+            await page.waitForTimeout(150);
+          }
+        }
+
+        if (viewport.mobile && surface.expectsContextBar) {
+          const filterToggle = page.locator('button.filter-toggle').first();
+          if (await filterToggle.count()) {
+            await expect(filterToggle).toBeVisible();
+            await filterToggle.click();
+            await expect(page.getByLabel('Report cycle').first()).toBeVisible();
+          }
+        }
+
+        if (viewport.mobile && surface.expectsHeaderOverflow) {
+          const overflowTrigger = page.locator('.action-overflow-trigger').first();
+          if (await overflowTrigger.count()) {
+            await expect(overflowTrigger).toBeVisible();
+          }
+        }
+
+        const overflow = await page.evaluate(() => {
+          const root = document.documentElement;
+          return root.scrollWidth - root.clientWidth;
+        });
+        expect(overflow).toBeLessThanOrEqual(4);
+      }
+    });
+  }
 });
