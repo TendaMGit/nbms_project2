@@ -49,6 +49,9 @@ export interface IndicatorAnalyticsQuery {
   dim_value?: string;
   tax_level?: string;
   tax_code?: string;
+  compare?: string;
+  left?: string;
+  right?: string;
   layer_code?: string;
 }
 

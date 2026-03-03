@@ -57,6 +57,9 @@ export class IndicatorAnalyticsService {
       dim_value: 'dim_value' in state ? state.dim_value || undefined : undefined,
       tax_level: 'tax_level' in state ? state.tax_level || undefined : undefined,
       tax_code: 'tax_code' in state ? state.tax_code || undefined : undefined,
+      compare: 'compare' in state ? state.compare || undefined : undefined,
+      left: 'left' in state ? state.left || undefined : undefined,
+      right: 'right' in state ? state.right || undefined : undefined,
       top_n: 'top_n' in state ? state.top_n : undefined,
     };
   }

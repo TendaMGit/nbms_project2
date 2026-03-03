@@ -405,6 +405,10 @@ export interface IndicatorDimension {
   allowed_levels: string[];
   join_key: string;
   sort_order: number;
+  legend_id?: string | null;
+  description?: string;
+  default_group_by?: string | null;
+  allowed_group_bys?: string[];
 }
 
 export interface IndicatorCubeResponse {
@@ -444,6 +448,8 @@ export interface GlobalDimensionsResponse {
 
 export interface IndicatorVisualProfile {
   indicator_uuid: string;
+  packId?: string;
+  packLabel?: string;
   defaultView: string;
   availableViews: string[];
   supportedDimensions: string[];
@@ -458,7 +464,31 @@ export interface IndicatorVisualProfile {
     layerCode: string;
     title: string;
     joinKey: string;
+    dimensionId?: string;
     availableMetrics: string[];
+    defaultMetric?: string;
+  }>;
+  legends?: Array<{
+    id: string;
+    title: string;
+    dimensionId: string;
+    items: Array<{
+      value: string;
+      label: string;
+      colorToken: string;
+      description?: string;
+    }>;
+  }>;
+  matrixDefinitions?: Array<{
+    id: string;
+    label: string;
+    xDimension: string;
+    yDimension: string;
+  }>;
+  narrativeTemplates?: Array<{
+    id: string;
+    title: string;
+    body: string;
   }>;
   meta: NonNullable<IndicatorMapResponse['meta']>;
 }

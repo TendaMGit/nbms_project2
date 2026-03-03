@@ -21,12 +21,12 @@ import {
   toTab,
 } from './indicator-detail-page.helpers';
 import { type NbmsContextOption, DEFAULT_NBMS_CONTEXT } from '../models/context.models';
-import type { IndicatorDimension, IndicatorVisualProfile } from '../models/api.models';
+import type { IndicatorDimension } from '../models/api.models';
 import type { IndicatorViewRoutePatch, IndicatorViewRouteState } from '../models/indicator-visual.models';
 import { DownloadRecordService } from '../services/download-record.service';
+import { IndicatorPackRegistryService } from '../services/indicator-pack-registry.service';
 import { IndicatorService } from '../services/indicator.service';
 import { IndicatorViewStateService } from '../services/indicator-view-state.service';
-import { IndicatorVisualProfileService } from '../services/indicator-visual-profile.service';
 import { NbmsCalloutComponent } from '../ui/nbms-callout.component';
 import { NbmsContextBarComponent } from '../ui/nbms-context-bar.component';
 import { NbmsIndicatorViewHostComponent } from '../ui/nbms-indicator-view-host.component';
@@ -72,7 +72,7 @@ export class IndicatorDetailPageComponent {
   private readonly downloads = inject(DownloadRecordService);
   private readonly toast = inject(NbmsToastService);
   private readonly viewState = inject(IndicatorViewStateService);
-  private readonly profiles = inject(IndicatorVisualProfileService);
+  private readonly packs = inject(IndicatorPackRegistryService);
 
   readonly tableColumns: Array<{ key: keyof DetailTableRow | 'value' | 'status'; label: string }> = [
     { key: 'year', label: 'Year' },
@@ -116,18 +116,20 @@ export class IndicatorDetailPageComponent {
     shareReplay(1),
   );
 
-  readonly visualProfile$ = this.indicatorUuid$.pipe(
-    switchMap((uuid) => this.profiles.getProfile(uuid).pipe(catchError(() => of(null)))),
+  readonly pack$ = this.indicatorUuid$.pipe(
+    switchMap((uuid) =>
+      this.packs.getPack(uuid).pipe(catchError(() => of(null))),
+    ),
     shareReplay(1),
   );
 
-  readonly dimensions$ = this.indicatorUuid$.pipe(
-    switchMap((uuid) =>
-      this.profiles.getDimensions(uuid).pipe(
-        map((payload) => payload.dimensions),
-        catchError(() => of([] as IndicatorDimension[])),
-      ),
-    ),
+  readonly visualProfile$ = this.pack$.pipe(
+    map((pack) => pack?.profile || null),
+    shareReplay(1),
+  );
+
+  readonly dimensions$ = this.pack$.pipe(
+    map((pack) => pack?.dimensions || ([] as IndicatorDimension[])),
     shareReplay(1),
   );
 
@@ -279,6 +281,9 @@ export class IndicatorDetailPageComponent {
       metric: 'value',
       dim: '',
       dim_value: '',
+      compare: '',
+      left: '',
+      right: '',
       tax_level: '',
       tax_code: '',
       top_n: 20,
