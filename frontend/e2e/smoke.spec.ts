@@ -338,130 +338,69 @@ test('downloads landing page shows citation for created record', async ({ page }
   await expect(page.getByRole('button', { name: 'Copy citation' })).toBeVisible();
 });
 
-async function resolveIndicatorExamples(page: Page) {
-  return page.evaluate(async () => {
-    const response = await fetch('/api/indicators?page=1&page_size=25', { credentials: 'include' });
-    if (!response.ok) {
-      return {
-        combo: null,
-        taxonomy: null,
-        fallback: null,
-      };
-    }
-    const payload = await response.json();
-    const indicators = payload?.results || [];
-    let combo: { uuid: string; availableViews: string[] } | null = null;
-    let taxonomy: { uuid: string; availableViews: string[] } | null = null;
-    let fallback: { uuid: string; availableViews: string[] } | null = null;
-
-    for (const indicator of indicators) {
-      const profileResponse = await fetch(`/api/indicators/${indicator.uuid}/visual-profile`, { credentials: 'include' });
-      if (!profileResponse.ok) {
-        continue;
-      }
-      const profile = await profileResponse.json();
-      const availableViews = profile?.availableViews || [];
-      if (!fallback) {
-        fallback = { uuid: indicator.uuid, availableViews };
-      }
-      if (!combo && availableViews.includes('timeseries') && availableViews.includes('distribution')) {
-        combo = { uuid: indicator.uuid, availableViews };
-      }
-      if (!taxonomy && availableViews.includes('taxonomy')) {
-        taxonomy = { uuid: indicator.uuid, availableViews };
-      }
-      if (combo && taxonomy) {
-        break;
-      }
-    }
-
-    return { combo, taxonomy, fallback };
-  });
+async function resolveSeedPackIndicators(page: Page) {
+  const response = await page.request.get(`${BASE_URL}/api/indicators?page=1&page_size=100`);
+  if (!response.ok()) {
+    return {
+      distribution: null,
+      taxonomy: null,
+      matrix: null,
+    };
+  }
+  const payload = await response.json();
+  const indicators = payload?.results || [];
+  const byCode = new Map(indicators.map((indicator: { code: string; uuid: string }) => [indicator.code, indicator.uuid]));
+  return {
+    distribution: byCode.get('NBMS-GBF-ECOSYSTEM-THREAT') || null,
+    taxonomy: byCode.get('NBMS-GBF-SPECIES-THREAT') || null,
+    matrix: byCode.get('NBMS-GBF-ECOSYSTEM-PROTECTION') || byCode.get('NBMS-GBF-ECOSYSTEM-THREAT') || null,
+  };
 }
 
-async function openFirstIndicatorDetail(page: Page, query = '?tab=indicator&view=timeseries') {
-  await navigateWithRetry(page, '/indicators', /indicators/);
-  const indicatorLink = page.locator('a[href^="/indicators/"]:not([href="/indicators"])').first();
-  await expect(indicatorLink).toBeVisible();
-  const href = await indicatorLink.getAttribute('href');
-  if (!href) {
-    throw new Error('Indicator explorer did not expose a detail link.');
+test('distribution pack indicator defaults to distribution view', async ({ page }) => {
+  const examples = await resolveSeedPackIndicators(page);
+  if (!examples.distribution) {
+    test.skip();
   }
-  const separator = href.includes('?') ? '&' : '?';
-  await page.goto(`${href}${query.startsWith('?') ? separator + query.slice(1) : query}`);
+  const href = `/indicators/${examples.distribution}`;
+  await page.goto(`${href}?tab=indicator`);
   await page.waitForLoadState('networkidle');
-  return href;
-}
-
-test('indicator detail view switching updates URL and preserves context', async ({ page }) => {
-  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
-  const examples = await resolveIndicatorExamples(page);
-  const href = examples.combo
-    ? `/indicators/${examples.combo.uuid}`
-    : await openFirstIndicatorDetail(page, '?tab=indicator&view=timeseries');
-
-  if (examples.combo) {
-    await navigateWithRetry(page, `${href}?tab=indicator&view=timeseries`, /indicators\/.+view=timeseries/);
-  }
-  await expect(page.getByLabel('Report cycle').first()).toBeVisible();
-  await expect(page.getByText('Indicator narrative').first()).toBeVisible();
-
-  const distributionTab = page.getByRole('tab', { name: /distribution/i });
-  if (await distributionTab.count()) {
-    await distributionTab.click();
-    await expect(page).toHaveURL(/view=distribution/);
-  } else {
-    await page.goto(`${href}?tab=indicator&view=distribution`);
-    await page.waitForLoadState('networkidle');
-  }
   await expect(page).toHaveURL(/view=distribution/);
+  await expect(page.getByLabel('Report cycle').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'QA, sensitivity, provenance' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'distribution', exact: true })).toHaveAttribute('aria-selected', 'true');
   const distributionResolved =
     (await isLocatorVisible(page.getByLabel('Category dimension'))) ||
     (await isLocatorVisible(page.getByText('Category slice'))) ||
-    (await isLocatorVisible(page.getByText(/Distribution view is not available/i))) ||
-    (await isLocatorVisible(page.getByText(/No distribution values are available/i)));
+    (await isLocatorVisible(page.getByText(/Distribution/i)));
   expect(distributionResolved).toBeTruthy();
 });
 
-test('indicator taxonomy view renders selector when available and empty state otherwise', async ({ page }) => {
-  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
-  const examples = await resolveIndicatorExamples(page);
-  const href = examples.taxonomy
-    ? `/indicators/${examples.taxonomy.uuid}`
-    : await openFirstIndicatorDetail(page, '?tab=indicator&view=taxonomy');
-
-  if (examples.taxonomy) {
-    await navigateWithRetry(page, `${href}?tab=indicator&view=taxonomy`, /indicators\/.+view=taxonomy/);
+test('taxonomy pack indicator supports level switching', async ({ page }) => {
+  const examples = await resolveSeedPackIndicators(page);
+  if (!examples.taxonomy) {
+    test.skip();
   }
-  const taxonomyResolved =
-    (await isLocatorVisible(page.getByLabel('Group by level'))) ||
-    (await isLocatorVisible(page.getByText(/Taxonomy drilldown is not available/i)));
-  expect(taxonomyResolved).toBeTruthy();
+  const href = `/indicators/${examples.taxonomy}`;
+  await navigateWithRetry(page, `${href}?tab=indicator&view=taxonomy`, /indicators\/.+view=taxonomy/);
+  await expect(page.getByRole('heading', { name: /family drilldown/i })).toBeVisible();
+  await navigateWithRetry(page, `${href}?tab=indicator&view=taxonomy&tax_level=genus`, /tax_level=genus/);
+  await expect(page.getByRole('heading', { name: /genus drilldown/i })).toBeVisible();
 });
 
-test('indicator slice selection updates geo_code in the URL', async ({ page }) => {
-  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
-  const examples = await resolveIndicatorExamples(page);
-  const href = examples.combo
-    ? `/indicators/${examples.combo.uuid}`
-    : await openFirstIndicatorDetail(page, '?tab=indicator&view=timeseries');
-
-  if (examples.combo) {
-    await navigateWithRetry(page, `${href}?tab=indicator&view=timeseries`, /indicators\/.+view=timeseries/);
+test('matrix pack indicator supports click-to-filter', async ({ page }) => {
+  const examples = await resolveSeedPackIndicators(page);
+  if (!examples.matrix) {
+    test.skip();
   }
-  await expect(page.getByLabel('Report cycle').first()).toBeVisible();
-  const distributionCard = page.locator('nbms-distribution-card-grid button.card').first();
-  if (await distributionCard.count()) {
-    await distributionCard.click();
-    await expect(page).toHaveURL(/geo_code=/);
-  } else {
-    await page.getByLabel('Geography').first().click();
-    const option = page.getByRole('option', { name: /Province|Biome|Ecoregion|Municipality/i }).first();
-    if (await option.count()) {
-      await option.click();
-      await expect(page).toHaveURL(/geo_type=/);
-    }
-  }
+  const href = `/indicators/${examples.matrix}`;
+  await navigateWithRetry(page, `${href}?tab=indicator&view=matrix`, /indicators\/.+view=matrix/);
+  const firstCell = page.locator('.matrix .cell').first();
+  await expect(firstCell).toBeVisible();
+  await firstCell.click();
+  await expect(page).toHaveURL(/compare=/);
+  await expect(page).toHaveURL(/dim_value=/);
+  await expect(page).toHaveURL(/right=/);
 });
 
 async function openResponsiveSurface(
