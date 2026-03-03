@@ -17,11 +17,12 @@ import { NbmsChartCardComponent } from '../ui/nbms-chart-card.component';
 import { NbmsContextBarComponent } from '../ui/nbms-context-bar.component';
 import { NbmsDataTableComponent } from '../ui/nbms-data-table.component';
 import { NbmsEvidenceListComponent } from '../ui/nbms-evidence-list.component';
+import { NbmsInterpretationEditorComponent } from '../ui/nbms-interpretation-editor.component';
 import { NbmsKpiCardComponent } from '../ui/nbms-kpi-card.component';
 import { NbmsMapCardComponent } from '../ui/nbms-map-card.component';
-import { NbmsNarrativePanelComponent } from '../ui/nbms-narrative-panel.component';
 import { NbmsPageHeaderComponent } from '../ui/nbms-page-header.component';
 import { NbmsReadinessBadgeComponent } from '../ui/nbms-readiness-badge.component';
+import { NbmsShareMenuComponent } from '../ui/nbms-share-menu.component';
 import { NbmsStatStripComponent } from '../ui/nbms-stat-strip.component';
 import { NbmsTabStripComponent } from '../ui/nbms-tab-strip.component';
 import { buildStandardBarOptions, buildStandardDoughnutOptions } from '../utils/chart-options.utils';
@@ -86,11 +87,12 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
     NbmsContextBarComponent,
     NbmsDataTableComponent,
     NbmsEvidenceListComponent,
+    NbmsInterpretationEditorComponent,
     NbmsKpiCardComponent,
     NbmsMapCardComponent,
-    NbmsNarrativePanelComponent,
     NbmsPageHeaderComponent,
     NbmsReadinessBadgeComponent,
+    NbmsShareMenuComponent,
     NbmsStatStripComponent,
     NbmsTabStripComponent
   ],
@@ -113,7 +115,12 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
           { id: 'framework', label: 'Framework', route: ['/frameworks', vm.frameworkId], variant: 'stroked' },
           { id: 'indicators', label: 'Indicators', route: ['/indicators'], icon: 'insights', variant: 'flat' }
         ]"
-      ></nbms-page-header>
+      >
+        <nbms-share-menu
+          headerActionExtras
+          [title]="vm.targetLabel"
+        ></nbms-share-menu>
+      </nbms-page-header>
 
       <nbms-tab-strip
         [tabs]="[
@@ -155,6 +162,7 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
           class="indicator-summary nbms-card-surface"
           *ngFor="let row of vm.indicators.slice(0, 4); trackBy: trackByIndicatorRow"
           [routerLink]="['/indicators', row.uuid]"
+          [queryParams]="contextQueryParams(vm.context)"
         >
           <div class="indicator-summary-head">
             <p class="indicator-kicker">Indicator</p>
@@ -186,13 +194,17 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
           </div>
 
           <div class="side-column">
-            <nbms-narrative-panel
+            <nbms-interpretation-editor
               eyebrow="Overview"
-              title="Target narrative"
-              [sections]="vm.narrativeSections"
-              [showInsertAction]="false"
-              (copyRequested)="copyNarrative(vm.narrativeSections)"
-            ></nbms-narrative-panel>
+              cardTitle="Target narrative"
+              entityType="target"
+              [entityId]="vm.frameworkId + ':' + vm.targetId"
+              [entityLabel]="vm.targetLabel"
+              [title]="vm.targetLabel + ' narrative'"
+              [provenanceUrl]="'/frameworks/' + vm.frameworkId + '/targets/' + vm.targetId"
+              [seedSections]="vm.narrativeSections"
+              [reportingQueryParamsInput]="contextQueryParams(vm.context)"
+            ></nbms-interpretation-editor>
           </div>
         </ng-container>
 
@@ -254,25 +266,33 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
               tone="warning"
               [message]="vm.gapIndicators.length ? vm.gapIndicators.length + ' indicators in this target remain warning or blocked.' : 'No gap indicators are visible in the current target slice.'"
             ></nbms-callout>
-            <nbms-narrative-panel
+            <nbms-interpretation-editor
               eyebrow="Gaps"
-              title="Gap narrative"
-              [sections]="vm.narrativeSections"
-              [showInsertAction]="false"
-              (copyRequested)="copyNarrative(vm.narrativeSections)"
-            ></nbms-narrative-panel>
+              cardTitle="Gap narrative"
+              entityType="target"
+              [entityId]="vm.frameworkId + ':' + vm.targetId"
+              [entityLabel]="vm.targetLabel"
+              [title]="vm.targetLabel + ' narrative'"
+              [provenanceUrl]="'/frameworks/' + vm.frameworkId + '/targets/' + vm.targetId"
+              [seedSections]="vm.narrativeSections"
+              [reportingQueryParamsInput]="contextQueryParams(vm.context)"
+            ></nbms-interpretation-editor>
           </div>
         </ng-container>
 
         <ng-container *ngSwitchDefault>
           <div class="full-width">
-            <nbms-narrative-panel
+            <nbms-interpretation-editor
               eyebrow="Narrative"
-              title="Narrative blocks"
-              [sections]="vm.narrativeSections"
-              [showInsertAction]="false"
-              (copyRequested)="copyNarrative(vm.narrativeSections)"
-            ></nbms-narrative-panel>
+              cardTitle="Narrative blocks"
+              entityType="target"
+              [entityId]="vm.frameworkId + ':' + vm.targetId"
+              [entityLabel]="vm.targetLabel"
+              [title]="vm.targetLabel + ' narrative'"
+              [provenanceUrl]="'/frameworks/' + vm.frameworkId + '/targets/' + vm.targetId"
+              [seedSections]="vm.narrativeSections"
+              [reportingQueryParamsInput]="contextQueryParams(vm.context)"
+            ></nbms-interpretation-editor>
           </div>
         </ng-container>
       </section>
@@ -287,7 +307,7 @@ const GEO_TYPE_OPTIONS: NbmsContextOption[] = [
       <ng-template #indicatorCell let-row let-key="key">
         <ng-container [ngSwitch]="key">
           <ng-container *ngSwitchCase="'indicator'">
-            <a [routerLink]="['/indicators', row.uuid]">{{ row.code }}</a>
+            <a [routerLink]="['/indicators', row.uuid]" [queryParams]="contextQueryParams(vm.context)">{{ row.code }}</a>
             <span class="sub-copy">{{ row.title }}</span>
           </ng-container>
           <ng-container *ngSwitchCase="'readiness'">
@@ -438,11 +458,8 @@ export class TargetDetailPageComponent {
     this.contextState.update(this.route, patch as any);
   }
 
-  copyNarrative(sections: Array<{ title: string; body: string }>): void {
-    const text = sections.map((section) => `${section.title}\n${section.body}`).join('\n\n');
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(text);
-    }
+  contextQueryParams(context: ReturnType<ContextStateService['parseQueryParams']>): Record<string, string | null> {
+    return this.contextState.serialize(context);
   }
 
   trackByStat(_: number, stat: TargetDetailVm['stats'][number]): string {

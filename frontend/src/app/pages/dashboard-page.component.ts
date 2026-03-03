@@ -13,10 +13,11 @@ import { NbmsCalloutComponent } from '../ui/nbms-callout.component';
 import { NbmsChartCardComponent } from '../ui/nbms-chart-card.component';
 import { NbmsContextBarComponent } from '../ui/nbms-context-bar.component';
 import { NbmsDataTableComponent } from '../ui/nbms-data-table.component';
+import { NbmsInterpretationEditorComponent } from '../ui/nbms-interpretation-editor.component';
 import { NbmsKpiCardComponent } from '../ui/nbms-kpi-card.component';
 import { NbmsMapCardComponent } from '../ui/nbms-map-card.component';
-import { NbmsNarrativePanelComponent } from '../ui/nbms-narrative-panel.component';
 import { NbmsPageHeaderComponent } from '../ui/nbms-page-header.component';
+import { NbmsShareMenuComponent } from '../ui/nbms-share-menu.component';
 import { NbmsStatStripComponent } from '../ui/nbms-stat-strip.component';
 import { NbmsTabStripComponent } from '../ui/nbms-tab-strip.component';
 import { buildStandardBarOptions, buildStandardDoughnutOptions, buildStandardLineOptions } from '../utils/chart-options.utils';
@@ -111,10 +112,11 @@ type DashboardVm = {
     NbmsChartCardComponent,
     NbmsContextBarComponent,
     NbmsDataTableComponent,
+    NbmsInterpretationEditorComponent,
     NbmsKpiCardComponent,
     NbmsMapCardComponent,
-    NbmsNarrativePanelComponent,
     NbmsPageHeaderComponent,
+    NbmsShareMenuComponent,
     NbmsStatStripComponent,
     NbmsTabStripComponent
   ],
@@ -132,7 +134,12 @@ type DashboardVm = {
           { id: 'frameworks', label: 'Frameworks', icon: 'account_tree', route: ['/frameworks'], variant: 'stroked' },
           { id: 'indicators', label: 'Indicators', icon: 'insights', route: ['/indicators'], variant: 'flat' }
         ]"
-      ></nbms-page-header>
+      >
+        <nbms-share-menu
+          headerActionExtras
+          title="NBMS Home Dashboard"
+        ></nbms-share-menu>
+      </nbms-page-header>
 
       <nbms-tab-strip
         [tabs]="[
@@ -221,6 +228,7 @@ type DashboardVm = {
                     class="spotlight-row"
                     *ngFor="let row of vm.spotlightRows; trackBy: trackBySpotlight"
                     [routerLink]="['/frameworks', row.frameworkCode, 'targets', row.targetCode]"
+                    [queryParams]="contextQueryParams(vm.context)"
                   >
                     <strong>{{ row.frameworkCode }} / {{ row.targetCode }}</strong>
                     <span>{{ row.subtitle }}</span>
@@ -258,13 +266,20 @@ type DashboardVm = {
               tone="warning"
               [message]="(vm.stats[1]?.value || '0') + ' items are still awaiting workflow review in the current dashboard context.'"
             ></nbms-callout>
-            <nbms-narrative-panel
+            <nbms-interpretation-editor
               eyebrow="Overview"
-              title="Key messages"
-              [sections]="vm.narrativeSections"
-              [showInsertAction]="false"
-              (copyRequested)="copyNarrative(vm.narrativeSections)"
-            ></nbms-narrative-panel>
+              cardTitle="Executive summary"
+              entityType="dashboard"
+              entityId="home"
+              entityLabel="NBMS Home Dashboard"
+              title="NBMS Home Dashboard Executive Summary"
+              provenanceUrl="/dashboard"
+              [seedSections]="vm.narrativeSections"
+              [reportingQueryParamsInput]="{
+                tab: vm.context.tab,
+                report_cycle: vm.context.report_cycle
+              }"
+            ></nbms-interpretation-editor>
           </div>
         </section>
 
@@ -290,13 +305,20 @@ type DashboardVm = {
               [message]="'The dashboard summary currently reports pending approvals at a portfolio level. Use framework and indicator drilldowns to resolve the slice.'"
               tone="warning"
             ></nbms-callout>
-            <nbms-narrative-panel
+            <nbms-interpretation-editor
               eyebrow="Readiness"
-              title="Readiness narrative"
-              [sections]="vm.narrativeSections"
-              [showInsertAction]="false"
-              (copyRequested)="copyNarrative(vm.narrativeSections)"
-            ></nbms-narrative-panel>
+              cardTitle="Readiness narrative"
+              entityType="dashboard"
+              entityId="home"
+              entityLabel="NBMS Home Dashboard"
+              title="NBMS Home Dashboard Executive Summary"
+              provenanceUrl="/dashboard"
+              [seedSections]="vm.narrativeSections"
+              [reportingQueryParamsInput]="{
+                tab: vm.context.tab,
+                report_cycle: vm.context.report_cycle
+              }"
+            ></nbms-interpretation-editor>
           </div>
         </section>
 
@@ -343,13 +365,20 @@ type DashboardVm = {
           </div>
 
           <div class="side-column">
-            <nbms-narrative-panel
+            <nbms-interpretation-editor
               eyebrow="Changes"
-              title="What changed"
-              [sections]="vm.narrativeSections"
-              [showInsertAction]="false"
-              (copyRequested)="copyNarrative(vm.narrativeSections)"
-            ></nbms-narrative-panel>
+              cardTitle="What changed"
+              entityType="dashboard"
+              entityId="home"
+              entityLabel="NBMS Home Dashboard"
+              title="NBMS Home Dashboard Executive Summary"
+              provenanceUrl="/dashboard"
+              [seedSections]="vm.narrativeSections"
+              [reportingQueryParamsInput]="{
+                tab: vm.context.tab,
+                report_cycle: vm.context.report_cycle
+              }"
+            ></nbms-interpretation-editor>
           </div>
         </section>
       </section>
@@ -357,11 +386,11 @@ type DashboardVm = {
       <ng-template #dashboardCell let-row let-key="key">
         <ng-container [ngSwitch]="key">
           <ng-container *ngSwitchCase="'indicator'">
-            <a [routerLink]="['/indicators', row.uuid]">{{ row.code }}</a>
+            <a [routerLink]="['/indicators', row.uuid]" [queryParams]="contextQueryParams(vm.context)">{{ row.code }}</a>
             <span class="sub-copy">{{ row.title }}</span>
           </ng-container>
           <ng-container *ngSwitchCase="'frameworkTarget'">
-            <a [routerLink]="['/frameworks', row.frameworkCode, 'targets', row.targetCode]">{{ row.frameworkCode }} / {{ row.targetCode }}</a>
+            <a [routerLink]="['/frameworks', row.frameworkCode, 'targets', row.targetCode]" [queryParams]="contextQueryParams(vm.context)">{{ row.frameworkCode }} / {{ row.targetCode }}</a>
           </ng-container>
           <ng-container *ngSwitchCase="'updatedAt'">{{ row.updatedAt || 'n/a' }}</ng-container>
           <ng-container *ngSwitchCase="'readiness'">{{ row.readinessStatus }} ({{ row.readinessScore }})</ng-container>
@@ -372,10 +401,10 @@ type DashboardVm = {
       <ng-template #frameworkCell let-row let-key="key">
         <ng-container [ngSwitch]="key">
           <ng-container *ngSwitchCase="'framework'">
-            <a [routerLink]="['/frameworks', row.frameworkCode]">{{ row.frameworkCode }}</a>
+            <a [routerLink]="['/frameworks', row.frameworkCode]" [queryParams]="contextQueryParams(vm.context)">{{ row.frameworkCode }}</a>
           </ng-container>
           <ng-container *ngSwitchCase="'target'">
-            <a [routerLink]="['/frameworks', row.frameworkCode, 'targets', row.targetCode]">{{ row.targetCode }}</a>
+            <a [routerLink]="['/frameworks', row.frameworkCode, 'targets', row.targetCode]" [queryParams]="contextQueryParams(vm.context)">{{ row.targetCode }}</a>
           </ng-container>
           <ng-container *ngSwitchDefault>{{ row[key] }}</ng-container>
         </ng-container>
@@ -384,7 +413,7 @@ type DashboardVm = {
       <ng-template #qualityCell let-row let-key="key">
         <ng-container [ngSwitch]="key">
           <ng-container *ngSwitchCase="'indicator'">
-            <a [routerLink]="['/indicators', row.uuid]">{{ row.code }}</a>
+            <a [routerLink]="['/indicators', row.uuid]" [queryParams]="contextQueryParams(vm.context)">{{ row.code }}</a>
           </ng-container>
           <ng-container *ngSwitchDefault>{{ row[key] }}</ng-container>
         </ng-container>
@@ -544,11 +573,8 @@ export class DashboardPageComponent {
     this.contextState.update(this.route, patch as any);
   }
 
-  copyNarrative(sections: Array<{ title: string; body: string }>): void {
-    const text = sections.map((section) => `${section.title}\n${section.body}`).join('\n\n');
-    if (navigator.clipboard) {
-      void navigator.clipboard.writeText(text);
-    }
+  contextQueryParams(context: ReturnType<ContextStateService['parseQueryParams']>): Record<string, string | null> {
+    return this.contextState.serialize(context);
   }
 
   trackByStat(_: number, stat: DashboardStat): string {

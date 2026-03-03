@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { NgFor, NgIf } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { RouterLink } from '@angular/router';
 import { NbmsStatusPillComponent } from './nbms-status-pill.component';
 
@@ -20,7 +21,7 @@ type PageHeaderAction = {
 @Component({
   selector: 'nbms-page-header',
   standalone: true,
-  imports: [NgFor, NgIf, RouterLink, MatButtonModule, MatIconModule, NbmsStatusPillComponent],
+  imports: [NgFor, NgIf, RouterLink, MatButtonModule, MatIconModule, MatMenuModule, NbmsStatusPillComponent],
   template: `
     <header class="page-header">
       <div class="header-main">
@@ -47,33 +48,71 @@ type PageHeaderAction = {
           [tone]="statusTone"
         ></nbms-status-pill>
         <button mat-flat-button color="primary" *ngIf="primaryActionLabel">{{ primaryActionLabel }}</button>
-        <ng-container *ngFor="let action of actions; trackBy: trackByAction">
-          <a
-            *ngIf="action.route; else actionButton"
-            [routerLink]="action.route"
-            [attr.aria-label]="action.ariaLabel || action.label"
-            [class.button-stroked]="(action.variant || 'stroked') === 'stroked'"
-            [class.button-flat]="(action.variant || 'stroked') === 'flat'"
-            class="header-action"
-          >
-            <mat-icon *ngIf="action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
-            {{ action.label }}
-          </a>
-          <ng-template #actionButton>
-            <button
-              type="button"
-              class="header-action"
+        <div class="action-links">
+          <ng-container *ngFor="let action of actions; trackBy: trackByAction">
+            <a
+              *ngIf="action.route; else actionButton"
+              [routerLink]="action.route"
+              [attr.aria-label]="action.ariaLabel || action.label"
               [class.button-stroked]="(action.variant || 'stroked') === 'stroked'"
               [class.button-flat]="(action.variant || 'stroked') === 'flat'"
-              [disabled]="action.disabled"
-              [attr.aria-label]="action.ariaLabel || action.label"
-              (click)="actionSelected.emit(action.id)"
+              class="header-action"
             >
               <mat-icon *ngIf="action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
               {{ action.label }}
-            </button>
-          </ng-template>
-        </ng-container>
+            </a>
+            <ng-template #actionButton>
+              <button
+                type="button"
+                class="header-action"
+                [class.button-stroked]="(action.variant || 'stroked') === 'stroked'"
+                [class.button-flat]="(action.variant || 'stroked') === 'flat'"
+                [disabled]="action.disabled"
+                [attr.aria-label]="action.ariaLabel || action.label"
+                (click)="actionSelected.emit(action.id)"
+              >
+                <mat-icon *ngIf="action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
+                {{ action.label }}
+              </button>
+            </ng-template>
+          </ng-container>
+        </div>
+        <ng-content select="[headerActionExtras]"></ng-content>
+        <button
+          mat-icon-button
+          type="button"
+          class="action-overflow-trigger"
+          aria-label="Open header actions"
+          [matMenuTriggerFor]="actionOverflow"
+          *ngIf="actions.length"
+        >
+          <mat-icon aria-hidden="true">more_vert</mat-icon>
+        </button>
+        <mat-menu #actionOverflow="matMenu">
+          <ng-container *ngFor="let action of actions; trackBy: trackByAction">
+            <a
+              mat-menu-item
+              *ngIf="action.route; else overflowActionButton"
+              [routerLink]="action.route"
+              [attr.aria-label]="action.ariaLabel || action.label"
+            >
+              <mat-icon *ngIf="action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
+              <span>{{ action.label }}</span>
+            </a>
+            <ng-template #overflowActionButton>
+              <button
+                mat-menu-item
+                type="button"
+                [disabled]="action.disabled"
+                [attr.aria-label]="action.ariaLabel || action.label"
+                (click)="actionSelected.emit(action.id)"
+              >
+                <mat-icon *ngIf="action.icon" aria-hidden="true">{{ action.icon }}</mat-icon>
+                <span>{{ action.label }}</span>
+              </button>
+            </ng-template>
+          </ng-container>
+        </mat-menu>
       </div>
     </header>
   `,
@@ -140,6 +179,13 @@ type PageHeaderAction = {
         flex-wrap: wrap;
       }
 
+      .action-links {
+        display: flex;
+        align-items: center;
+        gap: var(--nbms-space-2);
+        flex-wrap: wrap;
+      }
+
       .header-action {
         display: inline-flex;
         align-items: center;
@@ -166,9 +212,21 @@ type PageHeaderAction = {
         background: color-mix(in srgb, var(--nbms-accent-100) 72%, var(--nbms-surface));
       }
 
+      .action-overflow-trigger {
+        display: none;
+      }
+
       @media (max-width: 900px) {
         .page-header {
           flex-direction: column;
+        }
+
+        .action-links {
+          display: none;
+        }
+
+        .action-overflow-trigger {
+          display: inline-flex;
         }
       }
     `
