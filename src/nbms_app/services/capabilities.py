@@ -30,6 +30,17 @@ def user_capabilities(user):
         is_system_admin(user)
         or user_has_role(user, ROLE_PUBLISHING_AUTHORITY, ROLE_SECRETARIAT, ROLE_ADMIN)
     )
+    can_edit_narratives = bool(
+        is_system_admin(user)
+        or user_has_role(
+            user,
+            ROLE_SECTION_LEAD,
+            ROLE_SECRETARIAT,
+            ROLE_DATA_STEWARD,
+            ROLE_ADMIN,
+            ROLE_INDICATOR_LEAD,
+        )
+    )
     return {
         "is_staff": is_staff,
         "is_system_admin": bool(is_system_admin(user)),
@@ -48,6 +59,7 @@ def user_capabilities(user):
         "can_view_template_packs": is_authenticated and can_author_reports,
         "can_view_report_products": is_authenticated and can_author_reports,
         "can_view_national_report_workspace": is_authenticated and can_author_reports,
+        "can_edit_narratives": is_authenticated and can_edit_narratives,
         "can_section_review": is_authenticated
         and bool(is_system_admin(user) or user_has_role(user, ROLE_SECTION_LEAD, ROLE_SECRETARIAT, ROLE_ADMIN)),
         "can_technical_signoff": is_authenticated and can_technical_signoff,

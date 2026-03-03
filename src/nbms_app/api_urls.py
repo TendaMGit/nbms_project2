@@ -226,7 +226,28 @@ urlpatterns = [
         api_spa.api_reporting_public_view,
         name="api_reporting_public_view",
     ),
+    path(
+        "narratives/<str:entity_type>/<path:entity_id>/draft",
+        api_spa.api_governed_narrative_draft,
+        name="api_governed_narrative_draft",
+    ),
+    path(
+        "narratives/<str:entity_type>/<path:entity_id>/submit",
+        api_spa.api_governed_narrative_submit,
+        name="api_governed_narrative_submit",
+    ),
+    path(
+        "narratives/<str:entity_type>/<path:entity_id>/versions",
+        api_spa.api_governed_narrative_versions,
+        name="api_governed_narrative_versions",
+    ),
+    path(
+        "narratives/<str:entity_type>/<path:entity_id>",
+        api_spa.api_governed_narrative,
+        name="api_governed_narrative",
+    ),
     path("discovery/search", api_spa.api_discovery_search, name="api_discovery_search"),
+    path("dimensions", api_spa.api_dimensions, name="api_dimensions"),
     path("indicators", api_spa.api_indicator_list, name="api_indicator_list"),
     path("indicators/<uuid:indicator_uuid>", api_spa.api_indicator_detail, name="api_indicator_detail"),
     path(
@@ -243,6 +264,26 @@ urlpatterns = [
         "indicators/<uuid:indicator_uuid>/map",
         api_spa.api_indicator_map,
         name="api_indicator_map",
+    ),
+    path(
+        "indicators/<uuid:indicator_uuid>/cube",
+        api_spa.api_indicator_cube,
+        name="api_indicator_cube",
+    ),
+    path(
+        "indicators/<uuid:indicator_uuid>/dimensions",
+        api_spa.api_indicator_dimensions,
+        name="api_indicator_dimensions",
+    ),
+    path(
+        "indicators/<uuid:indicator_uuid>/visual-profile",
+        api_spa.api_indicator_visual_profile,
+        name="api_indicator_visual_profile",
+    ),
+    path(
+        "indicators/<uuid:indicator_uuid>/audit",
+        api_spa.api_indicator_audit,
+        name="api_indicator_audit",
     ),
     path(
         "indicators/<uuid:indicator_uuid>/validation",

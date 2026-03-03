@@ -4743,6 +4743,97 @@ class ReportNarrativeBlockVersion(TimeStampedModel):
         return f"{self.block_id}:v{self.version}"
 
 
+class GovernedNarrativeEntityType(models.TextChoices):
+    DASHBOARD = "dashboard", "Dashboard"
+    FRAMEWORK = "framework", "Framework"
+    TARGET = "target", "Target"
+    INDICATOR = "indicator", "Indicator"
+
+
+class GovernedNarrative(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    entity_type = models.CharField(max_length=30, choices=GovernedNarrativeEntityType.choices)
+    entity_key = models.CharField(max_length=160)
+    entity_label = models.CharField(max_length=255, blank=True)
+    title = models.CharField(max_length=255, default="Narrative")
+    sections_json = models.JSONField(default=list, blank=True)
+    markdown_snapshot = models.TextField(blank=True)
+    html_snapshot = models.TextField(blank=True)
+    summary_text = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
+    provenance_url = models.URLField(blank=True)
+    current_version = models.PositiveIntegerField(default=0)
+    submitted_at = models.DateTimeField(blank=True, null=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_governed_narratives",
+        blank=True,
+        null=True,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="updated_governed_narratives",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["entity_type", "entity_key"], name="uq_governed_narrative_entity"),
+        ]
+        indexes = [
+            models.Index(fields=["entity_type", "entity_key"]),
+            models.Index(fields=["status", "updated_at"]),
+            models.Index(fields=["sensitivity"]),
+        ]
+        ordering = ["entity_type", "entity_key"]
+
+    def __str__(self):
+        return f"{self.entity_type}:{self.entity_key}"
+
+
+class GovernedNarrativeVersion(TimeStampedModel):
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    narrative = models.ForeignKey(
+        GovernedNarrative,
+        on_delete=models.CASCADE,
+        related_name="versions",
+    )
+    version = models.PositiveIntegerField()
+    sections_json = models.JSONField(default=list, blank=True)
+    markdown_snapshot = models.TextField(blank=True)
+    html_snapshot = models.TextField(blank=True)
+    summary_text = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=LifecycleStatus.choices, default=LifecycleStatus.DRAFT)
+    qa_status = models.CharField(max_length=20, choices=QaStatus.choices, default=QaStatus.DRAFT)
+    provenance_url = models.URLField(blank=True)
+    note = models.TextField(blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name="created_governed_narrative_versions",
+        blank=True,
+        null=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["narrative", "version"], name="uq_governed_narrative_version"),
+        ]
+        indexes = [
+            models.Index(fields=["narrative", "version"]),
+            models.Index(fields=["status", "created_at"]),
+        ]
+        ordering = ["narrative_id", "-version", "-id"]
+
+    def __str__(self):
+        return f"{self.narrative_id}:v{self.version}"
+
+
 class ReportSignoffRecord(TimeStampedModel):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     reporting_instance = models.ForeignKey(

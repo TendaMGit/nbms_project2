@@ -116,6 +116,25 @@ from nbms_app.services.authorization import (
 )
 from nbms_app.services.catalog_access import filter_monitoring_programmes_for_user
 from nbms_app.services.capabilities import user_capabilities
+from nbms_app.services.entity_narratives import (
+    can_edit_narrative_entity,
+    get_or_create_narrative,
+    resolve_narrative_entity,
+    save_narrative_draft,
+    serialize_narrative,
+    serialize_narrative_versions,
+    submit_narrative,
+)
+from nbms_app.services.indicator_analytics import (
+    build_indicator_audit_payload,
+    build_indicator_cube_payload,
+    build_indicator_map_payload,
+    build_indicator_series_payload,
+    build_indicator_visual_profile,
+    list_global_dimensions,
+    list_indicator_dimensions,
+    resolve_indicator_analytics_context,
+)
 from nbms_app.services.indicator_data import indicator_data_points_for_user, indicator_data_series_for_user
 from nbms_app.services.indicator_release_workflow import (
     approve_indicator_release,
@@ -459,6 +478,24 @@ def _parse_bool(value, default=False):
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in {"1", "true", "yes", "y", "public"}
+
+
+def _validation_error_payload(exc):
+    if hasattr(exc, "message_dict"):
+        return exc.message_dict
+    if hasattr(exc, "messages"):
+        messages = exc.messages
+        if len(messages) == 1:
+            return {"detail": messages[0]}
+        return {"detail": messages}
+    return {"detail": str(exc)}
+
+
+def _validation_error_status(exc):
+    text = json.dumps(_validation_error_payload(exc)).lower()
+    if "not found" in text:
+        return status.HTTP_404_NOT_FOUND
+    return status.HTTP_400_BAD_REQUEST
 
 
 def _can_manage_registry_workflows(user):
@@ -3550,6 +3587,75 @@ def api_reporting_public_view(request, instance_uuid):
     )
 
 
+def _resolve_governed_narrative_for_request(request, entity_type, entity_id):
+    context = resolve_narrative_entity(entity_type, entity_id, request.user)
+    narrative = get_or_create_narrative(context, user=request.user)
+    return context, narrative
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_governed_narrative(request, entity_type, entity_id):
+    try:
+        context, narrative = _resolve_governed_narrative_for_request(request, entity_type, entity_id)
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response({"narrative": serialize_narrative(narrative, can_edit=can_edit_narrative_entity(request.user, context))})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_governed_narrative_draft(request, entity_type, entity_id):
+    try:
+        context, narrative = _resolve_governed_narrative_for_request(request, entity_type, entity_id)
+        if not can_edit_narrative_entity(request.user, context):
+            raise PermissionDenied("Not allowed to edit this narrative.")
+        payload = request.data if isinstance(request.data, dict) else {}
+        narrative = save_narrative_draft(narrative, payload, request.user)
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response({"narrative": serialize_narrative(narrative, can_edit=True)})
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def api_governed_narrative_submit(request, entity_type, entity_id):
+    try:
+        context, narrative = _resolve_governed_narrative_for_request(request, entity_type, entity_id)
+        if not can_edit_narrative_entity(request.user, context):
+            raise PermissionDenied("Not allowed to submit this narrative.")
+        payload = request.data if isinstance(request.data, dict) else {}
+        narrative = submit_narrative(narrative, payload, request.user)
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response({"narrative": serialize_narrative(narrative, can_edit=True)})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_governed_narrative_versions(request, entity_type, entity_id):
+    try:
+        context, narrative = _resolve_governed_narrative_for_request(request, entity_type, entity_id)
+    except PermissionDenied as exc:
+        return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    narrative = narrative.__class__.objects.prefetch_related("versions__created_by").get(pk=narrative.pk)
+    return Response(
+        {
+            "entity_type": context.entity_type,
+            "entity_key": context.entity_key,
+            "versions": serialize_narrative_versions(narrative),
+        }
+    )
+
+
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def api_discovery_search(request):
@@ -4225,207 +4331,79 @@ def api_indicator_datasets(request, indicator_uuid):
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def api_indicator_series_summary(request, indicator_uuid):
-    queryset = _indicator_base_queryset(request.user)
-    indicator = get_object_or_404(queryset, uuid=indicator_uuid)
-    agg = (request.GET.get("agg") or "year").strip().lower()
-    geography = (request.GET.get("geography") or "").strip().lower()
-    year_filter = request.GET.get("year")
-
-    series_qs = indicator_data_series_for_user(request.user).filter(indicator=indicator)
-    points_qs = (
-        indicator_data_points_for_user(request.user)
-        .filter(series__in=series_qs)
-        .select_related("spatial_unit", "spatial_layer", "series")
-        .order_by("year", "id")
-    )
-    if year_filter:
-        try:
-            points_qs = points_qs.filter(year=int(year_filter))
-        except ValueError:
-            pass
-
-    grouped = defaultdict(list)
-    for point in points_qs:
-        if geography:
-            disagg_text = str(point.disaggregation or "").lower()
-            if geography not in disagg_text:
-                continue
-        if agg == "province":
-            disagg = point.disaggregation or {}
-            key = (
-                disagg.get("province_code")
-                or disagg.get("province")
-                or (point.spatial_unit.unit_code if point.spatial_unit_id else "")
-                or "UNKNOWN"
-            )
-        elif agg == "year":
-            key = point.year
-        else:
-            key = point.series_id
-        grouped[key].append(point)
-
-    results = []
-    for key in sorted(grouped, key=lambda item: str(item)):
-        points = grouped[key]
-        numeric_values = [float(item.value_numeric) for item in points if item.value_numeric is not None]
-        results.append(
-            {
-                "bucket": key,
-                "count": len(points),
-                "numeric_mean": (sum(numeric_values) / len(numeric_values)) if numeric_values else None,
-                "values": [
-                    {
-                        "year": item.year,
-                        "value_numeric": float(item.value_numeric) if item.value_numeric is not None else None,
-                        "value_text": item.value_text,
-                        "disaggregation": item.disaggregation,
-                        "spatial_resolution": item.spatial_resolution or item.series.spatial_resolution,
-                        "spatial_unit": (
-                            {
-                                "uuid": str(item.spatial_unit.uuid),
-                                "unit_code": item.spatial_unit.unit_code,
-                                "name": item.spatial_unit.name,
-                            }
-                            if item.spatial_unit_id
-                            else None
-                        ),
-                        "spatial_layer": (
-                            {
-                                "uuid": str(item.spatial_layer.uuid),
-                                "layer_code": item.spatial_layer.layer_code,
-                                "title": item.spatial_layer.title or item.spatial_layer.name,
-                            }
-                            if item.spatial_layer_id
-                            else None
-                        ),
-                    }
-                    for item in points
-                ],
-            }
-        )
-
-    return Response(
-        {
-            "indicator_uuid": str(indicator.uuid),
-            "aggregation": agg,
-            "results": results,
-        }
-    )
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    try:
+        context = resolve_indicator_analytics_context(indicator, request.user, request.GET, default_agg="year")
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response(build_indicator_series_payload(context))
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def api_indicator_map(request, indicator_uuid):
     indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
-    series_qs = indicator_data_series_for_user(request.user).filter(indicator=indicator).order_by("title", "uuid")
-    points_qs = (
-        indicator_data_points_for_user(request.user)
-        .filter(series__in=series_qs, value_numeric__isnull=False)
-        .select_related("spatial_unit", "spatial_layer", "programme_run")
-        .order_by("year", "id")
-    )
-    year_param = request.GET.get("year")
-    selected_year = None
-    if year_param:
-        try:
-            selected_year = int(year_param)
-        except ValueError:
-            selected_year = None
-    if selected_year is None:
-        latest_point = points_qs.order_by("-year", "-id").first()
-        selected_year = latest_point.year if latest_point else None
-    if selected_year is None:
-        return Response(
-            {
-                "indicator_uuid": str(indicator.uuid),
-                "indicator_code": indicator.code,
-                "year": None,
-                "type": "FeatureCollection",
-                "features": [],
-            }
+    try:
+        context = resolve_indicator_analytics_context(indicator, request.user, request.GET, default_agg="year")
+        bbox = parse_bbox(request.GET.get("bbox"))
+        limit = _parse_positive_int(request.GET.get("limit"), 5000, minimum=1, maximum=5000)
+        payload = build_indicator_map_payload(
+            context,
+            layer_code=(request.GET.get("layer_code") or "").strip(),
+            bbox=bbox,
+            limit=limit,
         )
-    points_qs = points_qs.filter(year=selected_year)
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response(payload)
 
-    value_by_province = defaultdict(list)
-    run_uuid_by_province = {}
-    for point in points_qs:
-        disagg = point.disaggregation or {}
-        province_code = (
-            disagg.get("province_code")
-            or disagg.get("province")
-            or (point.spatial_unit.unit_code if point.spatial_unit_id else "")
-            or "UNKNOWN"
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_indicator_cube(request, indicator_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    try:
+        context = resolve_indicator_analytics_context(indicator, request.user, request.GET, default_agg="year")
+        payload = build_indicator_cube_payload(
+            context,
+            group_by=_split_csv_param(request.GET.get("group_by")),
+            measure=request.GET.get("measure") or "value",
+            top_n=_parse_positive_int(request.GET.get("top_n"), 100, minimum=1, maximum=500),
         )
-        value_by_province[province_code].append(float(point.value_numeric))
-        if province_code not in run_uuid_by_province and point.programme_run_id:
-            run_uuid_by_province[province_code] = str(point.programme_run.uuid)
-    mean_by_province = {
-        code: (sum(values) / len(values)) if values else None
-        for code, values in value_by_province.items()
-    }
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response(payload)
 
-    requested_layer = (request.GET.get("layer_code") or "").strip()
-    requirement = (
-        IndicatorInputRequirement.objects.filter(indicator=indicator).prefetch_related("required_map_layers").first()
-    )
-    candidate_codes = []
-    if requested_layer:
-        candidate_codes.append(requested_layer)
-    if requirement:
-        candidate_codes.extend(
-            requirement.required_map_layers.filter(theme__iexact="Admin").order_by("layer_code", "id").values_list(
-                "layer_code", flat=True
-            )
-        )
-        candidate_codes.extend(
-            requirement.required_map_layers.order_by("layer_code", "id").values_list("layer_code", flat=True)
-        )
-    candidate_codes.extend(["ZA_PROVINCES_NE", "ZA_PROVINCES"])
-    candidate_codes = [item for item in dict.fromkeys(candidate_codes) if item]
 
-    layer = (
-        filter_spatial_layers_for_user(SpatialLayer.objects.filter(layer_code__in=candidate_codes), request.user)
-        .order_by("layer_code", "id")
-        .first()
-    )
-    if not layer:
-        return Response({"detail": "No accessible admin layer found for indicator map."}, status=status.HTTP_404_NOT_FOUND)
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_dimensions(request):
+    return Response({"dimensions": list_global_dimensions()})
 
-    bbox = parse_bbox(request.GET.get("bbox"))
-    limit = _parse_positive_int(request.GET.get("limit"), 5000, minimum=1, maximum=5000)
-    _, payload = spatial_feature_collection(
-        user=request.user,
-        layer_code=layer.layer_code,
-        bbox=bbox,
-        limit=limit,
-        offset=0,
-    )
-    for feature in payload.get("features", []):
-        props = feature.get("properties") or {}
-        province_code = (
-            props.get("province_code")
-            or props.get("province")
-            or props.get("feature_key")
-            or props.get("feature_id")
-            or "UNKNOWN"
-        )
-        value = mean_by_province.get(str(province_code))
-        props["indicator_code"] = indicator.code
-        props["indicator_year"] = selected_year
-        props["indicator_value"] = value
-        props["indicator_value_unit"] = "%"
-        props["pipeline_run_uuid"] = run_uuid_by_province.get(str(province_code))
-        feature["properties"] = props
 
-    return Response(
-        {
-            "indicator_uuid": str(indicator.uuid),
-            "indicator_code": indicator.code,
-            "year": selected_year,
-            "layer_code": layer.layer_code,
-            **payload,
-        }
-    )
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_indicator_dimensions(request, indicator_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    try:
+        context = resolve_indicator_analytics_context(indicator, request.user, request.GET, default_agg="year")
+    except ValidationError as exc:
+        return Response(_validation_error_payload(exc), status=_validation_error_status(exc))
+    return Response({"indicator_uuid": str(indicator.uuid), "dimensions": context.available_dimensions})
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_indicator_visual_profile(request, indicator_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    return Response(build_indicator_visual_profile(indicator, request.user))
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def api_indicator_audit(request, indicator_uuid):
+    indicator = get_object_or_404(_indicator_base_queryset(request.user), uuid=indicator_uuid)
+    return Response(build_indicator_audit_payload(indicator, request.user))
 
 
 @api_view(["GET"])
