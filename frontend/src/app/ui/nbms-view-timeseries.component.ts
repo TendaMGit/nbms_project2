@@ -142,7 +142,11 @@ type TimeseriesVm = {
               {{ legend.metric | titlecase }} {{ legend.min ?? 'n/a' }} to {{ legend.max ?? 'n/a' }}
             </span>
           </header>
-          <app-indicator-map-panel [featureCollection]="vm.mapPayload"></app-indicator-map-panel>
+          <app-indicator-map-panel
+            [featureCollection]="vm.mapPayload"
+            [selectedFeatureCode]="state?.geo_code || ''"
+            (featureSelect)="onFeatureSelect($event.code)"
+          ></app-indicator-map-panel>
         </article>
 
         <nbms-data-table
@@ -433,6 +437,17 @@ export class NbmsViewTimeseriesComponent {
       agg,
       geo_type: agg as IndicatorViewRouteState['geo_type'],
       geo_code: current?.geo_code === code ? '' : code,
+    });
+  }
+
+  onFeatureSelect(code: string): void {
+    const joinDimension =
+      this.currentInput.visualProfile?.mapLayers[0]?.joinKey ||
+      this.currentInput.state?.agg ||
+      'province';
+    this.stateChange.emit({
+      geo_type: joinDimension as IndicatorViewRouteState['geo_type'],
+      geo_code: this.currentInput.state?.geo_code === code ? '' : code,
     });
   }
 

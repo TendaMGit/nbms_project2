@@ -3,9 +3,11 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild
 } from '@angular/core';
@@ -50,7 +52,9 @@ import { IndicatorMapResponse } from '../models/api.models';
 })
 export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() featureCollection: IndicatorMapResponse | null = null;
+  @Input() selectedFeatureCode = '';
   @ViewChild('mapHost', { static: true }) mapHost!: ElementRef<HTMLDivElement>;
+  @Output() featureSelect = new EventEmitter<{ code: string; label: string }>();
 
   private map?: maplibregl.Map;
   private popup?: maplibregl.Popup;
@@ -82,7 +86,10 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
           return;
         }
         const label = props['name'] || props['province_code'] || props['feature_key'] || 'Feature';
-        const value = props['indicator_value'] || 'n/a';
+        const value = props['indicator_metric_value'] || props['indicator_value'] || 'n/a';
+        const code = String(
+          props['province_code'] || props['municipality_code'] || props['feature_key'] || props['feature_id'] || ''
+        ).trim();
         if (this.popup) {
           this.popup.remove();
         }
@@ -90,12 +97,15 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
           .setLngLat(event.lngLat)
           .setHTML(`<strong>${label}</strong><br/>Indicator value: ${value}`)
           .addTo(this.map as maplibregl.Map);
+        if (code) {
+          this.featureSelect.emit({ code, label: String(label) });
+        }
       });
     });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['featureCollection']) {
+    if (changes['featureCollection'] || changes['selectedFeatureCode']) {
       this.applyGeoJson();
     }
   }
@@ -122,7 +132,7 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
           'fill-color': [
             'interpolate',
             ['linear'],
-            ['coalesce', ['to-number', ['get', 'indicator_value']], 0],
+            ['coalesce', ['to-number', ['get', 'indicator_metric_value']], 0],
             0,
             this.readToken('--nbms-color-primary-100'),
             10,
@@ -143,7 +153,7 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
         source: sourceId,
         paint: {
           'line-color': this.readToken('--nbms-color-primary-900'),
-          'line-width': 1
+          'line-width': ['case', ['boolean', ['get', 'indicator_selected'], false], 2.4, 1]
         }
       });
     } else {
@@ -155,6 +165,7 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
     if (!features.length) {
       return;
     }
+    this.syncFeatureSelection();
     const bounds = new maplibregl.LngLatBounds();
     for (const feature of features) {
       const coordinates = (feature.geometry as any)?.coordinates;
@@ -163,6 +174,31 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
     if (!bounds.isEmpty()) {
       this.map.fitBounds(bounds, { padding: 28, duration: 0, maxZoom: 7.5 });
     }
+  }
+
+  private syncFeatureSelection(): void {
+    const source = this.map?.getSource('indicator-geojson') as maplibregl.GeoJSONSource | undefined;
+    if (!source || !this.featureCollection) {
+      return;
+    }
+    const normalizedSelected = this.selectedFeatureCode.trim().toLowerCase();
+    const payload: IndicatorMapResponse = {
+      ...this.featureCollection,
+      features: this.featureCollection.features.map((feature) => {
+        const properties = { ...(feature.properties || {}) };
+        const code = String(
+          properties['province_code'] || properties['municipality_code'] || properties['feature_key'] || properties['feature_id'] || ''
+        )
+          .trim()
+          .toLowerCase();
+        properties['indicator_selected'] = Boolean(normalizedSelected) && code === normalizedSelected;
+        return {
+          ...feature,
+          properties,
+        };
+      }),
+    };
+    source.setData(payload as GeoJSON.FeatureCollection);
   }
 
   private extendBounds(bounds: maplibregl.LngLatBounds, node: any): void {

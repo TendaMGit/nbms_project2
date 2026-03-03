@@ -2,13 +2,15 @@ import { NgFor, NgIf } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   EventEmitter,
   HostListener,
   Input,
   Output,
   inject
 } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive } from '@angular/router';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -396,6 +398,8 @@ import { UserPreferencesService } from '../services/user-preferences.service';
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class NbmsAppShellComponent {
+  private readonly navPreferenceKey = 'nbms.shell.navOpen';
+  private readonly destroyRef = inject(DestroyRef);
   private readonly router = inject(Router);
   private readonly userPreferences = inject(UserPreferencesService);
 
@@ -425,14 +429,21 @@ export class NbmsAppShellComponent {
 
   constructor() {
     this.isMobile = this.detectMobile();
-    this.navOpen = !this.isMobile;
+    this.navOpen = this.readNavPreference();
+    this.router.events
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        if (event instanceof NavigationEnd && this.isMobile) {
+          this.navOpen = false;
+        }
+      });
   }
 
   @HostListener('window:resize')
   onResize(): void {
     this.isMobile = this.detectMobile();
     if (!this.isMobile) {
-      this.navOpen = true;
+      this.navOpen = this.readNavPreference();
     }
   }
 
@@ -450,6 +461,7 @@ export class NbmsAppShellComponent {
 
   toggleNav(): void {
     this.navOpen = !this.navOpen;
+    this.writeNavPreference();
   }
 
   onNavClick(): void {
@@ -495,5 +507,23 @@ export class NbmsAppShellComponent {
       return false;
     }
     return window.matchMedia('(max-width: 960px)').matches;
+  }
+
+  private readNavPreference(): boolean {
+    if (typeof localStorage === 'undefined') {
+      return !this.isMobile;
+    }
+    const stored = localStorage.getItem(this.navPreferenceKey);
+    if (stored === null) {
+      return !this.isMobile;
+    }
+    return stored === '1';
+  }
+
+  private writeNavPreference(): void {
+    if (typeof localStorage === 'undefined') {
+      return;
+    }
+    localStorage.setItem(this.navPreferenceKey, this.navOpen ? '1' : '0');
   }
 }
