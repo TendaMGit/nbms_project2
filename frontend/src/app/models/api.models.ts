@@ -317,15 +317,35 @@ export interface IndicatorDatasetsResponse {
 export interface IndicatorSeriesResponse {
   indicator_uuid: string;
   aggregation: string;
+  meta?: {
+    release_used?: Record<string, unknown>;
+    method_used?: Record<string, unknown>;
+    report_cycle?: Record<string, unknown> | null;
+    time_range?: { start_year: number | null; end_year: number | null; selected_year: number | null; available_years: number[] };
+    agg?: string;
+    geo_filters?: { geo_type: string; geo_code: string | null };
+    units?: string[];
+    dimensions?: IndicatorDimension[];
+    selection_filters?: {
+      dimensions: Record<string, string>;
+      taxonomy_level: string | null;
+      taxonomy_path: string[];
+    };
+  };
   results: Array<{
     bucket: number | string;
+    label?: string;
     count: number;
     numeric_mean: number | null;
+    numeric_sum?: number | null;
     values: Array<{
+      uuid?: string;
       year: number;
       value_numeric: number | null;
       value_text: string | null;
+      uncertainty?: string | null;
       disaggregation: Record<string, unknown>;
+      dataset_release?: { uuid: string; version: string; status: string } | null;
       spatial_resolution?: string;
       spatial_unit?: { uuid: string; unit_code: string; name: string } | null;
       spatial_layer?: { uuid: string; layer_code: string; title: string } | null;
@@ -362,6 +382,152 @@ export interface IndicatorMapResponse extends FeatureCollectionPayload {
   indicator_code: string;
   year: number | null;
   layer_code?: string;
+  meta?: {
+    release_used?: Record<string, unknown>;
+    method_used?: Record<string, unknown>;
+    report_cycle?: Record<string, unknown> | null;
+    time_range?: { start_year: number | null; end_year: number | null; selected_year: number | null; available_years: number[] };
+    agg?: string;
+    geo_filters?: { geo_type: string; geo_code: string | null };
+    units?: string[];
+    available_metrics?: string[];
+    selected_metric?: string;
+    legend?: { metric: string; min: number | null; max: number | null };
+    join_dimension?: string;
+    compare_year?: number | null;
+  };
+}
+
+export interface IndicatorDimension {
+  id: string;
+  label: string;
+  type: 'time' | 'geo' | 'hierarchy' | 'categorical';
+  allowed_levels: string[];
+  join_key: string;
+  sort_order: number;
+}
+
+export interface IndicatorCubeResponse {
+  indicator_uuid: string;
+  rows: Array<Record<string, unknown> & { value: number | null; count: number }>;
+  meta: {
+    dimensions: Array<{ id: string; label: string }>;
+    measure: string;
+    applied_filters: {
+      report_cycle: string | null;
+      release: string | null;
+      method: string | null;
+      geo_type: string;
+      geo_code: string | null;
+      start_year: number | null;
+      end_year: number | null;
+      dimension_filters?: Record<string, string>;
+      taxonomy_level?: string | null;
+      taxonomy_path?: string[];
+    };
+    provenance_keys: {
+      dataset_release_uuids: string[];
+      programme_run_uuids: string[];
+      source_urls: string[];
+    };
+  } & NonNullable<IndicatorMapResponse['meta']>;
+}
+
+export interface IndicatorDimensionsResponse {
+  indicator_uuid: string;
+  dimensions: IndicatorDimension[];
+}
+
+export interface GlobalDimensionsResponse {
+  dimensions: IndicatorDimension[];
+}
+
+export interface IndicatorVisualProfile {
+  indicator_uuid: string;
+  defaultView: string;
+  availableViews: string[];
+  supportedDimensions: string[];
+  hierarchyDefinitions: Array<{
+    id: string;
+    label: string;
+    levels: Array<{ id: string; label: string }>;
+  }>;
+  defaultGroupBy: string;
+  defaultAgg: string;
+  mapLayers: Array<{
+    layerCode: string;
+    title: string;
+    joinKey: string;
+    availableMetrics: string[];
+  }>;
+  meta: NonNullable<IndicatorMapResponse['meta']>;
+}
+
+export interface IndicatorAuditResponse {
+  indicator_uuid: string;
+  events: Array<{
+    event_id: number;
+    timestamp: string | null;
+    actor: string | null;
+    action: string;
+    event_type: string;
+    object_type: string;
+    object_uuid: string | null;
+    from_state: string | null;
+    to_state: string | null;
+    notes: string | null;
+    metadata: Record<string, unknown>;
+  }>;
+}
+
+export interface GovernedNarrativeSection {
+  id: string;
+  title: string;
+  body: string;
+  html: string;
+}
+
+export interface GovernedNarrativeRecord {
+  uuid: string;
+  entity_type: string;
+  entity_key: string;
+  entity_label: string;
+  title: string;
+  status: string;
+  qa_status: string;
+  sensitivity: string;
+  provenance_url: string;
+  current_version: number;
+  submitted_at: string | null;
+  updated_at: string | null;
+  updated_by: string | null;
+  summary_text: string;
+  sections: GovernedNarrativeSection[];
+  available_block_types: Array<{ id: string; title: string; body: string }>;
+  can_edit: boolean;
+}
+
+export interface GovernedNarrativeResponse {
+  narrative: GovernedNarrativeRecord;
+}
+
+export interface GovernedNarrativeVersionsResponse {
+  entity_type: string;
+  entity_key: string;
+  versions: Array<{
+    uuid: string;
+    version: number;
+    status: string;
+    qa_status: string;
+    provenance_url: string;
+    summary_text: string;
+    markdown_snapshot: string;
+    html_snapshot: string;
+    sections: Array<{ id: string; title: string; body: string }>;
+    note: string;
+    created_at: string | null;
+    created_by: string | null;
+  }>;
 }
 
 export interface FeatureCollectionPayload {
