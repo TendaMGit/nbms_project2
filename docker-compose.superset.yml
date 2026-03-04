@@ -1,0 +1,142 @@
+services:
+  superset_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: ${SUPERSET_META_DB_PASSWORD}
+    volumes:
+      - superset_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    profiles: ["superset"]
+
+  superset_redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    profiles: ["superset"]
+
+  superset:
+    image: apache/superset:6.0.0-dev
+    environment: &superset_env
+      SUPERSET_ENV: production
+      SUPERSET_LOAD_EXAMPLES: "no"
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY}
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_META_DB_PASSWORD}@superset_db:5432/superset
+      SUPERSET__SQLALCHEMY_DATABASE_URI: postgresql+psycopg2://superset:${SUPERSET_META_DB_PASSWORD}@superset_db:5432/superset
+      DATABASE_DIALECT: postgresql
+      REDIS_HOST: superset_redis
+      REDIS_PORT: "6379"
+      CELERY_BROKER_URL: redis://superset_redis:6379/0
+      CELERY_RESULT_BACKEND: redis://superset_redis:6379/1
+      CACHE_REDIS_URL: redis://superset_redis:6379/2
+      ENABLE_PROXY_FIX: "true"
+      SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD}
+      SUPERSET_ADMIN_EMAIL: ${SUPERSET_ADMIN_EMAIL}
+      SUPERSET_ADMIN_FIRSTNAME: ${SUPERSET_ADMIN_FIRSTNAME}
+      SUPERSET_ADMIN_LASTNAME: ${SUPERSET_ADMIN_LASTNAME}
+      NBMS_DB_NAME: ${NBMS_DB_NAME}
+      SUPERSET_NBMS_RO_PASSWORD: ${SUPERSET_NBMS_RO_PASSWORD}
+    depends_on:
+      superset_db:
+        condition: service_healthy
+      superset_redis:
+        condition: service_healthy
+    ports:
+      - ${SUPERSET_PORT:-8088}:8088
+    volumes:
+      - superset_home:/app/superset_home
+      - ./docker/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./docker/superset/init.sh:/app/docker/custom-init.sh:ro
+      - ./docker/superset/bootstrap_security.py:/app/docker/bootstrap_security.py:ro
+      - ./docker/superset/bootstrap_nbms_db.py:/app/docker/bootstrap_nbms_db.py:ro
+    command:
+      - /app/docker/docker-bootstrap.sh
+      - app-gunicorn
+    restart: unless-stopped
+    profiles: ["superset"]
+
+  superset_worker:
+    image: apache/superset:6.0.0-dev
+    environment: *superset_env
+    depends_on:
+      superset_db:
+        condition: service_healthy
+      superset_redis:
+        condition: service_healthy
+    volumes:
+      - superset_home:/app/superset_home
+      - ./docker/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./docker/superset/bootstrap_security.py:/app/docker/bootstrap_security.py:ro
+      - ./docker/superset/bootstrap_nbms_db.py:/app/docker/bootstrap_nbms_db.py:ro
+    command:
+      - /app/docker/docker-bootstrap.sh
+      - worker
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+    profiles: ["superset"]
+
+  superset_beat:
+    image: apache/superset:6.0.0-dev
+    environment: *superset_env
+    depends_on:
+      superset_db:
+        condition: service_healthy
+      superset_redis:
+        condition: service_healthy
+    volumes:
+      - superset_home:/app/superset_home
+      - ./docker/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./docker/superset/bootstrap_security.py:/app/docker/bootstrap_security.py:ro
+      - ./docker/superset/bootstrap_nbms_db.py:/app/docker/bootstrap_nbms_db.py:ro
+    command:
+      - /app/docker/docker-bootstrap.sh
+      - beat
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+    profiles: ["superset"]
+
+  superset_init:
+    image: apache/superset:6.0.0-dev
+    environment: *superset_env
+    depends_on:
+      superset_db:
+        condition: service_healthy
+      superset_redis:
+        condition: service_healthy
+    volumes:
+      - superset_home:/app/superset_home
+      - ./docker/superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./docker/superset/init.sh:/app/docker/custom-init.sh:ro
+      - ./docker/superset/bootstrap_security.py:/app/docker/bootstrap_security.py:ro
+      - ./docker/superset/bootstrap_nbms_db.py:/app/docker/bootstrap_nbms_db.py:ro
+    command:
+      - /bin/bash
+      - /app/docker/custom-init.sh
+    profiles: ["superset"]
+
+volumes:
+  superset_db_data:
+  superset_home:

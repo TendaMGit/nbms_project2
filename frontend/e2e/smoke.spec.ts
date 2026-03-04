@@ -42,8 +42,13 @@ function loadSessionMap() {
 async function navigateWithRetry(page: Page, targetPath: string, pattern: RegExp, retries = 5) {
   for (let attempt = 0; attempt < retries; attempt += 1) {
     try {
-      await page.goto(targetPath);
+      const response = await page.goto(targetPath);
       await page.waitForLoadState('networkidle');
+      await waitForRateLimitRecovery(page, true);
+      if (response?.status() === 429 || (await isThrottlePage(page))) {
+        await page.waitForTimeout((attempt + 1) * 1000);
+        continue;
+      }
       if (pattern.test(page.url())) {
         return;
       }
@@ -94,10 +99,35 @@ async function waitForThrottleWindow(page: Page, reload = false) {
   }
 }
 
+async function isThrottlePage(page: Page) {
+  const title = await page.title().catch(() => '');
+  if (/Too Many Requests/i.test(title)) {
+    return true;
+  }
+  const bodyText = await page.locator('body').textContent().catch(() => '');
+  return /Too Many Requests|Request was throttled\./i.test(bodyText || '');
+}
+
+async function waitForRateLimitRecovery(page: Page, reload = false) {
+  await waitForThrottleWindow(page, reload);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (!(await isThrottlePage(page))) {
+      return;
+    }
+    await page.waitForTimeout((attempt + 1) * 2000);
+    if (reload) {
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+      await waitForThrottleWindow(page, false);
+    }
+  }
+}
+
 async function loginByForm(page: Page, username: string, password: string) {
   await page.context().clearCookies();
   await page.goto('/account/login/?next=/dashboard');
   await page.waitForLoadState('networkidle');
+  await waitForRateLimitRecovery(page, true);
   const usernameField = page
     .locator('input[name="auth-username"], input[name="username"], input[autocomplete="username"]')
     .first();
@@ -129,6 +159,7 @@ async function loginAsSeededUser(page: Page, username: string, requiredCapabilit
     }
     await page.goto('/dashboard');
     await page.waitForLoadState('networkidle');
+    await waitForRateLimitRecovery(page, true);
     const authState = await page.evaluate(async () => {
       const response = await fetch('/api/auth/me', { credentials: 'include' });
       if (!response.ok) {
@@ -418,8 +449,8 @@ test('pilot RLE x EPL matrix indicator supports click-to-filter', async ({ page 
 
   await navigateWithRetry(
     page,
-    `/indicators/${indicatorUuid}?tab=indicator&report_cycle=NR7-2022`,
-    new RegExp(`indicators/${indicatorUuid}`)
+    `/indicators/${indicatorUuid}?tab=indicator&view=matrix&report_cycle=NR7-2022`,
+    new RegExp(`indicators/${indicatorUuid}.*view=matrix`)
   );
   await waitForThrottleWindow(page, true);
   await expect
