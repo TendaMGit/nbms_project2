@@ -1,0 +1,26 @@
+services:
+  postgis:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  backend:
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.test
+      ENVIRONMENT: test
+      DJANGO_DEBUG: "false"
+      USE_REDIS: "0"
+      ENABLE_GIS: "true"
+    command:
+      - sh
+      - -c
+      - tail -f /dev/null
+    healthcheck:
+      disable: true
+    ports: !reset []
+    volumes:
+      - ./:/app

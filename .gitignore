@@ -14,6 +14,7 @@ celery_worker.err
 .pytest_tmp/
 .pytest_tmp_local/
 .tmp_ps/
+.tmp_pilots/
 
 # Virtual environments
 .venv/

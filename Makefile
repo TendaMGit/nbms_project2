@@ -1,6 +1,8 @@
 PYTHON ?= python
+DOCKER_COMPOSE ?= docker compose
+TEST_COMPOSE_ARGS ?= --profile minimal -f compose.yml -f docker-compose.test.yml
 
-.PHONY: check test deploy-check docs-check
+.PHONY: check test deploy-check docs-check test-backend test-backend-up test-backend-down
 
 check:
 	$(PYTHON) scripts/check_blueprint_language.py
@@ -8,6 +10,16 @@ check:
 
 test:
 	PYTHONPATH=src pytest -q
+
+test-backend-up:
+	$(DOCKER_COMPOSE) $(TEST_COMPOSE_ARGS) up -d --build postgis redis minio minio-init backend
+
+test-backend:
+	$(DOCKER_COMPOSE) $(TEST_COMPOSE_ARGS) up -d --build postgis redis minio minio-init backend
+	$(DOCKER_COMPOSE) $(TEST_COMPOSE_ARGS) exec -T backend pytest -q
+
+test-backend-down:
+	$(DOCKER_COMPOSE) $(TEST_COMPOSE_ARGS) down --remove-orphans
 
 docs-check:
 	$(PYTHON) scripts/check_blueprint_language.py
