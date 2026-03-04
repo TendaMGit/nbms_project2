@@ -75,7 +75,11 @@ type TaxonomyVm = {
           <div class="toolbar">
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Group by level</mat-label>
-              <mat-select [value]="vm.activeLevel" (valueChange)="changeLevel($event)">
+              <mat-select
+                aria-label="Group by level"
+                [value]="vm.activeLevel"
+                (valueChange)="changeLevel($event)"
+              >
                 <mat-option *ngFor="let level of vm.levels; trackBy: trackByValue" [value]="level.id">
                   {{ level.label }}
                 </mat-option>
@@ -84,7 +88,7 @@ type TaxonomyVm = {
 
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Top N</mat-label>
-              <mat-select [value]="state?.top_n || 20" (valueChange)="stateChange.emit({ top_n: $event })">
+              <mat-select aria-label="Top N" [value]="state?.top_n || 20" (valueChange)="stateChange.emit({ top_n: $event })">
                 <mat-option [value]="20">20</mat-option>
                 <mat-option [value]="50">50</mat-option>
                 <mat-option [value]="100">100</mat-option>
@@ -93,7 +97,7 @@ type TaxonomyVm = {
 
             <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Search within results</mat-label>
-              <input matInput [formControl]="searchControl" />
+              <input matInput aria-label="Search within results" [formControl]="searchControl" />
             </mat-form-field>
           </div>
 

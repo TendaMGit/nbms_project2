@@ -77,6 +77,21 @@ async function isLocatorVisible(locator: Locator) {
   }
 }
 
+async function waitForThrottleWindow(page: Page, reload = false) {
+  const banner = page.getByText(/Request was throttled\./i).first();
+  const visible = await banner.isVisible().catch(() => false);
+  if (!visible) {
+    return;
+  }
+  const message = (await banner.textContent()) || '';
+  const seconds = Number(/(\d+)/.exec(message)?.[1] || '2');
+  await page.waitForTimeout((Math.min(seconds, 10) + 1) * 1000);
+  if (reload) {
+    await page.reload();
+    await page.waitForLoadState('networkidle');
+  }
+}
+
 async function loginByForm(page: Page, username: string, password: string) {
   await page.context().clearCookies();
   await page.goto('/account/login/?next=/dashboard');
@@ -338,69 +353,100 @@ test('downloads landing page shows citation for created record', async ({ page }
   await expect(page.getByRole('button', { name: 'Copy citation' })).toBeVisible();
 });
 
-async function resolveSeedPackIndicators(page: Page) {
-  const response = await page.request.get(`${BASE_URL}/api/indicators?page=1&page_size=100`);
-  if (!response.ok()) {
-    return {
-      distribution: null,
-      taxonomy: null,
-      matrix: null,
-    };
-  }
-  const payload = await response.json();
-  const indicators = payload?.results || [];
-  const byCode = new Map(indicators.map((indicator: { code: string; uuid: string }) => [indicator.code, indicator.uuid]));
-  return {
-    distribution: byCode.get('NBMS-GBF-ECOSYSTEM-THREAT') || null,
-    taxonomy: byCode.get('NBMS-GBF-SPECIES-THREAT') || null,
-    matrix: byCode.get('NBMS-GBF-ECOSYSTEM-PROTECTION') || byCode.get('NBMS-GBF-ECOSYSTEM-THREAT') || null,
-  };
+async function resolveIndicatorUuid(page: Page, code: string): Promise<string> {
+  return page.evaluate(async (indicatorCode) => {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+      const response = await fetch('/api/indicators?page=1&page_size=250', { credentials: 'include' });
+      if (response.status === 429) {
+        await new Promise((resolve) => window.setTimeout(resolve, 1500 * (attempt + 1)));
+        continue;
+      }
+      if (!response.ok) {
+        throw new Error(`indicator lookup failed: ${response.status}`);
+      }
+      const payload = await response.json();
+      const match = (payload?.results || []).find(
+        (indicator: { code: string; uuid: string }) => indicator.code === indicatorCode
+      );
+      if (match?.uuid) {
+        return match.uuid;
+      }
+      break;
+    }
+    throw new Error(`Indicator ${indicatorCode} was not available in the running seed catalogue.`);
+  }, code);
 }
 
-test('distribution pack indicator defaults to distribution view', async ({ page }) => {
-  const examples = await resolveSeedPackIndicators(page);
-  if (!examples.distribution) {
-    test.skip();
-  }
-  const href = `/indicators/${examples.distribution}`;
-  await page.goto(`${href}?tab=indicator`);
-  await page.waitForLoadState('networkidle');
+test('pilot ecosystem RLE indicator defaults to distribution view and filters the slice', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const indicatorUuid = await resolveIndicatorUuid(page, 'NBA_ECO_RLE_TERR');
+
+  await navigateWithRetry(page, `/indicators/${indicatorUuid}?tab=indicator`, new RegExp(`indicators/${indicatorUuid}`));
   await expect(page).toHaveURL(/view=distribution/);
-  await expect(page.getByLabel('Report cycle').first()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'QA, sensitivity, provenance' })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'distribution', exact: true })).toHaveAttribute('aria-selected', 'true');
-  const distributionResolved =
-    (await isLocatorVisible(page.getByLabel('Category dimension'))) ||
-    (await isLocatorVisible(page.getByText('Category slice'))) ||
-    (await isLocatorVisible(page.getByText(/Distribution/i)));
-  expect(distributionResolved).toBeTruthy();
+  await expect(page.getByLabel('Category dimension')).toBeVisible();
+  await expect(page.locator('nbms-data-table .row').first()).toBeVisible();
+  await expect(page.locator('nbms-data-table .table-empty')).toHaveCount(0);
+  await page.locator('nbms-view-distribution .table-link').first().click();
+  await expect(page).toHaveURL(/dim_value=/);
 });
 
-test('taxonomy pack indicator supports level switching', async ({ page }) => {
-  const examples = await resolveSeedPackIndicators(page);
-  if (!examples.taxonomy) {
-    test.skip();
-  }
-  const href = `/indicators/${examples.taxonomy}`;
-  await navigateWithRetry(page, `${href}?tab=indicator&view=taxonomy`, /indicators\/.+view=taxonomy/);
-  await expect(page.getByRole('heading', { name: /family drilldown/i })).toBeVisible();
-  await navigateWithRetry(page, `${href}?tab=indicator&view=taxonomy&tax_level=genus`, /tax_level=genus/);
-  await expect(page.getByRole('heading', { name: /genus drilldown/i })).toBeVisible();
+test('pilot plant SPI taxonomy pack supports level switching', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const indicatorUuid = await resolveIndicatorUuid(page, 'NBA_PLANT_SPI');
+
+  await navigateWithRetry(
+    page,
+    `/indicators/${indicatorUuid}?tab=indicator&view=taxonomy`,
+    new RegExp(`indicators/${indicatorUuid}.*view=taxonomy`)
+  );
+  await waitForThrottleWindow(page);
+  await expect(page.getByLabel('Group by level')).toBeVisible();
+
+  await page.getByLabel('Group by level').click();
+  await page.getByRole('option', { name: 'Genus' }).click();
+  await expect(page).toHaveURL(/tax_level=genus/);
+  await waitForThrottleWindow(page);
+  await expect(page.getByLabel('Group by level')).toContainText('Genus');
 });
 
-test('matrix pack indicator supports click-to-filter', async ({ page }) => {
-  const examples = await resolveSeedPackIndicators(page);
-  if (!examples.matrix) {
-    test.skip();
-  }
-  const href = `/indicators/${examples.matrix}`;
-  await navigateWithRetry(page, `${href}?tab=indicator&view=matrix`, /indicators\/.+view=matrix/);
+test('pilot RLE x EPL matrix indicator supports click-to-filter', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const indicatorUuid = await resolveIndicatorUuid(page, 'NBA_ECO_RLE_EPL_TERR_MATRIX');
+
+  await navigateWithRetry(
+    page,
+    `/indicators/${indicatorUuid}?tab=indicator&report_cycle=NR7-2022`,
+    new RegExp(`indicators/${indicatorUuid}`)
+  );
+  await waitForThrottleWindow(page, true);
   const firstCell = page.locator('.matrix .cell').first();
   await expect(firstCell).toBeVisible();
   await firstCell.click();
   await expect(page).toHaveURL(/compare=/);
   await expect(page).toHaveURL(/dim_value=/);
   await expect(page).toHaveURL(/right=/);
+});
+
+test('pilot TEPI indicator shows a multi-year timeseries', async ({ page }) => {
+  await loginAsSeededUser(page, ADMIN_USERNAME, 'can_view_dashboard');
+  const indicatorUuid = await resolveIndicatorUuid(page, 'NBA_TEPI_TERR');
+
+  await navigateWithRetry(
+    page,
+    `/indicators/${indicatorUuid}?tab=indicator`,
+    new RegExp(`indicators/${indicatorUuid}`)
+  );
+  await waitForThrottleWindow(page, true);
+  await expect(page).toHaveURL(/view=timeseries/);
+  await expect(page.getByRole('tab', { name: 'timeseries', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('canvas').first()).toBeVisible();
+  expect(await page.locator('nbms-data-table .row').count()).toBeGreaterThan(1);
+
+  await page.getByRole('tab', { name: 'distribution', exact: true }).click();
+  await waitForThrottleWindow(page);
+  await expect(page).toHaveURL(/view=distribution/);
+  await expect(page.getByLabel('Category dimension')).toBeVisible();
 });
 
 async function openResponsiveSurface(
