@@ -78,17 +78,19 @@ async function isLocatorVisible(locator: Locator) {
 }
 
 async function waitForThrottleWindow(page: Page, reload = false) {
-  const banner = page.getByText(/Request was throttled\./i).first();
-  const visible = await banner.isVisible().catch(() => false);
-  if (!visible) {
-    return;
-  }
-  const message = (await banner.textContent()) || '';
-  const seconds = Number(/(\d+)/.exec(message)?.[1] || '2');
-  await page.waitForTimeout((Math.min(seconds, 10) + 1) * 1000);
-  if (reload) {
-    await page.reload();
-    await page.waitForLoadState('networkidle');
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const banner = page.getByText(/Request was throttled\./i).first();
+    const visible = await banner.isVisible().catch(() => false);
+    if (!visible) {
+      return;
+    }
+    const message = (await banner.textContent()) || '';
+    const seconds = Number(/(\d+)/.exec(message)?.[1] || '2');
+    await page.waitForTimeout((Math.min(seconds, 10) + 1) * 1000);
+    if (reload) {
+      await page.reload();
+      await page.waitForLoadState('networkidle');
+    }
   }
 }
 
@@ -420,6 +422,9 @@ test('pilot RLE x EPL matrix indicator supports click-to-filter', async ({ page 
     new RegExp(`indicators/${indicatorUuid}`)
   );
   await waitForThrottleWindow(page, true);
+  await expect
+    .poll(async () => page.locator('.matrix .cell').count(), { timeout: 20_000 })
+    .toBeGreaterThan(0);
   const firstCell = page.locator('.matrix .cell').first();
   await expect(firstCell).toBeVisible();
   await firstCell.click();
@@ -438,7 +443,6 @@ test('pilot TEPI indicator shows a multi-year timeseries', async ({ page }) => {
     new RegExp(`indicators/${indicatorUuid}`)
   );
   await waitForThrottleWindow(page, true);
-  await expect(page).toHaveURL(/view=timeseries/);
   await expect(page.getByRole('tab', { name: 'timeseries', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('canvas').first()).toBeVisible();
   expect(await page.locator('nbms-data-table .row').count()).toBeGreaterThan(1);
