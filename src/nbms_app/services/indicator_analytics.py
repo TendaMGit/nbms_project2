@@ -49,7 +49,10 @@ _GEO_DIMENSIONS = {
 
 _CATEGORY_DIMENSIONS = {
     "threat_category": [("threat_category", "threat_category_label"), ("category", "category_label")],
+    "rle_category": [("rle_category", "rle_category_label"), ("threat_category", "threat_category_label")],
     "protection_category": [("protection_category", "protection_category_label")],
+    "epl_category": [("epl_category", "epl_category_label"), ("protection_category", "protection_category_label")],
+    "spi_category": [("spi_category", "spi_category_label")],
     "category": [("category", "category_label"), ("status", "status_label")],
 }
 
@@ -63,7 +66,10 @@ _DIMENSION_LABELS = {
     "ecoregion": "Ecoregion",
     "realm": "Realm",
     "threat_category": "Threat category",
+    "rle_category": "RLE category",
     "protection_category": "Protection category",
+    "epl_category": "EPL category",
+    "spi_category": "SPI category",
     "category": "Category",
     "taxonomy_kingdom": "Kingdom",
     "taxonomy_phylum": "Phylum",
@@ -471,8 +477,9 @@ def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_cod
         prior_year = prior_years[-1]
     prior_points = [point for point in context.points if prior_year is not None and point.year == prior_year]
 
-    current_metrics = _map_metrics_by_bucket(current_points, context.geo_type)
-    prior_metrics = _map_metrics_by_bucket(prior_points, context.geo_type)
+    join_dimension = layer_spec.get("dimensionId") or _map_join_dimension(context, layer, layer_spec)
+    current_metrics = _map_metrics_by_bucket(current_points, join_dimension)
+    prior_metrics = _map_metrics_by_bucket(prior_points, join_dimension)
 
     _, payload = spatial_feature_collection(
         user=context.user,
@@ -482,7 +489,6 @@ def build_indicator_map_payload(context: IndicatorAnalyticsContext, *, layer_cod
         offset=0,
     )
 
-    join_dimension = layer_spec.get("dimensionId") or _map_join_dimension(context, layer, layer_spec)
     min_value = None
     max_value = None
     for feature in payload.get("features", []):
@@ -790,11 +796,11 @@ def _geo_value(point: IndicatorDataPoint, dimension: str) -> tuple[str | None, s
 def _measure_value(points: list[IndicatorDataPoint], numeric_values: list[float], measure: str):
     if measure in {"count", "records"}:
         return len(points)
-    if measure in {"sum", "total"}:
+    if measure in {"sum", "total", "value"}:
         return sum(numeric_values) if numeric_values else len(points)
-    if measure in {"mean", "avg", "average", "value"}:
+    if measure in {"mean", "avg", "average"}:
         return (sum(numeric_values) / len(numeric_values)) if numeric_values else len(points)
-    return (sum(numeric_values) / len(numeric_values)) if numeric_values else len(points)
+    return sum(numeric_values) if numeric_values else len(points)
 
 
 def _provenance_keys(points: list[IndicatorDataPoint]) -> dict:
@@ -908,7 +914,7 @@ def _pack_layer_specs(pack: dict) -> list[dict]:
                 "layerCodes": candidate_codes,
                 "title": spec.get("title") or "Indicator map",
                 "joinKey": join_key,
-                "dimensionId": _join_key_dimension(join_key),
+                "dimensionId": spec.get("dimensionId") or _join_key_dimension(join_key),
                 "availableMetrics": list(spec.get("availableMetrics") or ["value", "change", "coverage", "uncertainty"]),
                 "defaultMetric": spec.get("defaultMetric") or "value",
             }
@@ -999,6 +1005,30 @@ def _feature_bucket(properties: dict, join_dimension: str) -> str:
         return str(
             properties.get("municipality_code")
             or properties.get("municipality")
+            or properties.get("feature_key")
+            or properties.get("feature_id")
+            or ""
+        ).strip()
+    if join_dimension == "biome":
+        return str(
+            properties.get("biome_code")
+            or properties.get("biome")
+            or properties.get("feature_key")
+            or properties.get("feature_id")
+            or ""
+        ).strip()
+    if join_dimension == "ecoregion":
+        return str(
+            properties.get("ecoregion_code")
+            or properties.get("ecoregion")
+            or properties.get("feature_key")
+            or properties.get("feature_id")
+            or ""
+        ).strip()
+    if join_dimension == "realm":
+        return str(
+            properties.get("realm_code")
+            or properties.get("realm")
             or properties.get("feature_key")
             or properties.get("feature_id")
             or ""

@@ -66,6 +66,14 @@ _DIMENSIONS = {
         30,
         legend_id="threat_category",
     ),
+    "rle_category": _dimension(
+        "rle_category",
+        "RLE category",
+        "categorical",
+        "rle_category",
+        31,
+        legend_id="rle_category",
+    ),
     "protection_category": _dimension(
         "protection_category",
         "Protection category",
@@ -74,7 +82,23 @@ _DIMENSIONS = {
         32,
         legend_id="protection_category",
     ),
-    "category": _dimension("category", "Category", "categorical", "category", 34),
+    "epl_category": _dimension(
+        "epl_category",
+        "EPL category",
+        "categorical",
+        "epl_category",
+        33,
+        legend_id="epl_category",
+    ),
+    "spi_category": _dimension(
+        "spi_category",
+        "SPI category",
+        "categorical",
+        "spi_category",
+        34,
+        legend_id="spi_category",
+    ),
+    "category": _dimension("category", "Category", "categorical", "category", 35),
     "pathway": _dimension("pathway", "Pathway", "categorical", "pathway", 36, legend_id="ias_pathway"),
     "pressure_category": _dimension(
         "pressure_category",
@@ -177,6 +201,18 @@ _LEGENDS = {
             {"value": "LC", "label": "Least concern", "colorToken": "--nbms-success"},
         ],
     },
+    "rle_category": {
+        "id": "rle_category",
+        "title": "RLE category legend",
+        "dimensionId": "rle_category",
+        "items": [
+            {"value": "CR", "label": "Critically endangered", "colorToken": "--nbms-danger"},
+            {"value": "EN", "label": "Endangered", "colorToken": "--nbms-warn"},
+            {"value": "VU", "label": "Vulnerable", "colorToken": "--nbms-accent-500"},
+            {"value": "NT", "label": "Near threatened", "colorToken": "--nbms-info"},
+            {"value": "LC", "label": "Least concern", "colorToken": "--nbms-success"},
+        ],
+    },
     "protection_category": {
         "id": "protection_category",
         "title": "Protection category legend",
@@ -186,6 +222,28 @@ _LEGENDS = {
             {"value": "MODERATE", "label": "Moderately protected", "colorToken": "--nbms-info"},
             {"value": "LIMITED", "label": "Limited protection", "colorToken": "--nbms-warn"},
             {"value": "UNPROTECTED", "label": "Unprotected", "colorToken": "--nbms-danger"},
+        ],
+    },
+    "epl_category": {
+        "id": "epl_category",
+        "title": "EPL category legend",
+        "dimensionId": "epl_category",
+        "items": [
+            {"value": "WP", "label": "Well protected", "colorToken": "--nbms-success"},
+            {"value": "MP", "label": "Moderately protected", "colorToken": "--nbms-info"},
+            {"value": "PP", "label": "Poorly protected", "colorToken": "--nbms-warn"},
+            {"value": "NP", "label": "Not protected", "colorToken": "--nbms-danger"},
+        ],
+    },
+    "spi_category": {
+        "id": "spi_category",
+        "title": "Plant SPI category legend",
+        "dimensionId": "spi_category",
+        "items": [
+            {"value": "WP", "label": "Well protected", "colorToken": "--nbms-success"},
+            {"value": "MP", "label": "Moderately protected", "colorToken": "--nbms-info"},
+            {"value": "PP", "label": "Poorly protected", "colorToken": "--nbms-warn"},
+            {"value": "NP", "label": "Not protected", "colorToken": "--nbms-danger"},
         ],
     },
     "ias_pathway": {
@@ -307,6 +365,140 @@ def _matrix_definition(id: str, label: str, x_dimension: str, y_dimension: str) 
 
 
 _PACKS = [
+    {
+        "id": "ecosystem_rle",
+        "label": "Ecosystem RLE",
+        "aliases": ["NBA_ECO_RLE_TERR", "NBA_ECO_RLE_EST", "rle terr", "rle est"],
+        "default_view": "distribution",
+        "available_views": ["distribution", "matrix", "timeseries"],
+        "default_group_by": "rle_category",
+        "default_agg": "biome",
+        "dimensions": ["year", "biome", "ecoregion", "realm", "ecosystem_type", "rle_category", "epl_category", "get_code"],
+        "map_layers": [
+            {
+                "layerCodes": ["ZA_BIOMES", "ZA_ECOSYSTEM_THREAT_STATUS", "ZA_PROVINCES"],
+                "title": "Ecosystem RLE",
+                "joinKey": "biome_code",
+                "availableMetrics": ["value", "coverage", "change", "uncertainty"],
+                "defaultMetric": "value",
+            }
+        ],
+        "legends": ["rle_category", "epl_category"],
+        "matrix_definitions": [_matrix_definition("rle_x_epl", "RLE x EPL", "rle_category", "epl_category")],
+        "narrative_templates": _narrative_templates("ecosystem threat status", "the threatened and under-protected ecosystem mix"),
+    },
+    {
+        "id": "ecosystem_epl",
+        "label": "Ecosystem EPL",
+        "aliases": ["NBA_ECO_EPL_TERR", "epl terr"],
+        "default_view": "distribution",
+        "available_views": ["distribution", "timeseries", "matrix"],
+        "default_group_by": "epl_category",
+        "default_agg": "biome",
+        "dimensions": ["year", "biome", "realm", "ecosystem_type", "epl_category", "target_progress"],
+        "map_layers": [
+            {
+                "layerCodes": ["ZA_BIOMES", "ZA_PROVINCES"],
+                "title": "Ecosystem EPL",
+                "joinKey": "biome_code",
+                "availableMetrics": ["value", "coverage", "change", "uncertainty"],
+                "defaultMetric": "value",
+            }
+        ],
+        "legends": ["epl_category", "target_progress"],
+        "matrix_definitions": [_matrix_definition("epl_x_target_progress", "EPL x target progress", "epl_category", "target_progress")],
+        "narrative_templates": _narrative_templates("ecosystem protection level", "where protection outcomes are strongest and weakest"),
+    },
+    {
+        "id": "ecosystem_rle_x_epl_matrix",
+        "label": "Ecosystem RLE x EPL Matrix",
+        "aliases": ["NBA_ECO_RLE_EPL_TERR_MATRIX", "NBA_ECO_RLE_EPL_EST_MATRIX", "rle epl matrix"],
+        "default_view": "matrix",
+        "available_views": ["matrix", "distribution"],
+        "default_group_by": "rle_category",
+        "default_agg": "biome",
+        "dimensions": ["year", "biome", "ecoregion", "realm", "ecosystem_type", "rle_category", "epl_category"],
+        "map_layers": [
+            {
+                "layerCodes": ["ZA_BIOMES", "ZA_PROVINCES"],
+                "title": "Threat x protection hotspots",
+                "joinKey": "biome_code",
+                "availableMetrics": ["value", "coverage", "change", "uncertainty"],
+                "defaultMetric": "value",
+            }
+        ],
+        "legends": ["rle_category", "epl_category"],
+        "matrix_definitions": [_matrix_definition("rle_x_epl", "RLE x EPL", "rle_category", "epl_category")],
+        "narrative_templates": _narrative_templates("threat and protection intersections", "where high threat and low protection overlap"),
+    },
+    {
+        "id": "tepi_timeseries",
+        "label": "TEPI Timeseries",
+        "aliases": ["NBA_TEPI_TERR", "NBA_ECO_EPLI_TERR", "tepi", "epli"],
+        "default_view": "timeseries",
+        "available_views": ["timeseries", "distribution"],
+        "default_group_by": "biome",
+        "default_agg": "biome",
+        "dimensions": ["year", "biome", "target_progress"],
+        "map_layers": [
+            {
+                "layerCodes": ["ZA_BIOMES", "ZA_PROVINCES"],
+                "title": "Biome protection progress",
+                "joinKey": "biome_code",
+                "availableMetrics": ["value", "change", "coverage", "uncertainty"],
+                "defaultMetric": "value",
+            }
+        ],
+        "legends": ["target_progress"],
+        "narrative_templates": _narrative_templates("ecosystem protection progress", "which biomes are improving protection coverage over time"),
+    },
+    {
+        "id": "plant_spi_taxonomy",
+        "label": "Plant SPI Taxonomy",
+        "aliases": ["NBA_PLANT_SPI", "plant spi", "plant protection"],
+        "default_view": "taxonomy",
+        "available_views": ["taxonomy", "distribution", "timeseries"],
+        "default_group_by": "taxonomy_family",
+        "default_agg": "province",
+        "dimensions": [
+            "year",
+            "province",
+            "biome",
+            "spi_category",
+            "taxonomy",
+            "taxonomy_kingdom",
+            "taxonomy_phylum",
+            "taxonomy_class",
+            "taxonomy_order",
+            "taxonomy_family",
+            "taxonomy_genus",
+            "taxonomy_species",
+        ],
+        "map_layers": [
+            {
+                "layerCodes": ["ZA_PROVINCES_NE", "ZA_PROVINCES"],
+                "title": "Plant SPI by province",
+                "joinKey": "province_code",
+                "availableMetrics": ["value", "coverage", "change", "uncertainty"],
+                "defaultMetric": "value",
+            }
+        ],
+        "legends": ["spi_category"],
+        "narrative_templates": _narrative_templates("plant species protection level", "which lineages and provinces remain most exposed"),
+    },
+    {
+        "id": "binary_admin_status",
+        "label": "Binary Admin Status",
+        "aliases": ["binary admin", "reporting completeness"],
+        "default_view": "binary",
+        "available_views": ["binary", "distribution"],
+        "default_group_by": "policy_status",
+        "default_agg": "year",
+        "dimensions": ["year", "policy_status", "category"],
+        "map_layers": [],
+        "legends": [],
+        "narrative_templates": _narrative_templates("binary governance status", "whether the required administrative conditions are in place"),
+    },
     {
         "id": "ecosystem_threat_status",
         "label": "Ecosystem threat status",
@@ -613,6 +805,10 @@ def find_pack(pack_id: str | None) -> dict | None:
 
 
 def resolve_indicator_pack(indicator: Indicator, *, tags: list[str] | None = None) -> dict:
+    explicit_pack = find_pack(getattr(indicator, "visual_pack_id", ""))
+    if explicit_pack is not None:
+        return explicit_pack
+
     haystack = " ".join(
         filter(
             None,
@@ -688,4 +884,3 @@ def build_pack_profile(pack: dict, *, dimensions: list[dict], map_layers: list[d
         "narrativeTemplates": deepcopy(pack.get("narrative_templates", [])),
         "meta": meta,
     }
-
