@@ -241,6 +241,7 @@ def _upsert_demo_indicator(*, definition: dict, organisation: Organisation, lice
             "license": license_obj,
             "status": LifecycleStatus.PUBLISHED,
             "sensitivity": SensitivityLevel.PUBLIC,
+            "export_approved": True,
             "reporting_capability": IndicatorReportingCapability.YES,
             "update_frequency": UpdateFrequency.ANNUAL,
             "last_updated_on": DEMO_RELEASE_DATE,

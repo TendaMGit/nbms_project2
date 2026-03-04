@@ -456,6 +456,13 @@ export class NbmsAppShellComponent {
     }
     if (pressed === 'escape') {
       this.commandPaletteOpen = false;
+      if (this.isMobile && this.navOpen) {
+        this.navOpen = false;
+        this.writeNavPreference();
+      }
+      if (this.helpOpen) {
+        this.helpOpen = false;
+      }
     }
   }
 

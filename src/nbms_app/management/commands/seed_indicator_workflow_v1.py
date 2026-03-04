@@ -522,6 +522,7 @@ class Command(BaseCommand):
                     "organisation": sanbi,
                     "status": LifecycleStatus.PUBLISHED,
                     "sensitivity": SensitivityLevel.PUBLIC,
+                    "export_approved": True,
                     "reporting_capability": "yes",
                     "update_frequency": "annual",
                     "coverage_geography": item["coverage_geography"],

@@ -72,10 +72,46 @@ PROVINCES = [
         "geometry": _polygon([[21.5, -34.8], [29.5, -34.8], [29.5, -30.2], [21.5, -30.2], [21.5, -34.8]]),
     },
     {
+        "code": "ZA-NC",
+        "name": "Northern Cape",
+        "province_code": "NC",
+        "geometry": _polygon([[16.0, -32.8], [24.0, -32.8], [24.0, -26.2], [16.0, -26.2], [16.0, -32.8]]),
+    },
+    {
+        "code": "ZA-FS",
+        "name": "Free State",
+        "province_code": "FS",
+        "geometry": _polygon([[24.0, -30.8], [29.8, -30.8], [29.8, -26.2], [24.0, -26.2], [24.0, -30.8]]),
+    },
+    {
         "code": "ZA-KZN",
         "name": "KwaZulu-Natal",
         "province_code": "KZN",
         "geometry": _polygon([[29.0, -31.8], [33.2, -31.8], [33.2, -26.8], [29.0, -26.8], [29.0, -31.8]]),
+    },
+    {
+        "code": "ZA-NW",
+        "name": "North West",
+        "province_code": "NW",
+        "geometry": _polygon([[22.8, -28.8], [28.2, -28.8], [28.2, -24.8], [22.8, -24.8], [22.8, -28.8]]),
+    },
+    {
+        "code": "ZA-GP",
+        "name": "Gauteng",
+        "province_code": "GP",
+        "geometry": _polygon([[27.2, -26.7], [29.0, -26.7], [29.0, -25.2], [27.2, -25.2], [27.2, -26.7]]),
+    },
+    {
+        "code": "ZA-MP",
+        "name": "Mpumalanga",
+        "province_code": "MP",
+        "geometry": _polygon([[28.5, -27.6], [32.0, -27.6], [32.0, -24.2], [28.5, -24.2], [28.5, -27.6]]),
+    },
+    {
+        "code": "ZA-LP",
+        "name": "Limpopo",
+        "province_code": "LP",
+        "geometry": _polygon([[26.8, -24.8], [32.8, -24.8], [32.8, -22.0], [26.8, -22.0], [26.8, -24.8]]),
     },
 ]
 
