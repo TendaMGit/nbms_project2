@@ -392,3 +392,60 @@ make test-backend
 - `docker compose exec backend python manage.py ingest_nba_pilot_outputs --manifest src/nbms_app/pilots/nba_pilot_v1.yml`
 - `docker compose exec backend python manage.py seed_indicator_workflow_v2`
 - Open `http://localhost:8081`
+
+## Superset Local Overlay
+
+### Overlay files
+- `docker-compose.superset.yml`
+- `docs/ops/SUPERSET_LOCAL.md`
+- `scripts/superset-attach.ps1`
+- `scripts/superset-detach.ps1`
+- `scripts/superset-logs.ps1`
+- `scripts/superset-register-nbms-db.ps1`
+- `src/nbms_app/management/commands/create_analytics_views.py`
+- `src/nbms_app/management/commands/ensure_superset_ro.py`
+
+### Purpose
+- Superset is an optional stakeholder-facing dashboard overlay.
+- Django + Angular remain the operational workspace for governance, approvals, data entry, and review.
+- The DB boundary is enforced in PostgreSQL:
+  - Superset uses `superset_ro`
+  - `superset_ro` gets `SELECT` on `analytics` only
+  - analytics views expose published, export-approved data only
+
+### Analytics views exposed to Superset
+- `analytics.indicator_registry`
+- `analytics.indicator_latest_value`
+- `analytics.indicator_timeseries`
+- `analytics.framework_target_indicator_links`
+- `analytics.indicator_readiness_summary`
+- `analytics.spatial_units_geojson`
+- `analytics.indicator_spatial_features_geojson`
+
+### Local runbook
+
+```powershell
+docker compose exec backend python manage.py create_analytics_views
+docker compose exec backend python manage.py ensure_superset_ro
+.\scripts\superset-attach.ps1
+.\scripts\superset-register-nbms-db.ps1
+```
+
+Open:
+- `http://localhost:8088`
+
+### Superset connection URI
+
+```text
+postgresql+psycopg2://superset_ro:${SUPERSET_NBMS_RO_PASSWORD}@postgis:5432/${NBMS_DB_NAME}
+```
+
+### First datasets to use in Superset
+- `analytics.indicator_latest_value`
+- `analytics.indicator_timeseries`
+- `analytics.framework_target_indicator_links`
+
+### Example stakeholder dashboard filters
+- `indicator_code LIKE 'NBA_%'`
+- `framework_code = 'GBF'`
+- `national_target_code IN ('2', '3')`
