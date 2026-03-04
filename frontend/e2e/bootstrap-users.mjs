@@ -93,6 +93,34 @@ function main() {
     {}
   );
 
+  runDockerCompose([
+    'exec',
+    'backend',
+    'python',
+    'manage.py',
+    'shell',
+    '-c',
+    [
+      'from django.contrib.auth import get_user_model',
+      'from nbms_app.models import UserPreference, default_preference_saved_filters, default_preference_watchlist',
+      `usernames = [${[adminUsername, contributorUsername, reviewerUsername, publicUsername]
+        .map((value) => `'${value}'`)
+        .join(', ')}]`,
+      'User = get_user_model()',
+      'for user in User.objects.filter(username__in=usernames):',
+      '    preference, _ = UserPreference.objects.get_or_create(user=user)',
+      '    preference.saved_filters = default_preference_saved_filters()',
+      '    preference.watchlist = default_preference_watchlist()',
+      '    preference.dashboard_layout = {}',
+      "    preference.default_geography = 'national'",
+      "    preference.default_geography_code = ''",
+      "    preference.theme_mode = 'light'",
+      "    preference.density = 'comfortable'",
+      '    preference.save()',
+      "print('preferences-reset')",
+    ].join('\n'),
+  ]);
+
   const sessionUsers = [adminUsername, contributorUsername, reviewerUsername, publicUsername];
   const sessionOutput = runDockerComposeCapture([
     'exec',

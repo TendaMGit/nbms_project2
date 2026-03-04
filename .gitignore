@@ -45,6 +45,7 @@ frontend/dist/
 frontend/test-results/
 frontend/playwright-report/
 frontend/e2e/.session-keys.json
+test-results/
 
 # Local workspace artifacts
 Instructions v2.docx
