@@ -1,18 +1,18 @@
-import { AsyncPipe, NgFor, NgIf, NgSwitch, NgSwitchCase, NgSwitchDefault } from '@angular/common';
+import { AsyncPipe, NgFor, NgIf, NgSwitch, NgSwitchCase, NgSwitchDefault, TitleCasePipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, TemplateRef, ViewChild, inject } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { combineLatest, debounceTime, distinctUntilChanged, map, startWith, switchMap, tap } from 'rxjs';
 import { MatButtonModule } from '@angular/material/button';
-import { MatButtonToggleModule } from '@angular/material/button-toggle';
-import { MatCardModule } from '@angular/material/card';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 
+import { IndicatorExplorerCompareComponent } from '../components/indicator-explorer-compare.component';
+import { IndicatorExplorerInsightsComponent } from '../components/indicator-explorer-insights.component';
+import { IndicatorExplorerToolbarComponent } from '../components/indicator-explorer-toolbar.component';
 import type { IndicatorListItem, IndicatorListResponse, SavedFilterEntry } from '../models/api.models';
 import { IndicatorService } from '../services/indicator.service';
 import { UserPreferencesService } from '../services/user-preferences.service';
@@ -72,17 +72,18 @@ export function buildIndicatorNarrative(input: {
     NgSwitch,
     NgSwitchCase,
     NgSwitchDefault,
+    TitleCasePipe,
     RouterLink,
     ReactiveFormsModule,
     MatButtonModule,
-    MatButtonToggleModule,
-    MatCardModule,
-    MatChipsModule,
     MatFormFieldModule,
     MatIconModule,
     MatInputModule,
     MatSelectModule,
     MatSlideToggleModule,
+    IndicatorExplorerCompareComponent,
+    IndicatorExplorerInsightsComponent,
+    IndicatorExplorerToolbarComponent,
     NbmsDataTableComponent,
     NbmsFilterRailComponent,
     NbmsMapPanelComponent,
@@ -91,15 +92,26 @@ export function buildIndicatorNarrative(input: {
     NbmsStatusPillComponent
   ],
   template: `
-    <nbms-page-header
-      title="Indicator Explorer"
-      subtitle="Periodic releases and approved publications; no on-demand recomputation."
-      [breadcrumbs]="['Dashboard', 'Indicators']"
-      statusLabel="Phase 1"
-      statusTone="info"
-    ></nbms-page-header>
+    <section class="explorer-page" *ngIf="vm$ | async as vm">
+      <nbms-page-header
+        title="Indicator Database"
+        subtitle="Interactive explorer for narratives, aggregations, map-backed availability, and auditable indicator drilldowns."
+        [breadcrumbs]="[
+          { label: 'Dashboard', route: ['/dashboard'] },
+          { label: 'Indicators', route: ['/indicators'] }
+        ]"
+        [badges]="[
+          { label: vm.filters.geography_type || 'national', tone: 'neutral' },
+          { label: vm.filters.mode === 'map' ? 'Map mode' : (vm.filters.mode | titlecase), tone: 'info' }
+        ]"
+        [actions]="[
+          { id: 'frameworks', label: 'Frameworks', route: ['/frameworks'], icon: 'account_tree', variant: 'stroked' },
+          { id: 'reset', label: 'Reset filters', icon: 'restart_alt', variant: 'text' }
+        ]"
+        (actionSelected)="onHeaderAction($event)"
+      ></nbms-page-header>
 
-    <section class="layout" *ngIf="vm$ | async as vm">
+      <section class="layout" [class.layout--insights]="insightsOpen">
       <nbms-filter-rail class="rail" title="Filters">
         <mat-form-field appearance="outline">
           <mat-label>Search</mat-label>
@@ -212,45 +224,34 @@ export function buildIndicatorNarrative(input: {
       </nbms-filter-rail>
 
       <section class="main">
-        <mat-card class="toolbar">
-          <div class="toolbar-row">
-            <mat-button-toggle-group [formControl]="filters.controls.mode">
-              <mat-button-toggle value="table">Table</mat-button-toggle>
-              <mat-button-toggle value="cards">Cards</mat-button-toggle>
-              <mat-button-toggle value="map">Map-first</mat-button-toggle>
-            </mat-button-toggle-group>
-            <mat-form-field appearance="outline">
-              <mat-label>Sort</mat-label>
-              <mat-select [formControl]="filters.controls.sort">
-                <mat-option value="last_updated_desc">Recently updated</mat-option>
-                <mat-option value="readiness_desc">Readiness</mat-option>
-                <mat-option value="due_soon">Due soon</mat-option>
-                <mat-option value="title">Title</mat-option>
-              </mat-select>
-            </mat-form-field>
-            <button mat-stroked-button type="button" (click)="downloadCsv(vm.results.results)">Export CSV</button>
-            <button mat-button type="button" (click)="toggleInsights()">{{ insightsOpen ? 'Hide insights' : 'Show insights' }}</button>
-          </div>
-        </mat-card>
-
-        <mat-card class="narrative">
-          <p>{{ vm.narrative }}</p>
-          <div class="narrative-actions">
-            <button mat-button type="button" (click)="copyNarrative(vm.narrative)">Copy narrative</button>
-            <a mat-button [routerLink]="['/reporting']" [queryParams]="{ narrative: vm.narrative }">Insert into report</a>
-          </div>
-        </mat-card>
+        <app-indicator-explorer-toolbar
+          [modeControl]="filters.controls.mode"
+          [sortControl]="filters.controls.sort"
+          [insightsOpen]="insightsOpen"
+          [compareCount]="selectedCompare.length"
+          (exportRequested)="downloadCsv(vm.results.results)"
+          (insightsToggle)="toggleInsights()"
+        ></app-indicator-explorer-toolbar>
 
         <section [ngSwitch]="vm.filters.mode">
           <ng-container *ngSwitchCase="'table'">
-            <nbms-data-table title="Indicators" [rows]="vm.results.results" [columns]="columns" [itemSize]="vm.density === 'compact' ? 40 : 48" [cellTemplate]="tableCellTemplate"></nbms-data-table>
+            <nbms-data-table
+              title="Indicators"
+              [rows]="vm.results.results"
+              [columns]="columns"
+              [itemSize]="vm.density === 'compact' ? 40 : 48"
+              [cellTemplate]="tableCellTemplate"
+            ></nbms-data-table>
           </ng-container>
 
           <ng-container *ngSwitchCase="'cards'">
             <div class="cards">
-              <mat-card class="indicator-card" *ngFor="let item of vm.results.results; trackBy: trackByIndicator">
+              <article class="indicator-card nbms-card-surface" *ngFor="let item of vm.results.results; trackBy: trackByIndicator">
                 <div class="card-head">
-                  <a [routerLink]="['/indicators', item.uuid]">{{ item.code }} - {{ item.title }}</a>
+                  <div class="card-title">
+                    <a [routerLink]="['/indicators', item.uuid]">{{ item.code }} - {{ item.title }}</a>
+                    <span class="card-caption">{{ extractGbfTargets(item).join(', ') || 'No GBF target tags' }}</span>
+                  </div>
                   <button
                     mat-icon-button
                     type="button"
@@ -266,7 +267,7 @@ export function buildIndicatorNarrative(input: {
                   <nbms-status-pill [label]="item.status" [tone]="toStatusTone(item.status)"></nbms-status-pill>
                   <span class="changed" *ngIf="isChangedSinceLastVisit(item)">Changed since last visit</span>
                 </div>
-              </mat-card>
+              </article>
             </div>
           </ng-container>
 
@@ -275,9 +276,18 @@ export function buildIndicatorNarrative(input: {
               <div class="map-summary">
                 <p>Tile-first map rendering is available in Spatial Viewer; this panel summarizes current filtered availability.</p>
                 <div class="map-grid">
-                  <article><strong>{{ vm.results.summary?.readiness_bands?.green || 0 }}</strong><span>Green</span></article>
-                  <article><strong>{{ vm.results.summary?.readiness_bands?.amber || 0 }}</strong><span>Amber</span></article>
-                  <article><strong>{{ vm.results.summary?.readiness_bands?.red || 0 }}</strong><span>Red</span></article>
+                  <article class="map-stat nbms-card-surface">
+                    <strong>{{ vm.results.summary?.readiness_bands?.green || 0 }}</strong>
+                    <span>Green</span>
+                  </article>
+                  <article class="map-stat nbms-card-surface">
+                    <strong>{{ vm.results.summary?.readiness_bands?.amber || 0 }}</strong>
+                    <span>Amber</span>
+                  </article>
+                  <article class="map-stat nbms-card-surface">
+                    <strong>{{ vm.results.summary?.readiness_bands?.red || 0 }}</strong>
+                    <span>Red</span>
+                  </article>
                 </div>
                 <button mat-stroked-button type="button" [routerLink]="['/spatial/map']">Open spatial map</button>
               </div>
@@ -287,24 +297,23 @@ export function buildIndicatorNarrative(input: {
           <ng-container *ngSwitchDefault><p>Unsupported mode.</p></ng-container>
         </section>
 
-        <mat-card *ngIf="selectedCompare.length >= 2" class="compare">
-          <h3>Compare indicators</h3>
-          <div class="compare-row" *ngFor="let row of compareRows(vm.results.results); trackBy: trackByIndicator">
-            <strong>{{ row.code }}</strong>
-            <span>{{ row.title }}</span>
-            <span>Readiness {{ row.readiness_score }}</span>
-            <span>Updated {{ row.last_updated_on || 'n/a' }}</span>
-          </div>
-        </mat-card>
+        <app-indicator-explorer-compare
+          *ngIf="selectedCompare.length >= 2"
+          [rows]="compareRows(vm.results.results)"
+        ></app-indicator-explorer-compare>
       </section>
 
-      <mat-card class="insights" *ngIf="insightsOpen">
-        <h3>Insights</h3>
-        <div class="insight-row"><span>Due soon</span><strong>{{ vm.results.summary?.due_soon_count || 0 }}</strong></div>
-        <div class="insight-row" *ngFor="let blocker of vm.results.summary?.blockers || []; trackBy: trackByBlocker">
-          <span>{{ blocker.label }}</span><strong>{{ blocker.count }}</strong>
-        </div>
-      </mat-card>
+      <app-indicator-explorer-insights
+        *ngIf="insightsOpen"
+        class="insights"
+        [narrative]="vm.narrative"
+        [dueSoonCount]="vm.results.summary?.due_soon_count || 0"
+        [compareCount]="selectedCompare.length"
+        [blockers]="vm.results.summary?.blockers || []"
+        [reportingQueryParams]="{ narrative: vm.narrative }"
+        (copyNarrative)="copyNarrative(vm.narrative)"
+      ></app-indicator-explorer-insights>
+      </section>
     </section>
 
     <ng-template #tableCell let-item let-key="key">
@@ -343,26 +352,43 @@ export function buildIndicatorNarrative(input: {
   `,
   styles: [
     `
-      .layout { display: grid; grid-template-columns: 320px minmax(0, 1fr) 280px; gap: var(--nbms-space-3); }
-      .rail { position: sticky; top: 5.3rem; align-self: start; }
-      .main { display: grid; gap: var(--nbms-space-3); }
-      .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
-      .rail-actions, .narrative-actions { display: flex; gap: 0.5rem; }
-      .toolbar, .narrative, .compare, .insights { padding: var(--nbms-space-3); }
-      .toolbar-row { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
-      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--nbms-space-3); }
-      .indicator-card { padding: var(--nbms-space-3); }
-      .card-head { display: flex; justify-content: space-between; gap: 0.4rem; }
-      .card-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; }
-      .changed { color: var(--nbms-color-accent-700); font-size: var(--nbms-font-size-label-sm); }
-      .compare-row { display: grid; grid-template-columns: 100px 1fr 120px 140px; gap: 0.5rem; padding: 0.35rem 0; border-bottom: 1px solid var(--nbms-divider); }
-      .insights { align-self: start; position: sticky; top: 5.3rem; }
-      .insight-row { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px solid var(--nbms-divider); }
-      .map-summary { padding: var(--nbms-space-3); display: grid; gap: 0.7rem; }
-      .map-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
-      .map-grid article { border: 1px solid var(--nbms-border); border-radius: var(--nbms-radius-sm); padding: 0.5rem; display: grid; gap: 0.2rem; }
-      @media (max-width: 1300px) { .layout { grid-template-columns: 300px minmax(0, 1fr); } .insights { grid-column: 1 / -1; position: static; } }
-      @media (max-width: 980px) { .layout { grid-template-columns: 1fr; } .rail { position: static; } .compare-row { grid-template-columns: 1fr; } }
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 308px) minmax(0, 1fr);
+        gap: var(--nbms-space-4);
+      }
+
+      .layout.layout--insights {
+        grid-template-columns: minmax(280px, 308px) minmax(0, 1fr) minmax(296px, 332px);
+      }
+
+      .explorer-page {
+        display: grid;
+        gap: var(--nbms-space-4);
+      }
+
+      .rail { position: sticky; top: 5.4rem; align-self: start; }
+      .main { display: grid; gap: var(--nbms-space-4); }
+      .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--nbms-space-2); }
+      .rail-actions { display: flex; gap: var(--nbms-space-2); }
+      .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--nbms-space-3); }
+      .indicator-card { display: grid; gap: var(--nbms-space-3); padding: var(--nbms-space-4); min-height: 100%; }
+      .card-head { display: flex; justify-content: space-between; gap: var(--nbms-space-2); align-items: flex-start; }
+      .card-title { display: grid; gap: var(--nbms-space-1); }
+      .card-caption { color: var(--nbms-text-muted); font-size: var(--nbms-font-size-label-sm); }
+      .indicator-card p { margin: 0; color: var(--nbms-text-secondary); line-height: 1.6; }
+      .card-meta { display: flex; flex-wrap: wrap; gap: var(--nbms-space-2); align-items: center; }
+      .changed { color: var(--nbms-info); font-size: var(--nbms-font-size-label-sm); font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+      .insights { align-self: start; position: sticky; top: 5.4rem; }
+      .map-summary { padding: var(--nbms-space-4); display: grid; gap: var(--nbms-space-3); }
+      .map-summary p { margin: 0; color: var(--nbms-text-secondary); }
+      .map-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--nbms-space-2); }
+      .map-stat { padding: var(--nbms-space-3); display: grid; gap: var(--nbms-space-1); min-height: 100%; }
+      .map-stat strong { font-size: var(--nbms-font-size-h3); color: var(--nbms-text-primary); }
+      .map-stat span { color: var(--nbms-text-muted); font-size: var(--nbms-font-size-label-sm); text-transform: uppercase; letter-spacing: 0.04em; }
+      @media (max-width: 1400px) { .layout.layout--insights { grid-template-columns: 300px minmax(0, 1fr); } .insights { grid-column: 1 / -1; position: static; } }
+      @media (max-width: 980px) { .layout, .layout.layout--insights { grid-template-columns: 1fr; } .rail { position: static; } }
+      @media (max-width: 640px) { .grid-2, .map-grid { grid-template-columns: 1fr; } }
     `
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -451,8 +477,8 @@ export class IndicatorExplorerPageComponent {
         readiness_band: params.get('readiness_band') ?? '',
         readiness_min: this.toNullableNumber(params.get('readiness_min')),
         readiness_max: this.toNullableNumber(params.get('readiness_max')),
-        geography_type: params.get('geography_type') ?? pref.default_geography.type,
-        geography_code: params.get('geography_code') ?? pref.default_geography.code ?? '',
+        geography_type: params.get('geography_type') ?? params.get('geo_type') ?? pref.default_geography.type,
+        geography_code: params.get('geography_code') ?? params.get('geo_code') ?? pref.default_geography.code ?? '',
         has_spatial: this.toBool(params.get('has_spatial')),
         access_level: params.get('access_level') ?? '',
         due_soon_only: this.toBool(params.get('due_soon_only')),
@@ -495,7 +521,18 @@ export class IndicatorExplorerPageComponent {
       return;
     }
     const filters = this.normalizeFilters(this.filters.getRawValue());
-    this.preferences.saveFilter('indicators', name, this.toApiQuery(filters), true).subscribe();
+    this.preferences
+      .saveFilter(
+        'indicators',
+        name,
+        {
+          ...this.toApiQuery(filters),
+          geo_type: filters.geography_type,
+          geo_code: filters.geography_code
+        },
+        true
+      )
+      .subscribe();
   }
 
   applySavedView(filterId: string): void {
@@ -515,8 +552,12 @@ export class IndicatorExplorerPageComponent {
         readiness_band: String(row.params['readiness_band'] ?? ''),
         readiness_min: this.toNullableNumber(row.params['readiness_min']),
         readiness_max: this.toNullableNumber(row.params['readiness_max']),
-        geography_type: String(row.params['geography_type'] ?? this.preferences.snapshot.default_geography.type),
-        geography_code: String(row.params['geography_code'] ?? this.preferences.snapshot.default_geography.code ?? ''),
+        geography_type: String(
+          row.params['geography_type'] ?? row.params['geo_type'] ?? this.preferences.snapshot.default_geography.type
+        ),
+        geography_code: String(
+          row.params['geography_code'] ?? row.params['geo_code'] ?? this.preferences.snapshot.default_geography.code ?? ''
+        ),
         has_spatial: this.toBool(row.params['has_spatial']),
         access_level: String(row.params['access_level'] ?? ''),
         due_soon_only: this.toBool(row.params['due_soon_only']),
@@ -574,6 +615,12 @@ export class IndicatorExplorerPageComponent {
     this.insightsOpen = !this.insightsOpen;
   }
 
+  onHeaderAction(actionId: string): void {
+    if (actionId === 'reset') {
+      this.clearFilters();
+    }
+  }
+
   extractGbfTargets(item: IndicatorListItem): string[] {
     return item.tags.filter((tag) => tag.startsWith('GBF:')).map((tag) => tag.split(':')[1] || tag);
   }
@@ -626,10 +673,6 @@ export class IndicatorExplorerPageComponent {
 
   trackBySavedView(_: number, row: SavedFilterEntry): string {
     return row.id;
-  }
-
-  trackByBlocker(_: number, row: { code: string }): string {
-    return row.code;
   }
 
   private normalizeFilters(value: Partial<ExplorerFilters>): ExplorerFilters {
@@ -686,6 +729,8 @@ export class IndicatorExplorerPageComponent {
     for (const [key, value] of Object.entries(query)) {
       queryParams[key] = value === undefined || value === '' ? null : String(value);
     }
+    queryParams['geo_type'] = filters.geography_type || null;
+    queryParams['geo_code'] = filters.geography_code || null;
     void this.router.navigate([], {
       relativeTo: this.route,
       queryParams,

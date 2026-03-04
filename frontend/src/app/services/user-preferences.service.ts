@@ -23,7 +23,7 @@ type PinnedView = {
 };
 
 const LOCAL_STORAGE_KEY = 'nbms.preferences.local';
-const THEME_PACKS: ThemePackId[] = ['fynbos', 'gbif_clean', 'high_contrast', 'dark_pro'];
+const THEME_PACKS: ThemePackId[] = ['mono_clean', 'fynbos', 'gbif_clean', 'high_contrast', 'dark_pro'];
 const THEME_MODES: ThemeMode[] = ['light', 'dark'];
 const DENSITIES: DensityMode[] = ['comfortable', 'compact'];
 const GEOGRAPHY_TYPES: GeographyType[] = ['national', 'province', 'district', 'municipality'];
@@ -31,7 +31,7 @@ const FILTER_NAMESPACES: SavedFilterNamespace[] = ['indicators', 'registries', '
 const WATCHLIST_NAMESPACES: WatchlistNamespace[] = ['indicators', 'registries', 'reports'];
 
 const DEFAULT_PREFERENCES: UserPreferenceResponse = {
-  theme_id: 'fynbos',
+  theme_id: 'mono_clean',
   theme_mode: 'light',
   density: 'comfortable',
   default_geography: {
@@ -262,6 +262,7 @@ export class UserPreferencesService {
   }
 
   readonly themeOptions = [
+    { id: 'mono_clean' as ThemePackId, label: 'Mono Clean', subtitle: 'Monochrome database workspace with muted accent' },
     { id: 'fynbos' as ThemePackId, label: 'Fynbos', subtitle: 'Biodiversity green + ocean blue' },
     { id: 'gbif_clean' as ThemePackId, label: 'GBIF Clean', subtitle: 'Neutral and airy' },
     { id: 'high_contrast' as ThemePackId, label: 'High Contrast', subtitle: 'Accessibility-first contrast' },

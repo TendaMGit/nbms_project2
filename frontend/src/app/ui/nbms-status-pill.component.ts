@@ -15,40 +15,42 @@ import { NgClass } from '@angular/common';
         align-items: center;
         border-radius: var(--nbms-radius-pill);
         border: 1px solid transparent;
-        padding: 0.1rem 0.55rem;
+        min-height: 1.7rem;
+        padding: 0.05rem 0.65rem;
         font-size: var(--nbms-font-size-label-sm);
         font-weight: 700;
-        letter-spacing: 0.02em;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
       }
 
       .tone-neutral {
-        background: var(--nbms-slate-100);
-        color: var(--nbms-slate-800);
-        border-color: var(--nbms-slate-200);
+        background: var(--nbms-surface-2);
+        color: var(--nbms-text-secondary);
+        border-color: var(--nbms-border);
       }
 
       .tone-success {
-        background: rgb(25 122 67 / 12%);
-        color: var(--nbms-color-success);
-        border-color: rgb(25 122 67 / 35%);
+        background: var(--nbms-success-subtle);
+        color: var(--nbms-success);
+        border-color: color-mix(in srgb, var(--nbms-success) 28%, var(--nbms-border));
       }
 
       .tone-warn {
-        background: rgb(197 138 0 / 12%);
-        color: var(--nbms-color-accent-700);
-        border-color: rgb(197 138 0 / 35%);
+        background: var(--nbms-warn-subtle);
+        color: var(--nbms-warn);
+        border-color: color-mix(in srgb, var(--nbms-warn) 28%, var(--nbms-border));
       }
 
       .tone-error {
-        background: rgb(179 38 30 / 12%);
-        color: var(--nbms-color-error);
-        border-color: rgb(179 38 30 / 36%);
+        background: var(--nbms-danger-subtle);
+        color: var(--nbms-danger);
+        border-color: color-mix(in srgb, var(--nbms-danger) 28%, var(--nbms-border));
       }
 
       .tone-info {
-        background: rgb(22 100 162 / 12%);
-        color: var(--nbms-color-info);
-        border-color: rgb(22 100 162 / 36%);
+        background: var(--nbms-info-subtle);
+        color: var(--nbms-info);
+        border-color: color-mix(in srgb, var(--nbms-info) 28%, var(--nbms-border));
       }
     `
   ],

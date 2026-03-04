@@ -29,8 +29,7 @@ python manage.py migrate --noinput
 python manage.py bootstrap_roles
 python manage.py seed_reporting_defaults
 python manage.py seed_mea_template_packs
-python manage.py seed_indicator_workflow_v1
-python manage.py seed_demo_spatial
+python manage.py seed_indicator_workflow_v2
 python manage.py seed_programme_ops_v1
 
 if [ "${SYNC_SPATIAL_SOURCES_ON_BOOT:-0}" = "1" ]; then

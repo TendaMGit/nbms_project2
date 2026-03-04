@@ -3,12 +3,17 @@ import { Observable, shareReplay } from 'rxjs';
 
 import {
   DiscoverySearchResponse,
+  GlobalDimensionsResponse,
+  IndicatorAuditResponse,
+  IndicatorCubeResponse,
   IndicatorDatasetsResponse,
   IndicatorDetailResponse,
+  IndicatorDimensionsResponse,
   IndicatorListResponse,
   IndicatorMethodProfileResponse,
   IndicatorMapResponse,
-  IndicatorSeriesResponse
+  IndicatorSeriesResponse,
+  IndicatorVisualProfile
 } from '../models/api.models';
 import { ApiClientService } from './api-client.service';
 
@@ -61,6 +66,26 @@ export class IndicatorService {
 
   map(uuid: string, filters: Record<string, string | number | undefined>) {
     return this.api.get<IndicatorMapResponse>(`indicators/${uuid}/map`, filters);
+  }
+
+  cube(uuid: string, filters: Record<string, string | number | undefined>) {
+    return this.api.get<IndicatorCubeResponse>(`indicators/${uuid}/cube`, filters);
+  }
+
+  dimensions(uuid: string, filters: Record<string, string | number | undefined> = {}) {
+    return this.api.get<IndicatorDimensionsResponse>(`indicators/${uuid}/dimensions`, filters);
+  }
+
+  globalDimensions() {
+    return this.api.get<GlobalDimensionsResponse>('dimensions');
+  }
+
+  visualProfile(uuid: string) {
+    return this.api.get<IndicatorVisualProfile>(`indicators/${uuid}/visual-profile`);
+  }
+
+  audit(uuid: string) {
+    return this.api.get<IndicatorAuditResponse>(`indicators/${uuid}/audit`);
   }
 
   validation(uuid: string) {

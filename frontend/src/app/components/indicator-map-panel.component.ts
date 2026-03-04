@@ -3,9 +3,11 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
+  EventEmitter,
   Input,
   OnChanges,
   OnDestroy,
+  Output,
   SimpleChanges,
   ViewChild
 } from '@angular/core';
@@ -28,28 +30,31 @@ import { IndicatorMapResponse } from '../models/api.models';
       .map-wrapper {
         position: relative;
         min-height: 320px;
-        border: 1px solid rgba(18, 48, 39, 0.2);
-        border-radius: 12px;
+        border: 1px solid var(--nbms-border);
+        border-radius: var(--nbms-radius-md);
         overflow: hidden;
       }
       .map-host {
         min-height: 320px;
+        filter: grayscale(1) saturate(0.35) contrast(1.02);
       }
       .empty {
         position: absolute;
         inset: 0;
         display: grid;
         place-items: center;
-        background: rgba(255, 255, 255, 0.72);
-        color: #244;
-        font-size: 0.9rem;
+        background: color-mix(in srgb, var(--nbms-surface) 72%, transparent);
+        color: var(--nbms-text-secondary);
+        font-size: var(--nbms-font-size-base);
       }
     `
   ]
 })
 export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnDestroy {
   @Input() featureCollection: IndicatorMapResponse | null = null;
+  @Input() selectedFeatureCode = '';
   @ViewChild('mapHost', { static: true }) mapHost!: ElementRef<HTMLDivElement>;
+  @Output() featureSelect = new EventEmitter<{ code: string; label: string }>();
 
   private map?: maplibregl.Map;
   private popup?: maplibregl.Popup;
@@ -81,7 +86,10 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
           return;
         }
         const label = props['name'] || props['province_code'] || props['feature_key'] || 'Feature';
-        const value = props['indicator_value'] || 'n/a';
+        const value = props['indicator_metric_value'] || props['indicator_value'] || 'n/a';
+        const code = String(
+          props['province_code'] || props['municipality_code'] || props['feature_key'] || props['feature_id'] || ''
+        ).trim();
         if (this.popup) {
           this.popup.remove();
         }
@@ -89,12 +97,15 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
           .setLngLat(event.lngLat)
           .setHTML(`<strong>${label}</strong><br/>Indicator value: ${value}`)
           .addTo(this.map as maplibregl.Map);
+        if (code) {
+          this.featureSelect.emit({ code, label: String(label) });
+        }
       });
     });
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['featureCollection']) {
+    if (changes['featureCollection'] || changes['selectedFeatureCode']) {
       this.applyGeoJson();
     }
   }
@@ -121,19 +132,19 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
           'fill-color': [
             'interpolate',
             ['linear'],
-            ['coalesce', ['to-number', ['get', 'indicator_value']], 0],
+            ['coalesce', ['to-number', ['get', 'indicator_metric_value']], 0],
             0,
-            '#edf8e9',
+            this.readToken('--nbms-color-primary-100'),
             10,
-            '#bae4b3',
+            this.readToken('--nbms-color-primary-300'),
             20,
-            '#74c476',
+            this.readToken('--nbms-color-primary-500'),
             30,
-            '#31a354',
+            this.readToken('--nbms-color-primary-700'),
             40,
-            '#006d2c'
+            this.readToken('--nbms-color-primary-900')
           ],
-          'fill-opacity': 0.6
+          'fill-opacity': 0.65
         }
       });
       this.map.addLayer({
@@ -141,8 +152,8 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
         type: 'line',
         source: sourceId,
         paint: {
-          'line-color': '#1b4332',
-          'line-width': 1
+          'line-color': this.readToken('--nbms-color-primary-900'),
+          'line-width': ['case', ['boolean', ['get', 'indicator_selected'], false], 2.4, 1]
         }
       });
     } else {
@@ -154,6 +165,7 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
     if (!features.length) {
       return;
     }
+    this.syncFeatureSelection();
     const bounds = new maplibregl.LngLatBounds();
     for (const feature of features) {
       const coordinates = (feature.geometry as any)?.coordinates;
@@ -162,6 +174,31 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
     if (!bounds.isEmpty()) {
       this.map.fitBounds(bounds, { padding: 28, duration: 0, maxZoom: 7.5 });
     }
+  }
+
+  private syncFeatureSelection(): void {
+    const source = this.map?.getSource('indicator-geojson') as maplibregl.GeoJSONSource | undefined;
+    if (!source || !this.featureCollection) {
+      return;
+    }
+    const normalizedSelected = this.selectedFeatureCode.trim().toLowerCase();
+    const payload: IndicatorMapResponse = {
+      ...this.featureCollection,
+      features: this.featureCollection.features.map((feature) => {
+        const properties = { ...(feature.properties || {}) };
+        const code = String(
+          properties['province_code'] || properties['municipality_code'] || properties['feature_key'] || properties['feature_id'] || ''
+        )
+          .trim()
+          .toLowerCase();
+        properties['indicator_selected'] = Boolean(normalizedSelected) && code === normalizedSelected;
+        return {
+          ...feature,
+          properties,
+        };
+      }),
+    };
+    source.setData(payload as GeoJSON.FeatureCollection);
   }
 
   private extendBounds(bounds: maplibregl.LngLatBounds, node: any): void {
@@ -175,6 +212,13 @@ export class IndicatorMapPanelComponent implements AfterViewInit, OnChanges, OnD
     for (const child of node) {
       this.extendBounds(bounds, child);
     }
+  }
+
+  private readToken(name: string): string {
+    if (typeof document === 'undefined') {
+      return 'currentColor';
+    }
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || 'currentColor';
   }
 
   ngOnDestroy(): void {

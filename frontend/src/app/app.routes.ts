@@ -32,12 +32,35 @@ export const routes: Routes = [
     data: { title: 'Indicator Explorer', sectionKey: 'section_iii' }
   },
   {
+    path: 'frameworks',
+    loadComponent: () =>
+      import('./pages/framework-explorer-page.component').then((m) => m.FrameworkExplorerPageComponent),
+    data: { title: 'Framework Explorer', sectionKey: 'section_iii' }
+  },
+  {
+    path: 'frameworks/:frameworkId/targets/:targetId',
+    loadComponent: () =>
+      import('./pages/target-detail-page.component').then((m) => m.TargetDetailPageComponent),
+    data: { title: 'Target Detail', sectionKey: 'section_iii' }
+  },
+  {
+    path: 'frameworks/:frameworkId',
+    loadComponent: () =>
+      import('./pages/framework-detail-page.component').then((m) => m.FrameworkDetailPageComponent),
+    data: { title: 'Framework Detail', sectionKey: 'section_iii' }
+  },
+  {
     path: 'indicators/:uuid',
     loadComponent: () =>
       import('./pages/indicator-detail-page.component').then((m) => m.IndicatorDetailPageComponent),
     data: { title: 'Indicator Detail', sectionKey: 'section_iii' }
   },
 
+  {
+    path: 'reports',
+    pathMatch: 'full',
+    redirectTo: 'reporting'
+  },
   {
     path: 'reporting',
     loadComponent: () =>

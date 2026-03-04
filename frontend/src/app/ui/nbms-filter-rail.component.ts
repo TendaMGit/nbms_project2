@@ -12,7 +12,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
   styles: [
     `
       .filter-rail {
-        padding: var(--nbms-space-4);
+        padding: var(--nbms-space-4) var(--nbms-space-5);
         display: grid;
         gap: var(--nbms-space-3);
       }
@@ -20,6 +20,7 @@ import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
       .filter-rail h3 {
         margin: 0;
         font-size: var(--nbms-font-size-h4);
+        letter-spacing: -0.01em;
       }
     `
   ],

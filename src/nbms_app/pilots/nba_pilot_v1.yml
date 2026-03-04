@@ -1,0 +1,375 @@
+version: nba_pilot_v1
+description: Pinned pilot ingest manifest for NBA national indicator outputs and curated species-protection demo output.
+indicators:
+  - indicator_code: NBA_ECO_RLE_TERR
+    indicator_title: Terrestrial ecosystem threat status (RLE)
+    indicator_type: headline
+    pack_id: ecosystem_rle
+    parser: rle_terr
+    value_type: numeric
+    unit: km2
+    realm: terrestrial
+    repo_url: https://github.com/askowno/RLE_terr
+    repo_ref: ac4d80ba627ddf4211515406d87c5f673414c887
+    repo_ref_date: "2025-08-22T11:28:15+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: CC-BY-NC-4.0
+      licence_title: Attribution-NonCommercial 4.0 International
+      licence_url: https://creativecommons.org/licenses/by-nc/4.0/
+      sensitivity: public
+      description: Pinned terrestrial Red List of Ecosystems workflow outputs ingested as governed NBMS dataset releases.
+    method_metadata:
+      methodology_code: NBA-WF-RLE-TERR
+      name: NBA terrestrial ecosystem RLE workflow output
+      version_label: RLE_terr 2025-08-22
+      approval_body: Derived from pinned GitHub workflow output
+      protocol_url: https://github.com/askowno/RLE_terr
+    national_target:
+      code: NBA-T2-RLE-TERR
+      title: Reduce terrestrial ecosystem collapse risk and support restoration planning
+    mea_mappings:
+      gbf_targets: ["2"]
+      secondary_frameworks:
+        - framework_code: SDG
+          target_code: "15"
+          indicator_code: SDG-PILOT-15-RLE-TERR
+          indicator_title: SDG 15 pilot linkage for terrestrial ecosystem threat status
+    evidence_urls:
+      - title: RLE_terr repository
+        url: https://github.com/askowno/RLE_terr/tree/ac4d80ba627ddf4211515406d87c5f673414c887
+      - title: RLE_terr README
+        url: https://github.com/askowno/RLE_terr/blob/ac4d80ba627ddf4211515406d87c5f673414c887/README.md
+    files:
+      - alias: results_a3
+        path: outputs/results_A3.csv
+        vendored_path: fixtures/askowno/RLE_terr/outputs/results_A3.csv
+        kind: timeseries_source
+      - alias: results_a2b
+        path: outputs/results_A2b.csv
+        vendored_path: fixtures/askowno/RLE_terr/outputs/results_A2b.csv
+        kind: timeseries_source
+      - alias: compiled_adjusted
+        path: outputs/RLE_full_compiled_adjusted.csv
+        vendored_path: fixtures/askowno/RLE_terr/outputs/RLE_full_compiled_adjusted.csv
+        kind: registry_support
+      - alias: integration
+        path: outputs/ter_results_for_integration.csv
+        vendored_path: fixtures/askowno/RLE_terr/outputs/ter_results_for_integration.csv
+        kind: cube_source
+
+  - indicator_code: NBA_ECO_RLE_EPL_TERR_MATRIX
+    indicator_title: Terrestrial ecosystem threat x protection matrix
+    indicator_type: headline
+    pack_id: ecosystem_rle_x_epl_matrix
+    parser: rle_terr_matrix
+    value_type: numeric
+    unit: km2
+    realm: terrestrial
+    repo_url: https://github.com/askowno/RLE_terr
+    repo_ref: ac4d80ba627ddf4211515406d87c5f673414c887
+    repo_ref_date: "2025-08-22T11:28:15+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: CC-BY-NC-4.0
+      licence_title: Attribution-NonCommercial 4.0 International
+      licence_url: https://creativecommons.org/licenses/by-nc/4.0/
+      sensitivity: public
+      description: Pinned terrestrial RLE and EPL integration output emphasizing highly threatened and under-protected ecosystem intersections.
+    method_metadata:
+      methodology_code: NBA-WF-RLE-EPL-TERR
+      name: NBA terrestrial RLE x EPL integration workflow output
+      version_label: RLE_terr matrix 2025-08-22
+      approval_body: Derived from pinned GitHub workflow output
+      protocol_url: https://github.com/askowno/RLE_terr
+    national_target:
+      code: NBA-T23-RLE-EPL-TERR
+      title: Prioritize threatened and under-protected terrestrial ecosystems
+    mea_mappings:
+      gbf_targets: ["2", "3"]
+      secondary_frameworks:
+        - framework_code: RAMSAR
+          target_code: PILOT-1
+          indicator_code: RAMSAR-PILOT-RLE-EPL-TERR
+          indicator_title: Ramsar pilot linkage for threatened and under-protected ecosystems
+    evidence_urls:
+      - title: RLE_terr repository
+        url: https://github.com/askowno/RLE_terr/tree/ac4d80ba627ddf4211515406d87c5f673414c887
+    files:
+      - alias: integration
+        path: outputs/ter_results_for_integration.csv
+        vendored_path: fixtures/askowno/RLE_terr/outputs/ter_results_for_integration.csv
+        kind: cube_source
+
+  - indicator_code: NBA_ECO_EPL_TERR
+    indicator_title: Terrestrial ecosystem protection level
+    indicator_type: headline
+    pack_id: ecosystem_epl
+    parser: epl_terr
+    value_type: numeric
+    unit: km2
+    realm: terrestrial
+    repo_url: https://github.com/askowno/EPL_terr
+    repo_ref: 74a297490f79a010b2d39bd37158cdaf609ed45f
+    repo_ref_date: "2025-11-14T16:49:03+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: LIC-UNKNOWN
+      licence_title: Licence unknown; verify
+      sensitivity: internal
+      description: Pinned terrestrial ecosystem protection level outputs with biome rollups and type-level EPL classifications.
+    method_metadata:
+      methodology_code: NBA-WF-EPL-TERR
+      name: NBA terrestrial ecosystem protection workflow output
+      version_label: EPL_terr 2025-11-14
+      approval_body: Derived from pinned GitHub workflow output
+      protocol_url: https://github.com/askowno/EPL_terr
+    national_target:
+      code: NBA-T3-EPL-TERR
+      title: Increase terrestrial ecosystem protection effectiveness and coverage
+    mea_mappings:
+      gbf_targets: ["3"]
+      secondary_frameworks:
+        - framework_code: SDG
+          target_code: "15"
+          indicator_code: SDG-PILOT-15-EPL-TERR
+          indicator_title: SDG 15 pilot linkage for terrestrial ecosystem protection level
+    evidence_urls:
+      - title: EPL_terr repository
+        url: https://github.com/askowno/EPL_terr/tree/74a297490f79a010b2d39bd37158cdaf609ed45f
+      - title: EPL_terr README
+        url: https://github.com/askowno/EPL_terr/blob/74a297490f79a010b2d39bd37158cdaf609ed45f/README.md
+    files:
+      - alias: epl_2018_types
+        path: outputs/results_df_EPL_2018_invasives2.csv
+        vendored_path: fixtures/askowno/EPL_terr/outputs/results_df_EPL_2018_invasives2.csv
+        kind: timeseries_source
+      - alias: epl_2024_types
+        path: outputs/results_df_EPL_2024_invasives2.csv
+        vendored_path: fixtures/askowno/EPL_terr/outputs/results_df_EPL_2024_invasives2.csv
+        kind: timeseries_source
+      - alias: epl_2018_biome
+        path: outputs/results_df_EPL_2018_biome_invasives2.csv
+        vendored_path: fixtures/askowno/EPL_terr/outputs/results_df_EPL_2018_biome_invasives2.csv
+        kind: cube_source
+      - alias: epl_2024_biome
+        path: outputs/results_df_EPL_2024_biome_invasives2.csv
+        vendored_path: fixtures/askowno/EPL_terr/outputs/results_df_EPL_2024_biome_invasives2.csv
+        kind: cube_source
+      - alias: pa_prop_biome
+        path: outputs/results_df_prp_pa_9024_biome.csv
+        vendored_path: fixtures/askowno/EPL_terr/outputs/results_df_prp_pa_9024_biome.csv
+        kind: support
+
+  - indicator_code: NBA_ECO_RLE_EST
+    indicator_title: Estuarine ecosystem threat status (RLE)
+    indicator_type: headline
+    pack_id: ecosystem_rle
+    parser: rle_est
+    value_type: numeric
+    unit: km2
+    realm: estuarine
+    repo_url: https://github.com/askowno/RLE_est
+    repo_ref: 69b6b43c4ff8d5feba2568a91b95bdfd593aa29f
+    repo_ref_date: "2025-10-09T12:09:54+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: LIC-UNKNOWN
+      licence_title: Licence unknown; verify
+      sensitivity: internal
+      description: Pinned estuarine Red List of Ecosystems outputs for zone- and type-level threat reporting.
+    method_metadata:
+      methodology_code: NBA-WF-RLE-EST
+      name: NBA estuarine ecosystem RLE workflow output
+      version_label: RLE_est 2025-10-09
+      approval_body: Derived from pinned GitHub workflow output
+      protocol_url: https://github.com/askowno/RLE_est
+    national_target:
+      code: NBA-T2-RLE-EST
+      title: Reduce estuarine ecosystem collapse risk and support recovery planning
+    mea_mappings:
+      gbf_targets: ["2"]
+      secondary_frameworks:
+        - framework_code: RAMSAR
+          target_code: PILOT-1
+          indicator_code: RAMSAR-PILOT-RLE-EST
+          indicator_title: Ramsar pilot linkage for estuarine ecosystem threat status
+    evidence_urls:
+      - title: RLE_est repository
+        url: https://github.com/askowno/RLE_est/tree/69b6b43c4ff8d5feba2568a91b95bdfd593aa29f
+    files:
+      - alias: est_types
+        path: outputs/est_results_type.csv
+        vendored_path: fixtures/askowno/RLE_est/outputs/est_results_type.csv
+        kind: cube_source
+      - alias: est_integration
+        path: outputs/est_results_for_integration.csv
+        vendored_path: fixtures/askowno/RLE_est/outputs/est_results_for_integration.csv
+        kind: cube_source
+      - alias: est_metrics
+        path: outputs/rle_est_metrics_per_type.csv
+        vendored_path: fixtures/askowno/RLE_est/outputs/rle_est_metrics_per_type.csv
+        kind: timeseries_source
+      - alias: est_summary_count
+        path: outputs/rle24_est_sum_count.csv
+        vendored_path: fixtures/askowno/RLE_est/outputs/rle24_est_sum_count.csv
+        kind: support
+      - alias: est_summary_extent
+        path: outputs/rle24_est_sum_ext.csv
+        vendored_path: fixtures/askowno/RLE_est/outputs/rle24_est_sum_ext.csv
+        kind: support
+
+  - indicator_code: NBA_ECO_RLE_EPL_EST_MATRIX
+    indicator_title: Estuarine ecosystem threat x protection matrix
+    indicator_type: headline
+    pack_id: ecosystem_rle_x_epl_matrix
+    parser: rle_est_matrix
+    value_type: numeric
+    unit: km2
+    realm: estuarine
+    repo_url: https://github.com/askowno/RLE_est
+    repo_ref: 69b6b43c4ff8d5feba2568a91b95bdfd593aa29f
+    repo_ref_date: "2025-10-09T12:09:54+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: LIC-UNKNOWN
+      licence_title: Licence unknown; verify
+      sensitivity: internal
+      description: Pinned estuarine integration output emphasizing threatened and under-protected ecosystem intersections.
+    method_metadata:
+      methodology_code: NBA-WF-RLE-EPL-EST
+      name: NBA estuarine RLE x EPL integration workflow output
+      version_label: RLE_est matrix 2025-10-09
+      approval_body: Derived from pinned GitHub workflow output
+      protocol_url: https://github.com/askowno/RLE_est
+    national_target:
+      code: NBA-T23-RLE-EPL-EST
+      title: Prioritize threatened and under-protected estuarine ecosystems
+    mea_mappings:
+      gbf_targets: ["2", "3"]
+      secondary_frameworks:
+        - framework_code: RAMSAR
+          target_code: PILOT-1
+          indicator_code: RAMSAR-PILOT-RLE-EPL-EST
+          indicator_title: Ramsar pilot linkage for threatened and under-protected estuarine ecosystems
+    evidence_urls:
+      - title: RLE_est repository
+        url: https://github.com/askowno/RLE_est/tree/69b6b43c4ff8d5feba2568a91b95bdfd593aa29f
+    files:
+      - alias: est_integration
+        path: outputs/est_results_for_integration.csv
+        vendored_path: fixtures/askowno/RLE_est/outputs/est_results_for_integration.csv
+        kind: cube_source
+
+  - indicator_code: NBA_TEPI_TERR
+    indicator_title: Terrestrial Ecosystem Protection Index
+    indicator_type: headline
+    pack_id: tepi_timeseries
+    parser: tepi_terr
+    value_type: index
+    unit: index
+    realm: terrestrial
+    repo_url: https://github.com/askowno/TEPI_terr
+    repo_ref: 6e4ba030c8c899e247f57527141c249424467028
+    repo_ref_date: "2025-11-14T17:05:29+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: LIC-UNKNOWN
+      licence_title: Licence unknown; verify
+      sensitivity: internal
+      description: Pinned TEPI terrestrial workflow outputs with biome timeseries and protected-area share support tables.
+    method_metadata:
+      methodology_code: NBA-WF-TEPI-TERR
+      name: NBA terrestrial ecosystem protection index workflow output
+      version_label: TEPI_terr 2025-11-14
+      approval_body: Derived from pinned GitHub workflow output
+      protocol_url: https://github.com/askowno/TEPI_terr
+    national_target:
+      code: NBA-T3-TEPI-TERR
+      title: Track terrestrial ecosystem protection progress over time
+    mea_mappings:
+      gbf_targets: ["3"]
+      secondary_frameworks:
+        - framework_code: SDG
+          target_code: "15"
+          indicator_code: SDG-PILOT-15-TEPI-TERR
+          indicator_title: SDG 15 pilot linkage for terrestrial ecosystem protection index
+    evidence_urls:
+      - title: TEPI_terr repository
+        url: https://github.com/askowno/TEPI_terr/tree/6e4ba030c8c899e247f57527141c249424467028
+    files:
+      - alias: tepi_biome
+        path: outputs/tepi_sum_biome.csv
+        vendored_path: fixtures/askowno/TEPI_terr/outputs/tepi_sum_biome.csv
+        kind: timeseries_source
+      - alias: pa_prop_biome
+        path: outputs/results_df_prp_pa_9024_biome.csv
+        vendored_path: fixtures/askowno/TEPI_terr/outputs/results_df_prp_pa_9024_biome.csv
+        kind: support
+      - alias: pa_km2_biome
+        path: outputs/results_df_pa_9024_biome.csv
+        vendored_path: fixtures/askowno/TEPI_terr/outputs/results_df_pa_9024_biome.csv
+        kind: support
+
+  - indicator_code: NBA_PLANT_SPI
+    indicator_title: Plant species protection level
+    indicator_type: headline
+    pack_id: plant_spi_taxonomy
+    parser: plant_spi_demo
+    value_type: numeric
+    unit: SPI
+    realm: terrestrial
+    repo_url: https://github.com/SANBI-NBA/plant-protection-level
+    repo_ref: 7add8433ae9ea9e11e4d66fc2545e97e3ee0ada1
+    repo_ref_date: "2025-10-17T09:10:34+02:00"
+    dataset_metadata:
+      provider: SANBI-NBA
+      owner_org: SANBI
+      owner_org_code: SANBI
+      licence_code: CC-BY-NC-SA-4.0
+      licence_title: Attribution-NonCommercial-ShareAlike 4.0 International
+      licence_url: https://creativecommons.org/licenses/by-nc-sa/4.0/
+      sensitivity: internal
+      description: Curated pilot output derived from the published plant species protection level method. Replace with official published workflow outputs once available.
+    method_metadata:
+      methodology_code: NBA-WF-PLANT-SPI
+      name: Plant species protection level pilot output
+      version_label: plant-protection-level 2025-10-17
+      approval_body: Derived from published method; curated pilot output
+      protocol_url: https://github.com/SANBI-NBA/plant-protection-level
+    national_target:
+      code: NBA-T3-PLANT-SPI
+      title: Improve plant species protection outcomes and discoverability
+    mea_mappings:
+      gbf_targets: ["3"]
+      secondary_frameworks:
+        - framework_code: CITES
+          target_code: PILOT-1
+          indicator_code: CITES-PILOT-PLANT-SPI
+          indicator_title: CITES pilot linkage for plant species protection level
+        - framework_code: CMS
+          target_code: PILOT-1
+          indicator_code: CMS-PILOT-PLANT-SPI
+          indicator_title: CMS pilot linkage for species protection level
+    evidence_urls:
+      - title: plant-protection-level repository
+        url: https://github.com/SANBI-NBA/plant-protection-level/tree/7add8433ae9ea9e11e4d66fc2545e97e3ee0ada1
+      - title: Plant SPI technical report
+        url: https://figshare.com/articles/online_resource/Technical_Report/30135625?file=58824784
+    files:
+      - alias: spi_demo
+        path: pilots/fixtures/plant_spi_demo.csv
+        vendored_path: fixtures/SANBI-NBA/plant-protection-level/plant_spi_demo.csv
+        kind: curated_demo_output

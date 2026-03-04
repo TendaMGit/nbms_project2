@@ -106,13 +106,37 @@ INDICATOR_PACK = [
         "framework_indicator_title": "Headline Indicator: Ecosystem restoration",
         "indicator_type": NationalIndicatorType.OTHER,
         "coverage_geography": "National ecosystem classes",
-        "data_points": [
-            (2018, Decimal("34.0")),
-            (2019, Decimal("33.7")),
-            (2020, Decimal("33.3")),
-            (2021, Decimal("32.9")),
-            (2022, Decimal("32.4")),
-        ],
+        "data_points": [(2018, Decimal("34.0")), (2019, Decimal("33.7")), (2020, Decimal("33.3")), (2021, Decimal("32.9")), (2022, Decimal("32.4"))],
+    },
+    {
+        "code": "NBMS-GBF-ECOSYSTEM-PROTECTION",
+        "title": "Ecosystem Protection Level",
+        "target_code": "3",
+        "framework_indicator_code": "GBF-H3A",
+        "framework_indicator_title": "Headline Indicator: Ecosystem protection level",
+        "indicator_type": NationalIndicatorType.OTHER,
+        "coverage_geography": "South African terrestrial ecosystems",
+        "data_points": [(2018, Decimal("42.0")), (2019, Decimal("42.6")), (2020, Decimal("43.1")), (2021, Decimal("44.0")), (2022, Decimal("44.8"))],
+    },
+    {
+        "code": "NBMS-GBF-SPECIES-THREAT",
+        "title": "Species Threat Status by Taxonomic Group",
+        "target_code": "4",
+        "framework_indicator_code": "GBF-H4A",
+        "framework_indicator_title": "Headline Indicator: Species threat status",
+        "indicator_type": NationalIndicatorType.HEADLINE,
+        "coverage_geography": "Priority threatened taxa across South Africa",
+        "data_points": [(2018, Decimal("108.0")), (2019, Decimal("112.0")), (2020, Decimal("118.0")), (2021, Decimal("122.0")), (2022, Decimal("127.0"))],
+    },
+    {
+        "code": "NBMS-GBF-SPECIES-PROTECTION",
+        "title": "Species Protection Level by Taxonomic Group",
+        "target_code": "4",
+        "framework_indicator_code": "GBF-H4B",
+        "framework_indicator_title": "Headline Indicator: Species protection level",
+        "indicator_type": NationalIndicatorType.OTHER,
+        "coverage_geography": "Priority taxonomic groups with conservation action",
+        "data_points": [(2018, Decimal("47.0")), (2019, Decimal("48.4")), (2020, Decimal("50.0")), (2021, Decimal("51.5")), (2022, Decimal("53.2"))],
     },
     {
         "code": "NBMS-GBF-PA-COVERAGE",
@@ -146,7 +170,201 @@ INDICATOR_PACK = [
             (2022, Decimal("49.5")),
         ],
     },
+    {
+        "code": "NBMS-GBF-RESTORATION-PROGRESS",
+        "title": "Restoration Progress in Priority Ecosystems",
+        "target_code": "2",
+        "framework_indicator_code": "GBF-H5",
+        "framework_indicator_title": "Headline Indicator: Restoration progress",
+        "indicator_type": NationalIndicatorType.OTHER,
+        "coverage_geography": "Priority restoration landscapes",
+        "data_points": [(2018, Decimal("12.0")), (2019, Decimal("13.4")), (2020, Decimal("15.2")), (2021, Decimal("16.7")), (2022, Decimal("18.3"))],
+    },
+    {
+        "code": "NBMS-GBF-SPECIES-HABITAT-INDEX",
+        "title": "Species Habitat Index",
+        "target_code": "4",
+        "framework_indicator_code": "GBF-H6",
+        "framework_indicator_title": "Headline Indicator: Species habitat index",
+        "indicator_type": NationalIndicatorType.HEADLINE,
+        "coverage_geography": "Species habitat integrity across priority provinces",
+        "data_points": [(2018, Decimal("71.0")), (2019, Decimal("69.8")), (2020, Decimal("68.6")), (2021, Decimal("67.9")), (2022, Decimal("66.8"))],
+    },
+    {
+        "code": "NBMS-GBF-GENETIC-DIVERSITY",
+        "title": "Genetic Diversity Retention",
+        "target_code": "13",
+        "framework_indicator_code": "GBF-H7",
+        "framework_indicator_title": "Headline Indicator: Genetic diversity",
+        "indicator_type": NationalIndicatorType.BINARY,
+        "coverage_geography": "Managed populations and ex situ collections",
+        "data_points": [(2018, Decimal("61.0")), (2019, Decimal("61.8")), (2020, Decimal("62.6")), (2021, Decimal("63.9")), (2022, Decimal("64.4"))],
+    },
 ]
+
+
+def _series_config(code: str) -> dict:
+    if code in {"NBMS-GBF-ECOSYSTEM-THREAT", "NBMS-GBF-ECOSYSTEM-PROTECTION"}:
+        return {
+            "unit": "ecosystems",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "biome": {"type": "string"},
+                "ecosystem_type": {"type": "string"},
+                "threat_category": {"type": "string"},
+                "protection_category": {"type": "string"},
+            },
+        }
+    if code in {"NBMS-GBF-SPECIES-THREAT", "NBMS-GBF-SPECIES-PROTECTION"}:
+        return {
+            "unit": "species",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "threat_category": {"type": "string"},
+                "protection_category": {"type": "string"},
+                "taxonomy_kingdom": {"type": "string"},
+                "taxonomy_phylum": {"type": "string"},
+                "taxonomy_class": {"type": "string"},
+                "taxonomy_order": {"type": "string"},
+                "taxonomy_family": {"type": "string"},
+                "taxonomy_genus": {"type": "string"},
+                "taxonomy_species": {"type": "string"},
+            },
+        }
+    if code == "NBMS-GBF-PA-COVERAGE":
+        return {
+            "unit": "%",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "protected_area_type": {"type": "string"},
+                "target_progress": {"type": "string"},
+            },
+        }
+    if code == "NBMS-GBF-IAS-PRESSURE":
+        return {
+            "unit": "index",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "pathway": {"type": "string"},
+                "pressure_category": {"type": "string"},
+            },
+        }
+    if code == "NBMS-GBF-RESTORATION-PROGRESS":
+        return {
+            "unit": "%",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "biome": {"type": "string"},
+                "restoration_status": {"type": "string"},
+                "target_progress": {"type": "string"},
+            },
+        }
+    if code == "NBMS-GBF-SPECIES-HABITAT-INDEX":
+        return {
+            "unit": "index",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "taxonomy_family": {"type": "string"},
+                "habitat_index_band": {"type": "string"},
+            },
+        }
+    if code == "NBMS-GBF-GENETIC-DIVERSITY":
+        return {
+            "unit": "%",
+            "disaggregation_schema": {
+                "province_code": {"type": "string"},
+                "province_name": {"type": "string"},
+                "genetic_diversity_band": {"type": "string"},
+                "policy_status": {"type": "string"},
+            },
+        }
+    return {
+        "unit": "index",
+        "disaggregation_schema": {
+            "province_code": {"type": "string"},
+            "province_name": {"type": "string"},
+            "realm": {"type": "string"},
+        },
+    }
+
+
+def _point_rows(item: dict) -> list[dict]:
+    code = item["code"]
+    if code == "NBMS-GBF-ECOSYSTEM-THREAT":
+        return [
+            {"year": 2022, "value": Decimal("11.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "biome": "Fynbos", "ecosystem_type": "Lowland fynbos", "threat_category": "CR", "protection_category": "LIMITED"}},
+            {"year": 2022, "value": Decimal("9.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "biome": "Fynbos", "ecosystem_type": "Mountain fynbos", "threat_category": "EN", "protection_category": "MODERATE"}},
+            {"year": 2022, "value": Decimal("8.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "biome": "Savanna", "ecosystem_type": "Subtropical thicket", "threat_category": "VU", "protection_category": "LIMITED"}},
+            {"year": 2022, "value": Decimal("6.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "biome": "Grassland", "ecosystem_type": "Moist grassland", "threat_category": "EN", "protection_category": "UNPROTECTED"}},
+            {"year": 2021, "value": Decimal("10.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "biome": "Fynbos", "ecosystem_type": "Lowland fynbos", "threat_category": "CR", "protection_category": "LIMITED"}},
+            {"year": 2021, "value": Decimal("7.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "biome": "Savanna", "ecosystem_type": "Subtropical thicket", "threat_category": "VU", "protection_category": "MODERATE"}},
+        ]
+    if code == "NBMS-GBF-ECOSYSTEM-PROTECTION":
+        return [
+            {"year": 2022, "value": Decimal("16.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "biome": "Fynbos", "ecosystem_type": "Lowland fynbos", "protection_category": "WELL_PROTECTED", "threat_category": "EN"}},
+            {"year": 2022, "value": Decimal("12.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "biome": "Savanna", "ecosystem_type": "Albany thicket", "protection_category": "MODERATE", "threat_category": "VU"}},
+            {"year": 2022, "value": Decimal("9.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "biome": "Grassland", "ecosystem_type": "Mistbelt grassland", "protection_category": "LIMITED", "threat_category": "EN"}},
+            {"year": 2021, "value": Decimal("14.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "biome": "Fynbos", "ecosystem_type": "Lowland fynbos", "protection_category": "WELL_PROTECTED", "threat_category": "EN"}},
+        ]
+    if code == "NBMS-GBF-SPECIES-THREAT":
+        return [
+            {"year": 2022, "value": Decimal("12.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "threat_category": "EN", "taxonomy_kingdom": "Animalia", "taxonomy_phylum": "Chordata", "taxonomy_class": "Mammalia", "taxonomy_order": "Carnivora", "taxonomy_family": "Felidae", "taxonomy_genus": "Panthera", "taxonomy_species": "Panthera pardus"}},
+            {"year": 2022, "value": Decimal("9.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "threat_category": "CR", "taxonomy_kingdom": "Animalia", "taxonomy_phylum": "Chordata", "taxonomy_class": "Mammalia", "taxonomy_order": "Carnivora", "taxonomy_family": "Canidae", "taxonomy_genus": "Lycaon", "taxonomy_species": "Lycaon pictus"}},
+            {"year": 2022, "value": Decimal("14.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "threat_category": "VU", "taxonomy_kingdom": "Plantae", "taxonomy_phylum": "Tracheophyta", "taxonomy_class": "Magnoliopsida", "taxonomy_order": "Ericales", "taxonomy_family": "Proteaceae", "taxonomy_genus": "Protea", "taxonomy_species": "Protea roupelliae"}},
+            {"year": 2021, "value": Decimal("10.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "threat_category": "EN", "taxonomy_kingdom": "Animalia", "taxonomy_phylum": "Chordata", "taxonomy_class": "Mammalia", "taxonomy_order": "Carnivora", "taxonomy_family": "Felidae", "taxonomy_genus": "Panthera", "taxonomy_species": "Panthera pardus"}},
+        ]
+    if code == "NBMS-GBF-SPECIES-PROTECTION":
+        return [
+            {"year": 2022, "value": Decimal("18.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "protection_category": "WELL_PROTECTED", "taxonomy_kingdom": "Animalia", "taxonomy_phylum": "Chordata", "taxonomy_class": "Aves", "taxonomy_order": "Accipitriformes", "taxonomy_family": "Accipitridae", "taxonomy_genus": "Aquila", "taxonomy_species": "Aquila verreauxii"}},
+            {"year": 2022, "value": Decimal("11.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "protection_category": "LIMITED", "taxonomy_kingdom": "Animalia", "taxonomy_phylum": "Chordata", "taxonomy_class": "Mammalia", "taxonomy_order": "Primates", "taxonomy_family": "Cercopithecidae", "taxonomy_genus": "Papio", "taxonomy_species": "Papio ursinus"}},
+            {"year": 2021, "value": Decimal("15.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "protection_category": "MODERATE", "taxonomy_kingdom": "Animalia", "taxonomy_phylum": "Chordata", "taxonomy_class": "Aves", "taxonomy_order": "Accipitriformes", "taxonomy_family": "Accipitridae", "taxonomy_genus": "Aquila", "taxonomy_species": "Aquila verreauxii"}},
+        ]
+    if code == "NBMS-GBF-PA-COVERAGE":
+        return [
+            {"year": 2022, "value": Decimal("18.2"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "protected_area_type": "Formal protected area", "target_progress": "ON_TRACK"}},
+            {"year": 2022, "value": Decimal("15.6"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "protected_area_type": "OECM", "target_progress": "ACCELERATE"}},
+            {"year": 2022, "value": Decimal("13.4"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "protected_area_type": "Formal protected area", "target_progress": "ACCELERATE"}},
+            {"year": 2021, "value": Decimal("17.5"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "protected_area_type": "Formal protected area", "target_progress": "ON_TRACK"}},
+        ]
+    if code == "NBMS-GBF-IAS-PRESSURE":
+        return [
+            {"year": 2022, "value": Decimal("64.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "pathway": "ESCAPE", "pressure_category": "HIGH"}},
+            {"year": 2022, "value": Decimal("58.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "pathway": "STOWAWAY", "pressure_category": "MEDIUM"}},
+            {"year": 2022, "value": Decimal("43.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "pathway": "RELEASE", "pressure_category": "LOW"}},
+            {"year": 2021, "value": Decimal("61.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "pathway": "ESCAPE", "pressure_category": "HIGH"}},
+        ]
+    if code == "NBMS-GBF-RESTORATION-PROGRESS":
+        return [
+            {"year": 2022, "value": Decimal("28.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "biome": "Fynbos", "restoration_status": "RECOVERING", "target_progress": "ON_TRACK"}},
+            {"year": 2022, "value": Decimal("19.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "biome": "Savanna", "restoration_status": "DEGRADED", "target_progress": "OFF_TRACK"}},
+            {"year": 2022, "value": Decimal("24.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "biome": "Grassland", "restoration_status": "RESTORED", "target_progress": "ACCELERATE"}},
+        ]
+    if code == "NBMS-GBF-SPECIES-HABITAT-INDEX":
+        return [
+            {"year": 2022, "value": Decimal("66.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "taxonomy_family": "Felidae", "habitat_index_band": "MODERATE"}},
+            {"year": 2022, "value": Decimal("54.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "taxonomy_family": "Canidae", "habitat_index_band": "LOW"}},
+            {"year": 2022, "value": Decimal("72.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "taxonomy_family": "Proteaceae", "habitat_index_band": "HIGH"}},
+        ]
+    if code == "NBMS-GBF-GENETIC-DIVERSITY":
+        return [
+            {"year": 2022, "value": Decimal("68.0"), "disaggregation": {"province_code": "WC", "province_name": "Western Cape", "genetic_diversity_band": "STABLE", "policy_status": "Implemented"}},
+            {"year": 2022, "value": Decimal("57.0"), "disaggregation": {"province_code": "EC", "province_name": "Eastern Cape", "genetic_diversity_band": "WATCH", "policy_status": "Partial"}},
+            {"year": 2022, "value": Decimal("41.0"), "disaggregation": {"province_code": "KZN", "province_name": "KwaZulu-Natal", "genetic_diversity_band": "ERODING", "policy_status": "Emerging"}},
+        ]
+    return [
+        {
+            "year": year,
+            "value": value,
+            "disaggregation": {"province_code": "ALL", "province_name": "National", "realm": "national"},
+        }
+        for year, value in item["data_points"]
+    ]
 
 
 class Command(BaseCommand):
@@ -487,18 +705,16 @@ class Command(BaseCommand):
                 },
             )
 
+            series_config = _series_config(indicator.code)
             series, _ = IndicatorDataSeries.objects.update_or_create(
                 indicator=indicator,
                 defaults={
                     "series_code": f"SER-{item['code']}",
                     "title": item["title"],
-                    "unit": "index",
+                    "unit": series_config["unit"],
                     "value_type": IndicatorValueType.NUMERIC,
                     "methodology": "Annual aggregated indicator value.",
-                    "disaggregation_schema": {
-                        "province": {"type": "string"},
-                        "realm": {"type": "string"},
-                    },
+                    "disaggregation_schema": series_config["disaggregation_schema"],
                     "source_notes": "Seeded for workflow validation and dashboard tests.",
                     "organisation": sanbi,
                     "status": LifecycleStatus.PUBLISHED,
@@ -507,14 +723,14 @@ class Command(BaseCommand):
                 },
             )
 
-            for year, value in item["data_points"]:
+            for row in _point_rows(item):
                 IndicatorDataPoint.objects.update_or_create(
                     series=series,
-                    year=year,
-                    disaggregation={"province": "ALL", "realm": "national"},
+                    year=row["year"],
+                    disaggregation=row["disaggregation"],
                     dataset_release=dataset_release,
                     defaults={
-                        "value_numeric": value,
+                        "value_numeric": row["value"],
                         "value_text": "",
                         "source_url": "https://www.sanbi.org",
                         "footnote": "Seeded demonstration value.",
@@ -558,9 +774,12 @@ class Command(BaseCommand):
             if indicator.code == "NBMS-GBF-PA-COVERAGE":
                 layer_codes = ["ZA_PROVINCES_NE", "ZA_PROTECTED_AREAS_NE", "ZA_PROVINCES", "ZA_PROTECTED_AREAS"]
                 source_codes = ["NE_ADMIN1_ZA", "NE_PROTECTED_LANDS_ZA"]
-            elif indicator.code == "NBMS-GBF-ECOSYSTEM-THREAT":
-                layer_codes = ["ZA_ECOSYSTEM_PROXY_NE", "ZA_ECOSYSTEM_THREAT_STATUS"]
+            elif indicator.code in {"NBMS-GBF-ECOSYSTEM-THREAT", "NBMS-GBF-ECOSYSTEM-PROTECTION"}:
+                layer_codes = ["ZA_ECOSYSTEM_PROXY_NE", "ZA_ECOSYSTEM_THREAT_STATUS", "ZA_PROVINCES"]
                 source_codes = ["NE_GEOREGIONS_ZA"]
+            elif indicator.code in {"NBMS-GBF-SPECIES-THREAT", "NBMS-GBF-SPECIES-PROTECTION", "NBMS-GBF-IAS-PRESSURE", "NBMS-GBF-RESTORATION-PROGRESS", "NBMS-GBF-SPECIES-HABITAT-INDEX", "NBMS-GBF-GENETIC-DIVERSITY"}:
+                layer_codes = ["ZA_PROVINCES_NE", "ZA_PROVINCES"]
+                source_codes = ["NE_ADMIN1_ZA"]
             requirement.required_map_layers.set(
                 SpatialLayer.objects.filter(layer_code__in=layer_codes).order_by("layer_code", "id")
             )
@@ -575,7 +794,7 @@ class Command(BaseCommand):
             readiness_notes = (
                 "Ready when admin boundary and protected area layers are synchronized."
                 if method_type == IndicatorMethodType.SPATIAL_OVERLAY
-                else "CSV aggregation profile seeded for tabular indicator workflow."
+                else "CSV aggregation profile seeded for tabular indicator workflow with indicator-pack drilldowns."
             )
             IndicatorMethodProfile.objects.update_or_create(
                 indicator=indicator,

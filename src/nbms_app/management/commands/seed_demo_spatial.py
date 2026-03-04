@@ -79,6 +79,44 @@ PROVINCES = [
     },
 ]
 
+BIOMES = [
+    {
+        "code": "FYN",
+        "name": "Fynbos",
+        "geometry": _polygon([[17.3, -34.8], [20.8, -34.8], [20.8, -32.4], [17.3, -32.4], [17.3, -34.8]]),
+    },
+    {
+        "code": "THI",
+        "name": "Albany Thicket",
+        "geometry": _polygon([[23.0, -34.2], [26.8, -34.2], [26.8, -32.0], [23.0, -32.0], [23.0, -34.2]]),
+    },
+    {
+        "code": "GRA",
+        "name": "Grassland",
+        "geometry": _polygon([[25.4, -31.6], [30.8, -31.6], [30.8, -27.2], [25.4, -27.2], [25.4, -31.6]]),
+    },
+    {
+        "code": "SAV",
+        "name": "Savanna",
+        "geometry": _polygon([[26.8, -28.8], [32.8, -28.8], [32.8, -22.2], [26.8, -22.2], [26.8, -28.8]]),
+    },
+    {
+        "code": "SUK",
+        "name": "Succulent Karoo",
+        "geometry": _polygon([[16.4, -31.8], [20.8, -31.8], [20.8, -28.2], [16.4, -28.2], [16.4, -31.8]]),
+    },
+    {
+        "code": "DES",
+        "name": "Desert",
+        "geometry": _polygon([[14.2, -29.8], [18.0, -29.8], [18.0, -25.8], [14.2, -25.8], [14.2, -29.8]]),
+    },
+    {
+        "code": "AZO",
+        "name": "Azonal",
+        "geometry": _polygon([[28.0, -34.8], [30.2, -34.8], [30.2, -33.1], [28.0, -33.1], [28.0, -34.8]]),
+    },
+]
+
 PROTECTED_AREAS = [
     {
         "feature_id": "PA-001",
@@ -130,6 +168,16 @@ class Command(BaseCommand):
                 "is_active": True,
             },
         )
+        biome_type, _ = SpatialUnitType.objects.update_or_create(
+            code="BIOME",
+            defaults={
+                "name": "Biome",
+                "description": "South African biome reporting units (demo subset).",
+                "default_geom_type": "polygon",
+                "admin_level": 0,
+                "is_active": True,
+            },
+        )
 
         province_units = {}
         for item in PROVINCES:
@@ -146,6 +194,22 @@ class Command(BaseCommand):
                 },
             )
             province_units[item["province_code"]] = unit
+
+        biome_units = {}
+        for item in BIOMES:
+            unit, _ = SpatialUnit.objects.update_or_create(
+                unit_code=item["code"],
+                defaults={
+                    "name": item["name"],
+                    "unit_type": biome_type,
+                    "geom": _geometry(_as_multipolygon(item["geometry"])),
+                    "properties": {"biome_code": item["code"], "biome_name": item["name"]},
+                    "sensitivity": SensitivityLevel.PUBLIC,
+                    "consent_required": False,
+                    "is_active": True,
+                },
+            )
+            biome_units[item["code"]] = unit
 
         provinces_layer, _ = _upsert_layer(
             layer_code="ZA_PROVINCES",
@@ -183,6 +247,26 @@ class Command(BaseCommand):
                 "is_public": True,
                 "is_active": True,
                 "default_style_json": {"fillColor": "#4d9078", "lineColor": "#1b4332"},
+                "attribution": "NBMS demo",
+                "license": "CC-BY-4.0",
+            },
+        )
+        biome_layer, _ = _upsert_layer(
+            layer_code="ZA_BIOMES",
+            defaults={
+                "title": "South Africa Biomes",
+                "name": "South Africa Biomes",
+                "slug": "sa-biomes",
+                "description": "Biome polygons used for pilot ecosystem and protection indicator drilldowns.",
+                "theme": "GBF",
+                "source_type": SpatialLayerSourceType.NBMS_TABLE,
+                "data_ref": "nbms_app_spatialfeature",
+                "sensitivity": SensitivityLevel.PUBLIC,
+                "consent_required": False,
+                "export_approved": True,
+                "is_public": True,
+                "is_active": True,
+                "default_style_json": {"fillColor": "#7a8c63", "lineColor": "#2d3a2e"},
                 "attribution": "NBMS demo",
                 "license": "CC-BY-4.0",
             },
@@ -244,6 +328,23 @@ class Command(BaseCommand):
                     "geometry_json": item["geometry"],
                     "properties": item["properties"],
                     "properties_json": item["properties"],
+                },
+            )
+            created += int(was_created)
+
+        for item in BIOMES:
+            unit = biome_units.get(item["code"])
+            _, was_created = SpatialFeature.objects.update_or_create(
+                layer=biome_layer,
+                feature_key=item["code"],
+                defaults={
+                    "feature_id": item["code"],
+                    "name": item["name"],
+                    "spatial_unit": unit,
+                    "geom": _geometry(item["geometry"]),
+                    "geometry_json": item["geometry"],
+                    "properties": {"biome_code": item["code"], "biome_name": item["name"]},
+                    "properties_json": {"biome_code": item["code"], "biome_name": item["name"]},
                 },
             )
             created += int(was_created)
