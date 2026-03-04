@@ -81,6 +81,20 @@
   - `GET /api/narratives/:entityType/:entityId/versions`
 - Added governed narrative models, version history, local-safe markdown rendering, and capability exposure for `can_edit_narratives`.
 
+### PostGIS-first pilot ingest
+- Added `docker-compose.test.yml` and `make test-backend` so the primary backend test path is Docker + PostgreSQL/PostGIS, with MinIO available for bronze asset writes during ingest.
+- Added `src/nbms_app/pilots/nba_pilot_v1.yml` as the pinned pilot manifest for externally produced NBA outputs.
+- Added `python manage.py ingest_nba_pilot_outputs` to create governed:
+  - `Dataset`
+  - `DatasetRelease`
+  - bronze asset storage records in MinIO/S3
+  - `Indicator`, `IndicatorDataSeries`, `IndicatorDataPoint`
+  - `MethodologyVersion`
+  - evidence/provenance links
+  - GBF and secondary-framework mappings
+- Added `python manage.py seed_indicator_workflow_v2`, which layers the pilot ingest on top of the existing indicator workflow seed and expands the visible demo catalogue to at least 25 published indicators.
+- Updated the backend Docker entrypoint so the default compose runtime seeds the v2 catalogue, including pilot indicators and the biome spatial layer used by pilot map views.
+
 ### Mono redesign layer
 - Added a new `mono_clean` theme pack and made it the default frontend theme.
 - Reworked the global shell into a grayscale, compact database UI with a reduced navigation model:
@@ -250,6 +264,20 @@
 - `/api/indicators/2a8d3b64-b3d9-4152-9d42-2ac1960d9cc3/cube?group_by=type&report_cycle=NR7-2024&release=latest_approved&method=current`
 - Taxonomy cube shape is exercised in `src/nbms_app/tests/test_api_indicator_analytics_rich.py` using the deterministic `IND-RICH` fixture and the endpoint pattern `/api/indicators/<uuid>/cube?group_by=taxonomy_family,threat_category&tax_level=family&tax_code=Felidae`
 
+### Pilot indicator route patterns
+- Resolve runtime UUIDs from code:
+  - `/api/indicators?page=1&page_size=250&q=NBA_`
+- Open pilot detail surfaces:
+  - `/indicators/<NBA_ECO_RLE_TERR-uuid>?tab=indicator`
+  - `/indicators/<NBA_ECO_RLE_EPL_TERR_MATRIX-uuid>?tab=indicator`
+  - `/indicators/<NBA_PLANT_SPI-uuid>?tab=indicator&view=taxonomy`
+  - `/indicators/<NBA_TEPI_TERR-uuid>?tab=indicator&view=timeseries`
+- Explorer shortcuts:
+  - `/indicators?q=NBA_ECO_RLE_TERR`
+  - `/indicators?q=NBA_ECO_RLE_EPL_TERR_MATRIX`
+  - `/indicators?q=NBA_PLANT_SPI`
+  - `/indicators?q=NBA_TEPI_TERR`
+
 ## Runtime Examples
 
 ### Current seed indicators in `nbms_dev`
@@ -274,6 +302,55 @@
   - `NBMS-GBF-SPECIES-HABITAT-INDEX`
   - `NBMS-GBF-GENETIC-DIVERSITY`
 
+### Pilot indicators now seeded in Docker runtime
+- `NBA_ECO_RLE_TERR`
+  - source: `askowno/RLE_terr@ac4d80ba627ddf4211515406d87c5f673414c887`
+  - pack: `ecosystem_rle`
+  - default view: `distribution`
+  - GBF mapping: `Target 2`
+- `NBA_ECO_RLE_EPL_TERR_MATRIX`
+  - source: `askowno/RLE_terr@ac4d80ba627ddf4211515406d87c5f673414c887`
+  - pack: `ecosystem_rle_x_epl_matrix`
+  - default view: `matrix`
+  - GBF mapping: `Targets 2, 3`
+- `NBA_ECO_EPL_TERR`
+  - source: `askowno/EPL_terr@74a297490f79a010b2d39bd37158cdaf609ed45f`
+  - pack: `ecosystem_epl`
+  - default view: `distribution`
+  - GBF mapping: `Target 3`
+- `NBA_ECO_RLE_EST`
+  - source: `askowno/RLE_est@69b6b43c4ff8d5feba2568a91b95bdfd593aa29f`
+  - pack: `ecosystem_rle`
+  - default view: `distribution`
+  - GBF mapping: `Target 2`
+- `NBA_ECO_RLE_EPL_EST_MATRIX`
+  - source: `askowno/RLE_est@69b6b43c4ff8d5feba2568a91b95bdfd593aa29f`
+  - pack: `ecosystem_rle_x_epl_matrix`
+  - default view: `matrix`
+  - GBF mapping: `Targets 2, 3`
+- `NBA_TEPI_TERR`
+  - source: `askowno/TEPI_terr@6e4ba030c8c899e247f57527141c249424467028`
+  - pack: `tepi_timeseries`
+  - default view: `timeseries`
+  - GBF mapping: `Target 3`
+- `NBA_PLANT_SPI`
+  - source: `SANBI-NBA/plant-protection-level@7add8433ae9ea9e11e4d66fc2545e97e3ee0ada1`
+  - pack: `plant_spi_taxonomy`
+  - default view: `taxonomy`
+  - GBF mapping: `Target 3`
+
+## Pilot Ingest Manifest Summary
+
+| Indicator code | Repo + pinned ref | Files ingested | Pack | GBF target mapping |
+| --- | --- | --- | --- | --- |
+| `NBA_ECO_RLE_TERR` | `askowno/RLE_terr@ac4d80ba627ddf4211515406d87c5f673414c887` | `outputs/results_A3.csv`, `outputs/results_A2b.csv`, `outputs/RLE_full_compiled_adjusted.csv`, `outputs/ter_results_for_integration.csv` | `ecosystem_rle` | `2` |
+| `NBA_ECO_RLE_EPL_TERR_MATRIX` | `askowno/RLE_terr@ac4d80ba627ddf4211515406d87c5f673414c887` | `outputs/ter_results_for_integration.csv` | `ecosystem_rle_x_epl_matrix` | `2`, `3` |
+| `NBA_ECO_EPL_TERR` | `askowno/EPL_terr@74a297490f79a010b2d39bd37158cdaf609ed45f` | `outputs/results_df_EPL_2018_invasives2.csv`, `outputs/results_df_EPL_2024_invasives2.csv`, `outputs/results_df_EPL_2018_biome_invasives2.csv`, `outputs/results_df_EPL_2024_biome_invasives2.csv`, `outputs/results_df_prp_pa_9024_biome.csv` | `ecosystem_epl` | `3` |
+| `NBA_ECO_RLE_EST` | `askowno/RLE_est@69b6b43c4ff8d5feba2568a91b95bdfd593aa29f` | `outputs/est_results_type.csv`, `outputs/est_results_for_integration.csv`, `outputs/rle_est_metrics_per_type.csv`, `outputs/rle24_est_sum_count.csv`, `outputs/rle24_est_sum_ext.csv` | `ecosystem_rle` | `2` |
+| `NBA_ECO_RLE_EPL_EST_MATRIX` | `askowno/RLE_est@69b6b43c4ff8d5feba2568a91b95bdfd593aa29f` | `outputs/est_results_for_integration.csv` | `ecosystem_rle_x_epl_matrix` | `2`, `3` |
+| `NBA_TEPI_TERR` | `askowno/TEPI_terr@6e4ba030c8c899e247f57527141c249424467028` | `outputs/tepi_sum_biome.csv`, `outputs/results_df_prp_pa_9024_biome.csv`, `outputs/results_df_pa_9024_biome.csv` | `tepi_timeseries` | `3` |
+| `NBA_PLANT_SPI` | `SANBI-NBA/plant-protection-level@7add8433ae9ea9e11e4d66fc2545e97e3ee0ada1` | `src/nbms_app/pilots/fixtures/SANBI-NBA/plant-protection-level/plant_spi_demo.csv` | `plant_spi_taxonomy` | `3` |
+
 ## Known Placeholders / TODOs
 
 - Framework and target pages currently derive their analytics from existing dashboard and indicator APIs. Dedicated framework endpoints are still needed:
@@ -290,12 +367,28 @@
 ## How To Test
 
 ```bash
+docker compose --profile minimal up -d --build
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py ensure_system_admin
+docker compose exec backend python manage.py ingest_nba_pilot_outputs --manifest src/nbms_app/pilots/nba_pilot_v1.yml
+docker compose exec backend python manage.py seed_indicator_workflow_v2
 npm --prefix frontend run build
 npm --prefix frontend run test -- --watch=false
 COMPOSE_PROJECT_NAME=nbms_dev npm --prefix frontend run e2e
-$env:PYTHONPATH='src'; $env:DATABASE_URL='sqlite:///test_nbms.sqlite3'; $env:ENABLE_GIS='false'; pytest src/nbms_app/tests/test_api_indicator_analytics_rich.py
+make test-backend
 ```
 
-### Local e2e note
-- On this machine, the repo-local compose stack conflicts on port `5432` with an existing `nbms_dev` PostGIS container.
-- E2E was therefore validated against the existing healthy `nbms_dev` stack via `COMPOSE_PROJECT_NAME=nbms_dev`.
+### Backend test modes
+- Authoritative integration path:
+  - `make test-backend`
+  - equivalent: `docker compose -f compose.yml -f docker-compose.test.yml up -d --build postgis redis minio minio-init backend && docker compose -f compose.yml -f docker-compose.test.yml exec backend pytest -q`
+- Explicit fallback only when Docker/PostGIS is unavailable:
+  - `PYTHONPATH=src DATABASE_URL=sqlite:///test_nbms.sqlite3 ENABLE_GIS=false pytest -q src/nbms_app/tests/test_nba_pilot_ingest.py`
+
+### Docker runbook
+- `docker compose --profile minimal up -d --build`
+- `docker compose exec backend python manage.py migrate`
+- `docker compose exec backend python manage.py ensure_system_admin`
+- `docker compose exec backend python manage.py ingest_nba_pilot_outputs --manifest src/nbms_app/pilots/nba_pilot_v1.yml`
+- `docker compose exec backend python manage.py seed_indicator_workflow_v2`
+- Open `http://localhost:8081`

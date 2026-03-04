@@ -5,6 +5,27 @@ Roadmap framing note:
 - Historical entries below may retain legacy "Phase X" labels as archived milestone names.
 - Current planning treats those items as backlog tiers within Phase 1.
 
+## PILOT NBA INGEST + POSTGIS TEST RUNNER IN PROGRESS (2026-03-04)
+- Branch: `feat/nba-pilot-ingest-v1`
+- Scope: PostGIS-first backend test runner, pinned NBA pilot-output ingest, GBF/secondary MEA pilot mappings, and expanded indicator demo catalogue for the indicator dashboard UI.
+
+Authoritative backend test path:
+- Backend integration tests now run against PostgreSQL/PostGIS in Docker, not SQLite.
+- Preferred command:
+  - `make test-backend`
+- Explicit compose equivalent:
+  - `docker compose -f compose.yml -f docker-compose.test.yml up -d --build postgis redis minio minio-init backend`
+  - `docker compose -f compose.yml -f docker-compose.test.yml exec backend pytest -q`
+- SQLite remains an explicit fallback for unit-only convenience:
+  - `PYTHONPATH=src DATABASE_URL=sqlite:///test_nbms.sqlite3 ENABLE_GIS=false pytest -q`
+
+Runtime/seed notes:
+- The backend Docker entrypoint now seeds `seed_indicator_workflow_v2`, which in turn:
+  - seeds the original indicator workflow catalogue
+  - seeds demo spatial layers including `ZA_BIOMES`
+  - ingests the pinned NBA pilot manifest `src/nbms_app/pilots/nba_pilot_v1.yml`
+- Docker dev remains the reference runtime because pilot ingest stores bronze assets through the configured MinIO/S3 storage path and analytics/map endpoints are exercised against PostGIS-backed data.
+
 ## PHASE 12 NATIONAL REPORT COLLAB + SIGN-OFF + DOSSIER VERIFIED (2026-02-09)
 - Branch: `feat/national-report-collab-signoff-v1`
 - Scope: unified NR7/NR8 workspace, multi-author revisions/comments/suggestions, sign-off chain, PDF/DOCX/JSON exports, dossier integrity pack, and internal/public gating.
