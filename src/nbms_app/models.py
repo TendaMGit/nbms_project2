@@ -1894,6 +1894,7 @@ class Indicator(TimeStampedModel):
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
     export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
+    visual_pack_id = models.CharField(max_length=80, blank=True)
     source_system = models.CharField(max_length=100, blank=True)
     source_ref = models.CharField(max_length=255, blank=True)
 
@@ -2377,6 +2378,14 @@ class Dataset(TimeStampedModel):
     description = models.TextField(blank=True)
     methodology = models.TextField(blank=True)
     source_url = models.URLField(blank=True)
+    license = models.ForeignKey(
+        License,
+        on_delete=models.SET_NULL,
+        related_name="datasets",
+        blank=True,
+        null=True,
+    )
+    metadata_json = models.JSONField(default=dict, blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -2395,6 +2404,8 @@ class Dataset(TimeStampedModel):
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
     export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return self.dataset_code or self.title
@@ -2416,6 +2427,8 @@ class DatasetRelease(TimeStampedModel):
     snapshot_title = models.CharField(max_length=255)
     snapshot_description = models.TextField(blank=True)
     snapshot_methodology = models.TextField(blank=True)
+    provenance_json = models.JSONField(default=dict, blank=True)
+    asset_manifest_json = models.JSONField(default=list, blank=True)
     organisation = models.ForeignKey(
         Organisation,
         on_delete=models.SET_NULL,
@@ -2434,6 +2447,8 @@ class DatasetRelease(TimeStampedModel):
     sensitivity = models.CharField(max_length=20, choices=SensitivityLevel.choices, default=SensitivityLevel.INTERNAL)
     export_approved = models.BooleanField(default=False)
     review_note = models.TextField(blank=True)
+    source_system = models.CharField(max_length=100, blank=True)
+    source_ref = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return f"{self.dataset.title} {self.version}"
