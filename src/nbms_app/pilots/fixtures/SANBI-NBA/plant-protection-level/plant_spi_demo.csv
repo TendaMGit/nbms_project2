@@ -1,0 +1,13 @@
+year,province_code,province_name,biome_code,biome_name,taxonomy_kingdom,taxonomy_phylum,taxonomy_class,taxonomy_order,taxonomy_family,taxonomy_genus,taxonomy_species,spi_category,spi_value
+2021,WC,Western Cape,FYN,Fynbos,Plantae,Tracheophyta,Magnoliopsida,Proteales,Proteaceae,Protea,Protea odorata,PP,0.420000
+2021,WC,Western Cape,FYN,Fynbos,Plantae,Tracheophyta,Magnoliopsida,Asparagales,Iridaceae,Gladiolus,Gladiolus aureus,MP,0.580000
+2021,EC,Eastern Cape,THI,Albany Thicket,Plantae,Tracheophyta,Liliopsida,Asparagales,Asphodelaceae,Aloe,Aloe ferox,WP,0.760000
+2021,KZN,KwaZulu-Natal,GRA,Grassland,Plantae,Tracheophyta,Magnoliopsida,Ericales,Ericaceae,Erica,Erica cerinthoides,NP,0.180000
+2021,LP,Limpopo,SAV,Savanna,Plantae,Tracheophyta,Liliopsida,Asparagales,Amaryllidaceae,Boophone,Boophone disticha,MP,0.520000
+2021,NC,Northern Cape,SUK,Succulent Karoo,Plantae,Tracheophyta,Magnoliopsida,Caryophyllales,Aizoaceae,Conophytum,Conophytum burgeri,NP,0.160000
+2024,WC,Western Cape,FYN,Fynbos,Plantae,Tracheophyta,Magnoliopsida,Proteales,Proteaceae,Protea,Protea odorata,MP,0.570000
+2024,WC,Western Cape,FYN,Fynbos,Plantae,Tracheophyta,Magnoliopsida,Asparagales,Iridaceae,Gladiolus,Gladiolus aureus,WP,0.730000
+2024,EC,Eastern Cape,THI,Albany Thicket,Plantae,Tracheophyta,Liliopsida,Asparagales,Asphodelaceae,Aloe,Aloe ferox,WP,0.810000
+2024,KZN,KwaZulu-Natal,GRA,Grassland,Plantae,Tracheophyta,Magnoliopsida,Ericales,Ericaceae,Erica,Erica cerinthoides,PP,0.360000
+2024,LP,Limpopo,SAV,Savanna,Plantae,Tracheophyta,Liliopsida,Asparagales,Amaryllidaceae,Boophone,Boophone disticha,MP,0.610000
+2024,NC,Northern Cape,SUK,Succulent Karoo,Plantae,Tracheophyta,Magnoliopsida,Caryophyllales,Aizoaceae,Conophytum,Conophytum burgeri,PP,0.330000
