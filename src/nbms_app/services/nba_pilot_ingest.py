@@ -661,6 +661,7 @@ def _upsert_indicator(
             "organisation": organisation,
             "status": LifecycleStatus.PUBLISHED,
             "sensitivity": _sensitivity(entry["dataset_metadata"].get("sensitivity")),
+            "export_approved": _sensitivity(entry["dataset_metadata"].get("sensitivity")) == SensitivityLevel.PUBLIC,
             "reporting_capability": IndicatorReportingCapability.YES,
             "update_frequency": UpdateFrequency.ANNUAL,
             "last_updated_on": release_date,
